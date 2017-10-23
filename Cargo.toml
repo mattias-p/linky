@@ -4,5 +4,6 @@ version = "0.1.0"
 authors = ["Mattias Päivärinta <mattias.paivarinta@iis.se>"]
 
 [dependencies]
+pulldown-cmark = { version = "0.0.11", default-features = false }
 structopt = "0.1.0"
 structopt-derive = "0.1.0"

@@ -1,3 +1,4 @@
+extern crate pulldown_cmark;
 extern crate structopt;
 #[macro_use]
 extern crate structopt_derive;
@@ -5,6 +6,9 @@ extern crate structopt_derive;
 use std::fs::File;
 use std::io::Read;
 
+use pulldown_cmark::Event;
+use pulldown_cmark::Tag;
+use pulldown_cmark::Parser;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -21,6 +25,11 @@ fn main() {
         let mut file = File::open(path).unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
-        println!("{} {}", path, contents.len());
+        let parser = Parser::new(contents.as_str());
+        for event in parser {
+            if let Event::Start(Tag::Link(link, _)) = event {
+                println!("{}", link);
+            }
+        }
     }
 }
