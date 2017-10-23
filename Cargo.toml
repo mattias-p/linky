@@ -1,0 +1,6 @@
+[package]
+name = "mdlinks"
+version = "0.1.0"
+authors = ["Mattias Päivärinta <mattias.paivarinta@iis.se>"]
+
+[dependencies]
