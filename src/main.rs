@@ -18,6 +18,7 @@ use pulldown_cmark::Event;
 use pulldown_cmark::Parser;
 use pulldown_cmark::Tag;
 use structopt::StructOpt;
+use url::Url;
 
 pub struct Never(bool);
 
@@ -57,6 +58,9 @@ impl fmt::Debug for MyPathBuf {
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
+    #[structopt(short = "r", help = "Omit relative paths with existing files")]
+    omit_existing_files: bool,
+
     #[structopt(short = "h", help = "Print filename for each link")]
     with_filename: bool,
 
@@ -96,13 +100,39 @@ impl<'a> Iterator for LinkParser<'a> {
     }
 }
 
+#[derive(Debug)]
+pub enum Link {
+    Url(Url),
+    Path(PathBuf),
+}
+
+impl Link {
+    pub fn from_str(s: &str) -> Self {
+        if let Ok(url) = Url::parse(s) {
+            Link::Url(url)
+        } else {
+            Link::Path(PathBuf::from(s))
+        }
+    }
+}
+
+impl fmt::Display for Link {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &Link::Url(ref url) => write!(f, "{}", url),
+            &Link::Path(ref path) => write!(f, "{}", path.display()),
+        }
+    }
+}
+
 fn main() {
     let opt = Opt::from_args();
-    for path in &opt.file {
-        let path = path.as_ref().to_str().unwrap();
+    for filename in &opt.file {
+        let dir = filename.as_ref().parent().unwrap();
+        let filename = filename.as_ref().to_str().unwrap();
 
         let mut buffer = String::new();
-        let mut file = File::open(path).unwrap();
+        let mut file = File::open(filename).unwrap();
         file.read_to_string(&mut buffer).unwrap();
         let mut parser = LinkParser::new(Parser::new(buffer.as_str()));
 
@@ -110,9 +140,16 @@ fn main() {
         let mut oldoffs = 0;
         let mut prefix = String::new();
         while let Some(url) = parser.next() {
+            let url = Link::from_str(url.as_ref());
+            if let &Link::Path(ref path) = &url {
+                if opt.omit_existing_files && path.is_relative() && dir.join(path).exists() {
+                    continue;
+                }
+            }
+
             prefix.clear();
             if opt.with_filename {
-                prefix = format!("{}:", path);
+                prefix = format!("{}:", filename);
             }
             if opt.with_linenum {
                 linenum += count(&buffer.as_bytes()[oldoffs..parser.get_offset()], b'\n');
