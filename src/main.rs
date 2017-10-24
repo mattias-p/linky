@@ -129,6 +129,30 @@ impl fmt::Display for Link {
     }
 }
 
+impl Opt {
+    pub fn check_skippable(&self, link: &Link, base_dir: &Path) -> bool {
+        match link {
+            &Link::Path(ref path) => {
+                if self.omit_existing_file && path.is_relative() {
+                    if base_dir.join(path).exists() {
+                        return true;
+                    }
+                }
+            },
+            &Link::Url(ref url) => {
+                if self.omit_existing_basic_http && (url.scheme() == "http" || url.scheme() == "https") && url.fragment().is_none() {
+                    if let Ok(response) = reqwest::get(url.clone()) {
+                        if response.status().is_success() {
+                            return true;
+                        }
+                    }
+                }
+            },
+        }
+        false
+    }
+}
+
 fn main() {
     let opt = Opt::from_args();
     for filename in &opt.file {
@@ -144,24 +168,9 @@ fn main() {
         let mut oldoffs = 0;
         let mut prefix = String::new();
         while let Some(url) = parser.next() {
-            let url = Link::from_str(url.as_ref());
-            match &url {
-                &Link::Path(ref path) => {
-                    if opt.omit_existing_file && path.is_relative() {
-                        if dir.join(path).exists() {
-                            continue;
-                        }
-                    }
-                },
-                &Link::Url(ref url) => {
-                    if opt.omit_existing_basic_http && (url.scheme() == "http" || url.scheme() == "https") && url.fragment().is_none() {
-                        if let Ok(response) = reqwest::get(url.clone()) {
-                            if response.status().is_success() {
-                                continue;
-                            }
-                        }
-                    }
-                },
+            let link = Link::from_str(url.as_ref());
+            if opt.check_skippable(&link, &dir) {
+                continue;
             }
 
             prefix.clear();
@@ -176,7 +185,7 @@ fn main() {
             if !prefix.is_empty() {
                 prefix = format!("{} ", prefix);
             }
-            println!("{}{}", prefix, url);
+            println!("{}{}", prefix, link);
         }
     }
 }
