@@ -1,5 +1,6 @@
 extern crate bytecount;
 extern crate pulldown_cmark;
+extern crate reqwest;
 extern crate structopt;
 extern crate url;
 #[macro_use]
@@ -59,9 +60,12 @@ impl fmt::Debug for MyPathBuf {
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
     #[structopt(short = "r", help = "Omit relative paths with existing files")]
-    omit_existing_files: bool,
+    omit_existing_file: bool,
 
-    #[structopt(short = "h", help = "Print filename for each link")]
+    #[structopt(short = "h", help = "Omit http urls (without fragments) that respond with 200-299")]
+    omit_existing_basic_http: bool,
+
+    #[structopt(short = "f", help = "Print filename for each link")]
     with_filename: bool,
 
     #[structopt(short = "n", help = "Print (starting) line number for each link")]
@@ -141,10 +145,23 @@ fn main() {
         let mut prefix = String::new();
         while let Some(url) = parser.next() {
             let url = Link::from_str(url.as_ref());
-            if let &Link::Path(ref path) = &url {
-                if opt.omit_existing_files && path.is_relative() && dir.join(path).exists() {
-                    continue;
-                }
+            match &url {
+                &Link::Path(ref path) => {
+                    if opt.omit_existing_file && path.is_relative() {
+                        if dir.join(path).exists() {
+                            continue;
+                        }
+                    }
+                },
+                &Link::Url(ref url) => {
+                    if opt.omit_existing_basic_http && (url.scheme() == "http" || url.scheme() == "https") && url.fragment().is_none() {
+                        if let Ok(response) = reqwest::get(url.clone()) {
+                            if response.status().is_success() {
+                                continue;
+                            }
+                        }
+                    }
+                },
             }
 
             prefix.clear();
