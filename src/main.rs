@@ -13,11 +13,14 @@ use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::time::Duration;
 
 use bytecount::count;
 use pulldown_cmark::Event;
 use pulldown_cmark::Parser;
 use pulldown_cmark::Tag;
+use reqwest::Client;
+use reqwest::RedirectPolicy;
 use structopt::StructOpt;
 use url::Url;
 
@@ -141,7 +144,16 @@ impl Opt {
             },
             &Link::Url(ref url) => {
                 if self.omit_existing_basic_http && (url.scheme() == "http" || url.scheme() == "https") && url.fragment().is_none() {
-                    if let Ok(response) = reqwest::get(url.clone()) {
+                    let response = Client::builder()
+                        .redirect(RedirectPolicy::none())
+                        .timeout(Some(Duration::new(5, 0)))
+                        .build()
+                        .and_then(|client|
+                            client
+                            .head(url.clone())
+                            .send()
+                        );
+                    if let Ok(response) = response {
                         if response.status().is_success() {
                             return true;
                         }
