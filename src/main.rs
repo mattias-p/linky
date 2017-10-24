@@ -4,9 +4,11 @@ extern crate url;
 #[macro_use]
 extern crate structopt_derive;
 
+use std::borrow::Cow;
 use std::env::current_dir;
 use std::fmt;
 use std::fs::File;
+use std::io;
 use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
@@ -42,6 +44,20 @@ impl FromStr for MyPathBuf {
     }
 }
 
+impl MyPathBuf {
+    pub fn absolute(&self) -> Result<Self, io::Error> {
+        if self.0.is_relative() {
+            let path = &self.0;
+            current_dir().map(|dir| MyPathBuf(dir.join(path)))
+        } else {
+            Ok(MyPathBuf(self.0.clone()))
+        }
+    }
+    pub fn inner(self) -> PathBuf {
+        self.0
+    }
+}
+
 impl AsRef<Path> for MyPathBuf {
     fn as_ref(&self) -> &Path {
         &self.0
@@ -62,6 +78,12 @@ struct Opt {
 
     #[structopt(short = "d", help = "Base directory")]
     base_dir: Option<MyPathBuf>,
+
+    #[structopt(short = "H", help = "Print filename for each link")]
+    filename: bool,
+
+    #[structopt(short = "o", help = "Print the original (possibly relative) link")]
+    orig: bool,
 
     #[structopt(help = "Files to parse")]
     file: Vec<MyPathBuf>,
@@ -98,11 +120,47 @@ fn aug_base_url(base_url: Url, base_dir: &Path, path: &Path) -> Result<Url, url:
     }
 }
 
+pub struct LinkParser<'a> {
+    parser: Parser<'a>,
+}
+
+impl<'a> LinkParser<'a> {
+    pub fn new(parser: Parser<'a>) -> Self {
+        LinkParser {
+            parser: parser,
+        }
+    }
+
+    pub fn from_file(path: &'a Path, mut buffer: &'a mut String) -> Self {
+        let mut file = File::open(path).unwrap();
+        file.read_to_string(&mut buffer).unwrap();
+        LinkParser::new(Parser::new(buffer.as_str()))
+    }
+}
+
+impl<'a> Iterator for LinkParser<'a> {
+    type Item=Cow<'a, str>;
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(event) = self.parser.next() {
+            if let Event::Start(Tag::Link(url, _)) = event {
+                return Some(url);
+            }
+        }
+        None
+    }
+}
+
 fn main() {
     let opt = Opt::from_args();
-    let base_dir: Option<PathBuf> = opt.base_dir.map(|ref base_dir| abs_path(base_dir.as_ref()));
-    for path in &opt.file {
-        let path = abs_path(path.as_ref());
+    let base_dir: Option<PathBuf> = opt.base_dir.map(|ref base_dir| base_dir.absolute().unwrap().inner());
+    for orig_path in &opt.file {
+        let path = abs_path(orig_path.as_ref());
+        let orig_path = orig_path.as_ref().to_str().unwrap();
+
+        let mut buffer = String::new();
+        let parser = LinkParser::from_file(&path, &mut buffer);
+
+/*
         let base_url = if let &Some(ref base_url) = &opt.base_url {
             if let &Some(ref base_dir) = &base_dir {
                 Some(aug_base_url(base_url.clone(), &base_dir, &path).unwrap())
@@ -112,16 +170,17 @@ fn main() {
         } else {
             None
         };
-        let mut file = File::open(path).unwrap();
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
-        let parser = Parser::new(contents.as_str());
+        */
 
-        for event in parser {
-            if let Event::Start(Tag::Link(url, _)) = event {
-                let url = parse_url(&url, &base_url).unwrap();
-                println!("{}", url);
-            }
+        for orig_url in parser {
+            //let url = (&orig_url, &base_url).unwrap();
+            let s = format!("{}", orig_url);
+            let s = if opt.filename {
+                format!("{}: {}", orig_path, s)
+            } else {
+                s
+            };
+            println!("{}", s);
         }
     }
 }
