@@ -36,13 +36,13 @@ pub struct Never(bool);
 
 impl Never {
     pub fn description(&self) -> &str {
-        panic!("No instances should exist!");
+        unreachable!();
     }
 }
 
 impl fmt::Debug for Never {
     fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), fmt::Error> {
-        panic!("No instances should exist!");
+        unreachable!();
     }
 }
 
