@@ -208,9 +208,11 @@ impl Opt {
                         return MdAnchorParser::from_str(buffer.as_str()).any(|anchor|
                             *anchor == fragment
                         )
-                    } else {
+                    } else if *path != "" {
                         let base_dir = filename.parent().unwrap();
                         return base_dir.join(path).exists();
+                    } else {
+                        return false;
                     }
                 }
             },
