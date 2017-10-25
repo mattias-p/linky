@@ -1,6 +1,7 @@
 extern crate bytecount;
 extern crate pulldown_cmark;
 extern crate reqwest;
+extern crate shell_escape;
 extern crate structopt;
 extern crate url;
 #[macro_use]
@@ -9,6 +10,7 @@ extern crate structopt_derive;
 use std::borrow::Cow;
 use std::fmt;
 use std::fs::File;
+use std::io;
 use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
@@ -21,6 +23,7 @@ use pulldown_cmark::Parser;
 use pulldown_cmark::Tag;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
+use shell_escape::escape;
 use structopt::StructOpt;
 use url::Url;
 
@@ -62,31 +65,35 @@ impl fmt::Debug for MyPathBuf {
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
-    #[structopt(short = "r", help = "Omit relative paths with existing files")]
-    omit_existing_file: bool,
+    #[structopt(short = "a", help = "Filter all (implies -l and -h)")]
+    filter_all: bool,
 
-    #[structopt(short = "h", help = "Omit http urls (without fragments) that respond with 200-299")]
-    omit_existing_basic_http: bool,
+    #[structopt(short = "l", help = "Filter existing local links from output")]
+    filter_existing_file: bool,
 
-    #[structopt(short = "f", help = "Print filename for each link")]
+    #[structopt(short = "h", help = "Filter successful HTTP(s) links (without fragments) from output")]
+    filter_successful_basic_http: bool,
+
+    #[structopt(short = "f", help = "Include filename and line number for each link")]
     with_filename: bool,
-
-    #[structopt(short = "n", help = "Print (starting) line number for each link")]
-    with_linenum: bool,
 
     #[structopt(help = "Files to parse")]
     file: Vec<MyPathBuf>,
 }
 
-pub struct LinkParser<'a> {
+pub struct MdLinkParser<'a> {
     parser: Parser<'a>,
 }
 
-impl<'a> LinkParser<'a> {
+impl<'a> MdLinkParser<'a> {
     pub fn new(parser: Parser<'a>) -> Self {
-        LinkParser {
+        MdLinkParser {
             parser: parser,
         }
+    }
+
+    pub fn from_str(buffer: &'a str) -> Self {
+        MdLinkParser::new(Parser::new(&buffer))
     }
 
     pub fn get_offset(&self) -> usize {
@@ -94,7 +101,7 @@ impl<'a> LinkParser<'a> {
     }
 }
 
-impl<'a> Iterator for LinkParser<'a> {
+impl<'a> Iterator for MdLinkParser<'a> {
     type Item=Cow<'a, str>;
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(event) = self.parser.next() {
@@ -136,14 +143,14 @@ impl Opt {
     pub fn check_skippable(&self, link: &Link, base_dir: &Path) -> bool {
         match link {
             &Link::Path(ref path) => {
-                if self.omit_existing_file && path.is_relative() {
+                if self.filter_existing_file && path.is_relative() {
                     if base_dir.join(path).exists() {
                         return true;
                     }
                 }
             },
             &Link::Url(ref url) => {
-                if self.omit_existing_basic_http && (url.scheme() == "http" || url.scheme() == "https") && url.fragment().is_none() {
+                if self.filter_successful_basic_http && (url.scheme() == "http" || url.scheme() == "https") && url.fragment().is_none() {
                     let response = Client::builder()
                         .redirect(RedirectPolicy::none())
                         .timeout(Some(Duration::new(5, 0)))
@@ -165,16 +172,29 @@ impl Opt {
     }
 }
 
+fn slurp(filename: &str, mut buffer: &mut String) -> io::Result<usize> {
+    File::open(filename)?.read_to_string(&mut buffer)
+}
+
 fn main() {
-    let opt = Opt::from_args();
+    let opt = {
+        let mut opt = Opt::from_args();
+        if opt.filter_all {
+            opt.filter_existing_file = true;
+            opt.filter_successful_basic_http = true;
+        }
+        opt
+    };
     for filename in &opt.file {
         let dir = filename.as_ref().parent().unwrap();
         let filename = filename.as_ref().to_str().unwrap();
 
         let mut buffer = String::new();
-        let mut file = File::open(filename).unwrap();
-        file.read_to_string(&mut buffer).unwrap();
-        let mut parser = LinkParser::new(Parser::new(buffer.as_str()));
+        if let Err(err) = slurp(filename, &mut buffer) {
+            eprintln!("{}: error: reading file {}: {}", Opt::clap().get_name(), escape(Cow::from(filename)), err);
+            continue;
+        }
+        let mut parser = MdLinkParser::from_str(buffer.as_str());
 
         let mut linenum = 1;
         let mut oldoffs = 0;
@@ -187,15 +207,9 @@ fn main() {
 
             prefix.clear();
             if opt.with_filename {
-                prefix = format!("{}:", filename);
-            }
-            if opt.with_linenum {
                 linenum += count(&buffer.as_bytes()[oldoffs..parser.get_offset()], b'\n');
                 oldoffs = parser.get_offset();
-                prefix = format!("{}{}:", prefix, linenum);
-            }
-            if !prefix.is_empty() {
-                prefix = format!("{} ", prefix);
+                prefix = format!("{}:{}: ", filename, linenum);
             }
             println!("{}{}", prefix, link);
         }
