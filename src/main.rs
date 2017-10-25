@@ -70,16 +70,13 @@ impl fmt::Debug for MyPathBuf {
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
-    #[structopt(short = "a", help = "Filter all (implies -l and -r)")]
-    filter_all: bool,
-
     #[structopt(short = "l", help = "Filter existing local links from output")]
-    filter_existing_file: bool,
+    filter_local: bool,
 
-    #[structopt(short = "r", help = "Filter successful HTTP(s) links (without fragments) from output")]
-    filter_successful_basic_http: bool,
+    #[structopt(short = "r", help = "Filter existing remote links from output")]
+    filter_remote: bool,
 
-    #[structopt(short = "F", help = "Include filename and line number for each link")]
+    #[structopt(short = "F", help = "Omit filename and line number from output")]
     without_filename: bool,
 
     #[structopt(help = "Files to parse")]
@@ -191,7 +188,7 @@ impl Opt {
     pub fn check_skippable(&self, link: &Link, filename: &Path) -> bool {
         match link {
             &Link::Path(ref path) => {
-                if self.filter_existing_file && PathBuf::from(path).is_relative() {
+                if self.filter_local && PathBuf::from(path).is_relative() {
                     if let Some(pos) = path.find('#') {
                         let mut path = path.clone();
                         let fragment = path.split_off(pos + 1);
@@ -218,7 +215,7 @@ impl Opt {
                 }
             },
             &Link::Url(ref url) => {
-                if self.filter_successful_basic_http && (url.scheme() == "http" || url.scheme() == "https") {
+                if self.filter_remote && (url.scheme() == "http" || url.scheme() == "https") {
                     let client = Client::builder()
                         .redirect(RedirectPolicy::none())
                         .timeout(Some(Duration::new(5, 0)))
@@ -293,14 +290,7 @@ pub fn anchor(text: &str) -> String {
 }
 
 fn main() {
-    let opt = {
-        let mut opt = Opt::from_args();
-        if opt.filter_all {
-            opt.filter_existing_file = true;
-            opt.filter_successful_basic_http = true;
-        }
-        opt
-    };
+    let opt = Opt::from_args();
     for filename in &opt.file {
         let filename = filename.as_ref().to_str().unwrap();
 
