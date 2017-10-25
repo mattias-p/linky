@@ -48,23 +48,18 @@ struct Opt {
 }
 
 impl Opt {
-    pub fn check_skippable(&self, link: &Link, filename: &Path) -> bool {
+    pub fn check_skippable(&self, link: &Link, origin: &Path) -> bool {
         match *link {
             Link::Path(ref path) => if self.filter_local && PathBuf::from(path).is_relative() {
                 if let Some((path, fragment)) = split_fragment(path) {
-                    let path = if *path.as_str() == *"" {
-                        PathBuf::from(filename)
-                    } else {
-                        let base_dir = filename.parent().unwrap();
-                        base_dir.join(path)
-                    };
+                    let path = relative_path(path.as_str(), origin);
                     let mut buffer = String::new();
                     if slurp(path.as_path(), &mut buffer).is_err() {
                         return false;
                     }
                     return MdAnchorParser::from(buffer.as_str()).any(|anchor| *anchor == fragment);
                 } else if *path != "" {
-                    let base_dir = filename.parent().unwrap();
+                    let base_dir = origin.parent().unwrap();
                     return base_dir.join(path).exists();
                 } else {
                     return false;
@@ -121,6 +116,15 @@ fn split_fragment(path: &str) -> Option<(String, String)> {
         Some((path, fragment))
     } else {
         None
+    }
+}
+
+fn relative_path(path: &str, origin: &Path) -> PathBuf {
+    if path.is_empty() {
+        PathBuf::from(origin)
+    } else {
+        let base_dir = origin.parent().unwrap();
+        base_dir.join(path)
     }
 }
 
