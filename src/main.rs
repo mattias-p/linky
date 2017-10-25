@@ -47,6 +47,75 @@ struct Opt {
     file: Vec<String>,
 }
 
+impl Opt {
+    pub fn check_skippable(&self, link: &Link, filename: &Path) -> bool {
+        match *link {
+            Link::Path(ref path) => if self.filter_local && PathBuf::from(path).is_relative() {
+                if let Some(pos) = path.find('#') {
+                    let mut path = path.clone();
+                    let fragment = path.split_off(pos + 1);
+                    path.pop();
+                    let path = if *path.as_str() == *"" {
+                        PathBuf::from(filename)
+                    } else {
+                        let base_dir = filename.parent().unwrap();
+                        base_dir.join(path)
+                    };
+                    let mut buffer = String::new();
+                    if slurp(path.as_path(), &mut buffer).is_err() {
+                        return false;
+                    }
+                    return MdAnchorParser::from(buffer.as_str()).any(|anchor| *anchor == fragment);
+                } else if *path != "" {
+                    let base_dir = filename.parent().unwrap();
+                    return base_dir.join(path).exists();
+                } else {
+                    return false;
+                }
+            },
+            Link::Url(ref url) => {
+                if self.filter_remote && (url.scheme() == "http" || url.scheme() == "https") {
+                    let client = Client::builder()
+                        .redirect(RedirectPolicy::none())
+                        .timeout(Some(Duration::new(5, 0)))
+                        .build();
+                    if let Some(fragment) = url.fragment() {
+                        let response = client.and_then(|client| client.get(url.clone()).send());
+                        if let Ok(mut response) = response {
+                            if !response.status().is_success() {
+                                return false;
+                            }
+                            let mut buffer = String::new();
+                            if response.read_to_string(&mut buffer).is_err() {
+                                return false;
+                            }
+                            for (_, tag) in htmlstream::tag_iter(buffer.as_str()) {
+                                for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
+                                    if attr.value == fragment
+                                        && (attr.name == "id"
+                                            || (tag.name == "a" && attr.name == "name"))
+                                    {
+                                        return true;
+                                    }
+                                }
+                            }
+                            return true;
+                        }
+                    } else {
+                        let response = client.and_then(|client| client.head(url.clone()).send());
+                        if let Ok(response) = response {
+                            return response.status().is_success();
+                        } else {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+}
+
 pub struct MdLinkParser<'a> {
     parser: Parser<'a>,
 }
@@ -144,75 +213,6 @@ impl fmt::Display for Link {
             Link::Url(ref url) => write!(f, "{}", url),
             Link::Path(ref path) => write!(f, "{}", path),
         }
-    }
-}
-
-impl Opt {
-    pub fn check_skippable(&self, link: &Link, filename: &Path) -> bool {
-        match *link {
-            Link::Path(ref path) => if self.filter_local && PathBuf::from(path).is_relative() {
-                if let Some(pos) = path.find('#') {
-                    let mut path = path.clone();
-                    let fragment = path.split_off(pos + 1);
-                    path.pop();
-                    let path = if *path.as_str() == *"" {
-                        PathBuf::from(filename)
-                    } else {
-                        let base_dir = filename.parent().unwrap();
-                        base_dir.join(path)
-                    };
-                    let mut buffer = String::new();
-                    if slurp(path.as_path(), &mut buffer).is_err() {
-                        return false;
-                    }
-                    return MdAnchorParser::from(buffer.as_str()).any(|anchor| *anchor == fragment);
-                } else if *path != "" {
-                    let base_dir = filename.parent().unwrap();
-                    return base_dir.join(path).exists();
-                } else {
-                    return false;
-                }
-            },
-            Link::Url(ref url) => {
-                if self.filter_remote && (url.scheme() == "http" || url.scheme() == "https") {
-                    let client = Client::builder()
-                        .redirect(RedirectPolicy::none())
-                        .timeout(Some(Duration::new(5, 0)))
-                        .build();
-                    if let Some(fragment) = url.fragment() {
-                        let response = client.and_then(|client| client.get(url.clone()).send());
-                        if let Ok(mut response) = response {
-                            if !response.status().is_success() {
-                                return false;
-                            }
-                            let mut buffer = String::new();
-                            if response.read_to_string(&mut buffer).is_err() {
-                                return false;
-                            }
-                            for (_, tag) in htmlstream::tag_iter(buffer.as_str()) {
-                                for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
-                                    if attr.value == fragment
-                                        && (attr.name == "id"
-                                            || (tag.name == "a" && attr.name == "name"))
-                                    {
-                                        return true;
-                                    }
-                                }
-                            }
-                            return true;
-                        }
-                    } else {
-                        let response = client.and_then(|client| client.head(url.clone()).send());
-                        if let Ok(response) = response {
-                            return response.status().is_success();
-                        } else {
-                            return false;
-                        }
-                    }
-                }
-            }
-        }
-        false
     }
 }
 
