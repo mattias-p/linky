@@ -94,12 +94,14 @@ impl<'a> MdLinkParser<'a> {
         }
     }
 
-    pub fn from_str(buffer: &'a str) -> Self {
-        MdLinkParser::new(Parser::new(&buffer))
-    }
-
     pub fn get_offset(&self) -> usize {
         self.parser.get_offset()
+    }
+}
+
+impl<'a> From<&'a str> for MdLinkParser<'a> {
+    fn from(buffer: &'a str) -> Self {
+        MdLinkParser::new(Parser::new(buffer))
     }
 }
 
@@ -107,9 +109,8 @@ impl<'a> Iterator for MdLinkParser<'a> {
     type Item=Cow<'a, str>;
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(event) = self.parser.next() {
-            match event {
-            Event::Start(Tag::Link(url, _)) => return Some(url),
-            _ => (),
+            if let Event::Start(Tag::Link(url, _)) = event {
+                return Some(url);
             }
         }
         None
@@ -129,12 +130,14 @@ impl<'a> MdAnchorParser<'a> {
         }
     }
 
-    pub fn from_str(buffer: &'a str) -> Self {
-        MdAnchorParser::new(Parser::new(&buffer))
-    }
-
     pub fn get_offset(&self) -> usize {
         self.parser.get_offset()
+    }
+}
+
+impl<'a> From<&'a str> for MdAnchorParser<'a> {
+    fn from(buffer: &'a str) -> Self {
+        MdAnchorParser::new(Parser::new(buffer))
     }
 }
 
@@ -165,8 +168,8 @@ pub enum Link {
     Path(String),
 }
 
-impl Link {
-    pub fn from_str(s: &str) -> Self {
+impl<'a> From<&'a str> for Link {
+    fn from(s: &str) -> Self {
         if let Ok(url) = Url::parse(s) {
             Link::Url(url)
         } else {
@@ -177,17 +180,17 @@ impl Link {
 
 impl fmt::Display for Link {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &Link::Url(ref url) => write!(f, "{}", url),
-            &Link::Path(ref path) => write!(f, "{}", path),
+        match *self {
+            Link::Url(ref url) => write!(f, "{}", url),
+            Link::Path(ref path) => write!(f, "{}", path),
         }
     }
 }
 
 impl Opt {
     pub fn check_skippable(&self, link: &Link, filename: &Path) -> bool {
-        match link {
-            &Link::Path(ref path) => {
+        match *link {
+            Link::Path(ref path) => {
                 if self.filter_local && PathBuf::from(path).is_relative() {
                     if let Some(pos) = path.find('#') {
                         let mut path = path.clone();
@@ -203,7 +206,7 @@ impl Opt {
                         if slurp(path.as_path(), &mut buffer).is_err() {
                             return false;
                         }
-                        return MdAnchorParser::from_str(buffer.as_str()).any(|anchor|
+                        return MdAnchorParser::from(buffer.as_str()).any(|anchor|
                             *anchor == fragment
                         )
                     } else if *path != "" {
@@ -214,7 +217,7 @@ impl Opt {
                     }
                 }
             },
-            &Link::Url(ref url) => {
+            Link::Url(ref url) => {
                 if self.filter_remote && (url.scheme() == "http" || url.scheme() == "https") {
                     let client = Client::builder()
                         .redirect(RedirectPolicy::none())
@@ -283,7 +286,7 @@ pub fn anchor(text: &str) -> String {
         }
     });
     let mut text: String = text.collect();
-    if text.ends_with("-") {
+    if text.ends_with('-') {
         text.pop();
     }
     text.to_lowercase()
@@ -295,18 +298,18 @@ fn main() {
         let filename = filename.as_ref().to_str().unwrap();
 
         let mut buffer = String::new();
-        if let Err(err) = slurp(&Path::new(filename), &mut buffer) {
+        if let Err(err) = slurp(Path::new(filename), &mut buffer) {
             eprintln!("{}: error: reading file {}: {}", Opt::clap().get_name(), escape(Cow::from(filename)), err);
             continue;
         }
-        let mut parser = MdLinkParser::from_str(buffer.as_str());
+        let mut parser = MdLinkParser::from(buffer.as_str());
 
         let mut linenum = 1;
         let mut oldoffs = 0;
         let mut prefix = String::new();
         while let Some(url) = parser.next() {
-            let link = Link::from_str(url.as_ref());
-            if opt.check_skippable(&link, &Path::new(filename)) {
+            let link = Link::from(url.as_ref());
+            if opt.check_skippable(&link, Path::new(filename)) {
                 continue;
             }
 
