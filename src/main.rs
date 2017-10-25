@@ -52,17 +52,14 @@ impl Opt {
         match *link {
             Link::Path(ref path) => if self.filter_local && PathBuf::from(path).is_relative() {
                 if let Some((path, fragment)) = split_fragment(path) {
-                    let path = relative_path(path.as_str(), origin);
+                    let path = relative_path(path.as_str(), origin).unwrap_or_else(|| PathBuf::from(origin));
                     let mut buffer = String::new();
                     if slurp(path.as_path(), &mut buffer).is_err() {
                         return false;
                     }
                     return MdAnchorParser::from(buffer.as_str()).any(|anchor| *anchor == fragment);
-                } else if *path != "" {
-                    let base_dir = origin.parent().unwrap();
-                    return base_dir.join(path).exists();
                 } else {
-                    return false;
+                    return relative_path(path.as_str(), origin).map(|path| path.exists()).unwrap_or(false);
                 }
             },
             Link::Url(ref url) => {
@@ -119,12 +116,12 @@ fn split_fragment(path: &str) -> Option<(String, String)> {
     }
 }
 
-fn relative_path(path: &str, origin: &Path) -> PathBuf {
+fn relative_path(path: &str, origin: &Path) -> Option<PathBuf> {
     if path.is_empty() {
-        PathBuf::from(origin)
+        None
     } else {
         let base_dir = origin.parent().unwrap();
-        base_dir.join(path)
+        Some(base_dir.join(path))
     }
 }
 
