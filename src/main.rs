@@ -51,10 +51,7 @@ impl Opt {
     pub fn check_skippable(&self, link: &Link, filename: &Path) -> bool {
         match *link {
             Link::Path(ref path) => if self.filter_local && PathBuf::from(path).is_relative() {
-                if let Some(pos) = path.find('#') {
-                    let mut path = path.clone();
-                    let fragment = path.split_off(pos + 1);
-                    path.pop();
+                if let Some((path, fragment)) = split_fragment(path) {
                     let path = if *path.as_str() == *"" {
                         PathBuf::from(filename)
                     } else {
@@ -113,6 +110,17 @@ impl Opt {
             }
         }
         false
+    }
+}
+
+fn split_fragment(path: &str) -> Option<(String, String)> {
+    if let Some(pos) = path.find('#') {
+        let mut path = path.to_string();
+        let fragment = path.split_off(pos + 1);
+        path.pop();
+        Some((path, fragment))
+    } else {
+        None
     }
 }
 
