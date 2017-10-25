@@ -69,17 +69,17 @@ impl fmt::Debug for MyPathBuf {
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
-    #[structopt(short = "a", help = "Filter all (implies -l and -h)")]
+    #[structopt(short = "a", help = "Filter all (implies -l and -r)")]
     filter_all: bool,
 
     #[structopt(short = "l", help = "Filter existing local links from output")]
     filter_existing_file: bool,
 
-    #[structopt(short = "h", help = "Filter successful HTTP(s) links (without fragments) from output")]
+    #[structopt(short = "r", help = "Filter successful HTTP(s) links (without fragments) from output")]
     filter_successful_basic_http: bool,
 
-    #[structopt(short = "f", help = "Include filename and line number for each link")]
-    with_filename: bool,
+    #[structopt(short = "F", help = "Include filename and line number for each link")]
+    without_filename: bool,
 
     #[structopt(help = "Files to parse")]
     file: Vec<MyPathBuf>,
@@ -164,7 +164,7 @@ impl<'a> Iterator for MdAnchorParser<'a> {
 #[derive(Debug)]
 pub enum Link {
     Url(Url),
-    Path(PathBuf),
+    Path(String),
 }
 
 impl Link {
@@ -172,7 +172,7 @@ impl Link {
         if let Ok(url) = Url::parse(s) {
             Link::Url(url)
         } else {
-            Link::Path(PathBuf::from(s))
+            Link::Path(s.to_string())
         }
     }
 }
@@ -181,18 +181,36 @@ impl fmt::Display for Link {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             &Link::Url(ref url) => write!(f, "{}", url),
-            &Link::Path(ref path) => write!(f, "{}", path.display()),
+            &Link::Path(ref path) => write!(f, "{}", path),
         }
     }
 }
 
 impl Opt {
-    pub fn check_skippable(&self, link: &Link, base_dir: &Path) -> bool {
+    pub fn check_skippable(&self, link: &Link, filename: &Path) -> bool {
         match link {
             &Link::Path(ref path) => {
-                if self.filter_existing_file && path.is_relative() {
-                    if base_dir.join(path).exists() {
-                        return true;
+                if self.filter_existing_file && PathBuf::from(path).is_relative() {
+                    if let Some(pos) = path.find('#') {
+                        let mut path = path.clone();
+                        let fragment = path.split_off(pos + 1);
+                        path.pop();
+                        let path = if *path.as_str() == *"" {
+                            PathBuf::from(filename)
+                        } else {
+                            let base_dir = filename.parent().unwrap();
+                            base_dir.join(path)
+                        };
+                        let mut buffer = String::new();
+                        if slurp(path.as_path(), &mut buffer).is_err() {
+                            return false;
+                        }
+                        return MdAnchorParser::from_str(buffer.as_str()).any(|anchor|
+                            *anchor == fragment
+                        )
+                    } else {
+                        let base_dir = filename.parent().unwrap();
+                        return base_dir.join(path).exists();
                     }
                 }
             },
@@ -219,7 +237,7 @@ impl Opt {
     }
 }
 
-fn slurp(filename: &str, mut buffer: &mut String) -> io::Result<usize> {
+fn slurp(filename: &Path, mut buffer: &mut String) -> io::Result<usize> {
     File::open(filename)?.read_to_string(&mut buffer)
 }
 
@@ -256,11 +274,10 @@ fn main() {
         opt
     };
     for filename in &opt.file {
-        let dir = filename.as_ref().parent().unwrap();
         let filename = filename.as_ref().to_str().unwrap();
 
         let mut buffer = String::new();
-        if let Err(err) = slurp(filename, &mut buffer) {
+        if let Err(err) = slurp(&Path::new(filename), &mut buffer) {
             eprintln!("{}: error: reading file {}: {}", Opt::clap().get_name(), escape(Cow::from(filename)), err);
             continue;
         }
@@ -271,12 +288,12 @@ fn main() {
         let mut prefix = String::new();
         while let Some(url) = parser.next() {
             let link = Link::from_str(url.as_ref());
-            if opt.check_skippable(&link, &dir) {
+            if opt.check_skippable(&link, &Path::new(filename)) {
                 continue;
             }
 
             prefix.clear();
-            if opt.with_filename {
+            if !opt.without_filename {
                 linenum += count(&buffer.as_bytes()[oldoffs..parser.get_offset()], b'\n');
                 oldoffs = parser.get_offset();
                 prefix = format!("{}:{}: ", filename, linenum);
