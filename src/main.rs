@@ -4,11 +4,11 @@ extern crate pulldown_cmark;
 extern crate reqwest;
 extern crate shell_escape;
 extern crate structopt;
+#[macro_use]
+extern crate structopt_derive;
 extern crate unicode_categories;
 extern crate unicode_normalization;
 extern crate url;
-#[macro_use]
-extern crate structopt_derive;
 
 use std::borrow::Cow;
 use std::fmt;
@@ -89,9 +89,7 @@ pub struct MdLinkParser<'a> {
 
 impl<'a> MdLinkParser<'a> {
     pub fn new(parser: Parser<'a>) -> Self {
-        MdLinkParser {
-            parser: parser,
-        }
+        MdLinkParser { parser: parser }
     }
 
     pub fn get_offset(&self) -> usize {
@@ -106,7 +104,7 @@ impl<'a> From<&'a str> for MdLinkParser<'a> {
 }
 
 impl<'a> Iterator for MdLinkParser<'a> {
-    type Item=Cow<'a, str>;
+    type Item = Cow<'a, str>;
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(event) = self.parser.next() {
             if let Event::Start(Tag::Link(url, _)) = event {
@@ -142,18 +140,16 @@ impl<'a> From<&'a str> for MdAnchorParser<'a> {
 }
 
 impl<'a> Iterator for MdAnchorParser<'a> {
-    type Item=String;
+    type Item = String;
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(event) = self.parser.next() {
             match event {
                 Event::Start(Tag::Header(_)) => {
                     self.is_header = true;
                 }
-                Event::Text(text) => {
-                    if self.is_header {
-                        self.is_header = false;
-                        return Some(anchor(text.as_ref()))
-                    }
+                Event::Text(text) => if self.is_header {
+                    self.is_header = false;
+                    return Some(anchor(text.as_ref()));
                 },
                 _ => (),
             }
@@ -190,31 +186,27 @@ impl fmt::Display for Link {
 impl Opt {
     pub fn check_skippable(&self, link: &Link, filename: &Path) -> bool {
         match *link {
-            Link::Path(ref path) => {
-                if self.filter_local && PathBuf::from(path).is_relative() {
-                    if let Some(pos) = path.find('#') {
-                        let mut path = path.clone();
-                        let fragment = path.split_off(pos + 1);
-                        path.pop();
-                        let path = if *path.as_str() == *"" {
-                            PathBuf::from(filename)
-                        } else {
-                            let base_dir = filename.parent().unwrap();
-                            base_dir.join(path)
-                        };
-                        let mut buffer = String::new();
-                        if slurp(path.as_path(), &mut buffer).is_err() {
-                            return false;
-                        }
-                        return MdAnchorParser::from(buffer.as_str()).any(|anchor|
-                            *anchor == fragment
-                        )
-                    } else if *path != "" {
-                        let base_dir = filename.parent().unwrap();
-                        return base_dir.join(path).exists();
+            Link::Path(ref path) => if self.filter_local && PathBuf::from(path).is_relative() {
+                if let Some(pos) = path.find('#') {
+                    let mut path = path.clone();
+                    let fragment = path.split_off(pos + 1);
+                    path.pop();
+                    let path = if *path.as_str() == *"" {
+                        PathBuf::from(filename)
                     } else {
+                        let base_dir = filename.parent().unwrap();
+                        base_dir.join(path)
+                    };
+                    let mut buffer = String::new();
+                    if slurp(path.as_path(), &mut buffer).is_err() {
                         return false;
                     }
+                    return MdAnchorParser::from(buffer.as_str()).any(|anchor| *anchor == fragment);
+                } else if *path != "" {
+                    let base_dir = filename.parent().unwrap();
+                    return base_dir.join(path).exists();
+                } else {
+                    return false;
                 }
             },
             Link::Url(ref url) => {
@@ -224,11 +216,7 @@ impl Opt {
                         .timeout(Some(Duration::new(5, 0)))
                         .build();
                     if let Some(fragment) = url.fragment() {
-                        let response = client.and_then(|client|
-                            client
-                            .get(url.clone())
-                            .send()
-                        );
+                        let response = client.and_then(|client| client.get(url.clone()).send());
                         if let Ok(mut response) = response {
                             if !response.status().is_success() {
                                 return false;
@@ -239,7 +227,10 @@ impl Opt {
                             }
                             for (_, tag) in htmlstream::tag_iter(buffer.as_str()) {
                                 for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
-                                    if attr.value == fragment && (attr.name == "id" || (tag.name =="a" && attr.name == "name")) {
+                                    if attr.value == fragment
+                                        && (attr.name == "id"
+                                            || (tag.name == "a" && attr.name == "name"))
+                                    {
                                         return true;
                                     }
                                 }
@@ -247,11 +238,7 @@ impl Opt {
                             return true;
                         }
                     } else {
-                        let response = client.and_then(|client|
-                            client
-                            .head(url.clone())
-                            .send()
-                        );
+                        let response = client.and_then(|client| client.head(url.clone()).send());
                         if let Ok(response) = response {
                             return response.status().is_success();
                         } else {
@@ -259,7 +246,7 @@ impl Opt {
                         }
                     }
                 }
-            },
+            }
         }
         false
     }
@@ -271,19 +258,21 @@ fn slurp(filename: &Path, mut buffer: &mut String) -> io::Result<usize> {
 
 pub fn anchor(text: &str) -> String {
     let text = text.nfkc();
-    let text = text.map(|c| if c.is_letter() || c.is_number() { c } else { '-' });
+    let text = text.map(|c| if c.is_letter() || c.is_number() {
+        c
+    } else {
+        '-'
+    });
     let mut was_hyphen = true;
-    let text = text.filter(|c| {
-        if *c != '-' {
-            was_hyphen = false;
-            true
-        } else if !was_hyphen {
-            was_hyphen = true;
-            true
-        } else {
-            was_hyphen = true;
-            false
-        }
+    let text = text.filter(|c| if *c != '-' {
+        was_hyphen = false;
+        true
+    } else if !was_hyphen {
+        was_hyphen = true;
+        true
+    } else {
+        was_hyphen = true;
+        false
     });
     let mut text: String = text.collect();
     if text.ends_with('-') {
@@ -299,7 +288,12 @@ fn main() {
 
         let mut buffer = String::new();
         if let Err(err) = slurp(Path::new(filename), &mut buffer) {
-            eprintln!("{}: error: reading file {}: {}", Opt::clap().get_name(), escape(Cow::from(filename)), err);
+            eprintln!(
+                "{}: error: reading file {}: {}",
+                Opt::clap().get_name(),
+                escape(Cow::from(filename)),
+                err
+            );
             continue;
         }
         let mut parser = MdLinkParser::from(buffer.as_str());
