@@ -17,7 +17,6 @@ use std::io;
 use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::time::Duration;
 
 use bytecount::count;
@@ -32,41 +31,6 @@ use unicode_categories::UnicodeCategories;
 use unicode_normalization::UnicodeNormalization;
 use url::Url;
 
-pub struct Never(bool);
-
-impl Never {
-    pub fn description(&self) -> &str {
-        unreachable!();
-    }
-}
-
-impl fmt::Debug for Never {
-    fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), fmt::Error> {
-        unreachable!();
-    }
-}
-
-struct MyPathBuf(PathBuf);
-
-impl FromStr for MyPathBuf {
-    type Err = Never;
-    fn from_str(s: &str) -> Result<MyPathBuf, Never> {
-        Ok(MyPathBuf(PathBuf::from(s)))
-    }
-}
-
-impl AsRef<Path> for MyPathBuf {
-    fn as_ref(&self) -> &Path {
-        &self.0
-    }
-}
-
-impl fmt::Debug for MyPathBuf {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), fmt::Error> {
-        self.0.fmt(f)
-    }
-}
-
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
@@ -80,7 +44,7 @@ struct Opt {
     without_filename: bool,
 
     #[structopt(help = "Files to parse")]
-    file: Vec<MyPathBuf>,
+    file: Vec<String>,
 }
 
 pub struct MdLinkParser<'a> {
@@ -284,14 +248,12 @@ pub fn anchor(text: &str) -> String {
 fn main() {
     let opt = Opt::from_args();
     for filename in &opt.file {
-        let filename = filename.as_ref().to_str().unwrap();
-
         let mut buffer = String::new();
         if let Err(err) = slurp(Path::new(filename), &mut buffer) {
             eprintln!(
                 "{}: error: reading file {}: {}",
                 Opt::clap().get_name(),
-                escape(Cow::from(filename)),
+                escape(Cow::from(filename.as_str())),
                 err
             );
             continue;
