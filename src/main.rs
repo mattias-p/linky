@@ -3,6 +3,8 @@ extern crate pulldown_cmark;
 extern crate reqwest;
 extern crate shell_escape;
 extern crate structopt;
+extern crate unicode_categories;
+extern crate unicode_normalization;
 extern crate url;
 #[macro_use]
 extern crate structopt_derive;
@@ -25,6 +27,8 @@ use reqwest::Client;
 use reqwest::RedirectPolicy;
 use shell_escape::escape;
 use structopt::StructOpt;
+use unicode_categories::UnicodeCategories;
+use unicode_normalization::UnicodeNormalization;
 use url::Url;
 
 pub struct Never(bool);
@@ -114,6 +118,49 @@ impl<'a> Iterator for MdLinkParser<'a> {
     }
 }
 
+pub struct MdAnchorParser<'a> {
+    parser: Parser<'a>,
+    is_header: bool,
+}
+
+impl<'a> MdAnchorParser<'a> {
+    pub fn new(parser: Parser<'a>) -> Self {
+        MdAnchorParser {
+            parser: parser,
+            is_header: false,
+        }
+    }
+
+    pub fn from_str(buffer: &'a str) -> Self {
+        MdAnchorParser::new(Parser::new(&buffer))
+    }
+
+    pub fn get_offset(&self) -> usize {
+        self.parser.get_offset()
+    }
+}
+
+impl<'a> Iterator for MdAnchorParser<'a> {
+    type Item=String;
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(event) = self.parser.next() {
+            match event {
+                Event::Start(Tag::Header(_)) => {
+                    self.is_header = true;
+                }
+                Event::Text(text) => {
+                    if self.is_header {
+                        self.is_header = false;
+                        return Some(anchor(text.as_ref()))
+                    }
+                },
+                _ => (),
+            }
+        }
+        None
+    }
+}
+
 #[derive(Debug)]
 pub enum Link {
     Url(Url),
@@ -174,6 +221,29 @@ impl Opt {
 
 fn slurp(filename: &str, mut buffer: &mut String) -> io::Result<usize> {
     File::open(filename)?.read_to_string(&mut buffer)
+}
+
+pub fn anchor(text: &str) -> String {
+    let text = text.nfkc();
+    let text = text.map(|c| if c.is_letter() || c.is_number() { c } else { '-' });
+    let mut was_hyphen = true;
+    let text = text.filter(|c| {
+        if *c != '-' {
+            was_hyphen = false;
+            true
+        } else if !was_hyphen {
+            was_hyphen = true;
+            true
+        } else {
+            was_hyphen = true;
+            false
+        }
+    });
+    let mut text: String = text.collect();
+    if text.ends_with("-") {
+        text.pop();
+    }
+    text.to_lowercase()
 }
 
 fn main() {
