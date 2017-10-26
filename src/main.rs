@@ -11,6 +11,7 @@ extern crate unicode_normalization;
 extern crate url;
 
 use std::borrow::Cow;
+use std::error::Error;
 use std::fmt;
 use std::fs::File;
 use std::io;
@@ -25,83 +26,140 @@ use pulldown_cmark::Parser;
 use pulldown_cmark::Tag;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
+use reqwest::StatusCode;
 use shell_escape::escape;
 use structopt::StructOpt;
 use unicode_categories::UnicodeCategories;
 use unicode_normalization::UnicodeNormalization;
 use url::Url;
 
+#[derive(Debug)]
+enum LinkError {
+    Client(reqwest::Error),
+    Io(io::Error),
+    HttpStatus(StatusCode),
+    NoDocument,
+    NoAnchor,
+    Protocol,
+    Absolute,
+}
+
+impl fmt::Display for LinkError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match *self {
+            LinkError::Client(_) => write!(f, "CLIENT"),
+            LinkError::Io(_) => write!(f, "IO"),
+            LinkError::HttpStatus(status) => write!(f, "HTTP_{}", status.as_u16()),
+            LinkError::NoDocument => write!(f, "NO_DOCUMENT"),
+            LinkError::NoAnchor => write!(f, "NO_ANCHOR"),
+            LinkError::Protocol => write!(f, "PROTOCOL"),
+            LinkError::Absolute => write!(f, "ABSOLUTE"),
+        }
+    }
+}
+
+impl Error for LinkError {
+
+	fn description(&self) -> &str {
+		match *self {
+            LinkError::Client(ref err) => err.description(),
+            LinkError::Io(ref err) => err.description(),
+            LinkError::HttpStatus(_) => "unexpected http status",
+            LinkError::NoDocument => "document not found",
+            LinkError::NoAnchor => "anchor not found",
+            LinkError::Protocol => "unrecognized protocol",
+            LinkError::Absolute => "unhandled absolute path",
+        }
+	}
+
+	fn cause(&self) -> Option<&Error> {
+		match *self {
+            LinkError::Client(ref err) => Some(err),
+            LinkError::Io(ref err) => Some(err),
+            _ => None,
+        }
+	}
+}
+
+impl From<io::Error> for LinkError {
+    fn from(err: io::Error) -> Self {
+        LinkError::Io(err)
+    }
+}
+
+impl From<reqwest::Error> for LinkError {
+    fn from(err: reqwest::Error) -> Self {
+        LinkError::Client(err)
+    }
+}
+
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
-    #[structopt(short = "l", help = "Filter existing local links from output")]
-    filter_local: bool,
-
-    #[structopt(short = "r", help = "Filter existing remote links from output")]
-    filter_remote: bool,
-
-    #[structopt(short = "F", help = "Omit filename and line number from output")]
-    without_filename: bool,
-
     #[structopt(help = "Files to parse")]
     file: Vec<String>,
 }
 
 impl Opt {
-    pub fn check_skippable(&self, link: &Link, origin: &Path) -> bool {
+    pub fn check_skippable(&self, link: &Link, origin: &Path) -> Result<(), LinkError> {
         match *link {
-            Link::Path(ref path) => if self.filter_local && PathBuf::from(path).is_relative() {
+            Link::Path(ref path) => if PathBuf::from(path).is_relative() {
                 if let Some((path, fragment)) = split_fragment(path) {
                     let path = relative_path(path.as_str(), origin).unwrap_or_else(|| PathBuf::from(origin));
                     let mut buffer = String::new();
-                    if slurp(path.as_path(), &mut buffer).is_err() {
-                        return false;
+                    slurp(path.as_path(), &mut buffer)?;
+                    if MdAnchorParser::from(buffer.as_str()).any(|anchor| *anchor == fragment) {
+                        return Ok(())
+                    } else {
+                        return Err(LinkError::NoAnchor)
                     }
-                    return MdAnchorParser::from(buffer.as_str()).any(|anchor| *anchor == fragment);
                 } else {
-                    return relative_path(path.as_str(), origin).map(|path| path.exists()).unwrap_or(false);
+                    if relative_path(path.as_str(), origin).map(|path| path.exists()).unwrap_or(false) {
+                        return Ok(())
+                    } else {
+                        return Err(LinkError::NoDocument)
+                    }
                 }
+            } else {
+                Err(LinkError::Absolute)
             },
             Link::Url(ref url) => {
-                if self.filter_remote && (url.scheme() == "http" || url.scheme() == "https") {
+                if url.scheme() == "http" || url.scheme() == "https" {
                     let client = Client::builder()
                         .redirect(RedirectPolicy::none())
                         .timeout(Some(Duration::new(5, 0)))
                         .build();
                     if let Some(fragment) = url.fragment() {
-                        let response = client.and_then(|client| client.get(url.clone()).send());
-                        if let Ok(mut response) = response {
-                            if !response.status().is_success() {
-                                return false;
-                            }
-                            let mut buffer = String::new();
-                            if response.read_to_string(&mut buffer).is_err() {
-                                return false;
-                            }
-                            for (_, tag) in htmlstream::tag_iter(buffer.as_str()) {
-                                for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
-                                    if attr.value == fragment
-                                        && (attr.name == "id"
-                                            || (tag.name == "a" && attr.name == "name"))
-                                    {
-                                        return true;
-                                    }
+                        let mut response = client.and_then(|client| client.get(url.clone()).send())?;
+                        if !response.status().is_success() {
+                            Err(LinkError::HttpStatus(response.status()))?;
+                        }
+                        let mut buffer = String::new();
+                        response.read_to_string(&mut buffer)?;
+                        for (_, tag) in htmlstream::tag_iter(buffer.as_str()) {
+                            for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
+                                if attr.value == fragment
+                                    && (attr.name == "id"
+                                        || (tag.name == "a" && attr.name == "name"))
+                                {
+                                    return Ok(());
                                 }
                             }
-                            return true;
                         }
+                        return Err(LinkError::NoAnchor)
                     } else {
-                        let response = client.and_then(|client| client.head(url.clone()).send());
-                        if let Ok(response) = response {
-                            return response.status().is_success();
+                        let response = client.and_then(|client| client.head(url.clone()).send())?;
+                        if response.status().is_success() {
+                            Ok(())
                         } else {
-                            return false;
+                            Err(LinkError::HttpStatus(response.status()))?
                         }
                     }
+                } else {
+                    Err(LinkError::Protocol)
                 }
             }
         }
-        false
     }
 }
 
@@ -271,20 +329,14 @@ fn main() {
 
         let mut linenum = 1;
         let mut oldoffs = 0;
-        let mut prefix = String::new();
         while let Some(url) = parser.next() {
             let link = Link::from(url.as_ref());
-            if opt.check_skippable(&link, Path::new(filename)) {
-                continue;
-            }
-
-            prefix.clear();
-            if !opt.without_filename {
+            let skippable = opt.check_skippable(&link, Path::new(filename));
+            if let Err(reason) = skippable {
                 linenum += count(&buffer.as_bytes()[oldoffs..parser.get_offset()], b'\n');
                 oldoffs = parser.get_offset();
-                prefix = format!("{}:{}: ", filename, linenum);
+                println!("{}: {}:{}: {}", reason, filename, linenum, link);
             }
-            println!("{}{}", prefix, link);
         }
     }
 }
