@@ -139,8 +139,12 @@ impl FromStr for DomainOrPath {
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
+
     #[structopt(short = "b", help = "Base domain or path to prefix absolute paths with")]
     base: Option<DomainOrPath>,
+
+    #[structopt(short = "r", help = "Allow redirects")]
+    allow_redirects: bool,
 
     #[structopt(help = "Files to parse")]
     file: Vec<String>,
@@ -148,7 +152,7 @@ struct Opt {
 
 impl Opt {
 
-    pub fn check_skippable<'a>(&self, link: &Link, origin: Cow<'a, str>) -> Result<(), LinkError> {
+    pub fn check_skippable<'a>(&self, link: &Link, origin: Cow<'a, str>, client: &Client) -> Result<(), LinkError> {
         match *link {
             Link::Path(ref path) => {
                 if PathBuf::from(path).is_relative() {
@@ -162,12 +166,12 @@ impl Opt {
                     let path = Path::new(base_path).join(components.as_path());
                     self.check_skippable_path(path.to_string_lossy().as_ref())
                 } else if let Some(DomainOrPath(Link::Url(ref base_domain))) = self.base {
-                    self.check_skippable_url(&base_domain.join(path)?)
+                    self.check_skippable_url(&base_domain.join(path)?, client)
                 } else {
                     Err(LinkError::Absolute)
                 }
             },
-            Link::Url(ref url) => self.check_skippable_url(url),
+            Link::Url(ref url) => self.check_skippable_url(url, client),
         }
     }
 
@@ -189,14 +193,10 @@ impl Opt {
         }
     }
 
-    fn check_skippable_url(&self, url: &Url) -> Result<(), LinkError> {
+    fn check_skippable_url(&self, url: &Url, client: &Client) -> Result<(), LinkError> {
         if url.scheme() == "http" || url.scheme() == "https" {
-            let client = Client::builder()
-                .redirect(RedirectPolicy::none())
-                .timeout(Some(Duration::new(5, 0)))
-                .build();
             if let Some(fragment) = url.fragment() {
-                let mut response = client.and_then(|client| client.get(url.clone()).send())?;
+                let mut response = client.get(url.clone()).send()?;
                 if !response.status().is_success() {
                     Err(LinkError::HttpStatus(response.status()))?;
                 }
@@ -214,7 +214,7 @@ impl Opt {
                 }
                 return Err(LinkError::NoAnchor)
             } else {
-                let response = client.and_then(|client| client.head(url.clone()).send())?;
+                let response = client.head(url.clone()).send()?;
                 if response.status().is_success() {
                     Ok(())
                 } else {
@@ -376,6 +376,14 @@ pub fn anchor(text: &str) -> String {
 
 fn main() {
     let opt = Opt::from_args();
+
+    let mut client = Client::builder();
+    client.timeout(Some(Duration::new(5, 0)));
+    if !opt.allow_redirects {
+        client.redirect(RedirectPolicy::none());
+    }
+    let client = client.build().unwrap();
+
     for filename in &opt.file {
         let mut buffer = String::new();
         if let Err(err) = slurp(filename, &mut buffer) {
@@ -393,7 +401,7 @@ fn main() {
         let mut oldoffs = 0;
         while let Some(url) = parser.next() {
             let link = Link::from(url.as_ref());
-            let skippable = opt.check_skippable(&link, Cow::Borrowed(filename));
+            let skippable = opt.check_skippable(&link, Cow::Borrowed(filename), &client);
             if let Err(reason) = skippable {
                 linenum += count(&buffer.as_bytes()[oldoffs..parser.get_offset()], b'\n');
                 oldoffs = parser.get_offset();
