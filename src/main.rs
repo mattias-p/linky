@@ -159,11 +159,7 @@ impl Opt {
                     let path = relative_path(path, origin);
                     self.check_skippable_path(path.as_ref())
                 } else if let Some(DomainOrPath(Link::Path(ref base_path))) = self.base {
-                    let mut components = Path::new(path).components();
-                    while components.as_path().has_root() {
-                        components.next();
-                    }
-                    let path = Path::new(base_path).join(components.as_path());
+                    let path = join_absolute(base_path, path);
                     self.check_skippable_path(path.to_string_lossy().as_ref())
                 } else if let Some(DomainOrPath(Link::Url(ref base_domain))) = self.base {
                     self.check_skippable_url(&base_domain.join(path)?, client)
@@ -219,6 +215,14 @@ impl Opt {
             Err(LinkError::Protocol)
         }
     }
+}
+
+fn join_absolute<P1: AsRef<Path>, P2: AsRef<Path>>(base_path: &P1, path: &P2) -> PathBuf {
+    let mut components = path.as_ref().components();
+    while components.as_path().has_root() {
+        components.next();
+    }
+    base_path.as_ref().join(components.as_path())
 }
 
 fn has_html_anchor(buffer: &str, anchor: &str) -> bool {
