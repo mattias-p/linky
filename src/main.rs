@@ -14,12 +14,14 @@ use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;
 use std::fs::File;
-use std::io;
 use std::io::Read;
+use std::io;
 use std::path::Path;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::str::FromStr;
 use std::time::Duration;
+
 
 use bytecount::count;
 use pulldown_cmark::Event;
@@ -413,6 +415,18 @@ impl<'a> Iterator for LinkIter<'a> {
             return Some((url, self.linenum));
         }
         None
+    }
+}
+
+struct FileLinkIter<'a> {
+    path: Rc<String>,
+    links: LinkIter<'a>,
+}
+
+impl<'a> Iterator for FileLinkIter<'a> {
+    type Item = (Cow<'a, str>, Rc<String>, usize);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.links.next().map(|(link, linenum)| (link, self.path.clone(), linenum))
     }
 }
 
