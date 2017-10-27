@@ -202,17 +202,11 @@ impl Opt {
                 }
                 let mut buffer = String::new();
                 response.read_to_string(&mut buffer)?;
-                for (_, tag) in htmlstream::tag_iter(buffer.as_str()) {
-                    for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
-                        if attr.value == fragment
-                            && (attr.name == "id"
-                                || (tag.name == "a" && attr.name == "name"))
-                        {
-                            return Ok(());
-                        }
-                    }
+                if has_html_anchor(&buffer, fragment) {
+                    Ok(())
+                } else {
+                    Err(LinkError::NoAnchor)
                 }
-                return Err(LinkError::NoAnchor)
             } else {
                 let response = client.head(url.clone()).send()?;
                 if response.status().is_success() {
@@ -225,6 +219,20 @@ impl Opt {
             Err(LinkError::Protocol)
         }
     }
+}
+
+fn has_html_anchor(buffer: &str, anchor: &str) -> bool {
+    for (_, tag) in htmlstream::tag_iter(buffer) {
+        for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
+            if attr.value == anchor
+                && (attr.name == "id"
+                    || (tag.name == "a" && attr.name == "name"))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 fn split_fragment(path: &str) -> Option<(&str, &str)> {
