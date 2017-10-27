@@ -386,6 +386,36 @@ pub fn anchor(text: &str) -> String {
     text.to_lowercase()
 }
 
+struct LinkIter<'a> {
+    buffer: &'a str,
+    parser: MdLinkParser<'a>,
+    linenum: usize,
+    oldoffs: usize,
+}
+
+impl<'a> LinkIter<'a> {
+    fn new(buffer: &'a str) -> Self {
+        LinkIter {
+            parser: MdLinkParser::from(buffer),
+            buffer: buffer,
+            linenum: 1,
+            oldoffs: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for LinkIter<'a> {
+    type Item = (Cow<'a, str>, usize);
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(url) = self.parser.next() {
+            self.linenum += count(&self.buffer.as_bytes()[self.oldoffs..self.parser.get_offset()], b'\n');
+            self.oldoffs = self.parser.get_offset();
+            return Some((url, self.linenum));
+        }
+        None
+    }
+}
+
 fn main() {
     let opt = Opt::from_args();
 
@@ -407,16 +437,12 @@ fn main() {
             );
             continue;
         }
-        let mut parser = MdLinkParser::from(buffer.as_str());
+        let mut links = LinkIter::new(buffer.as_str());
 
-        let mut linenum = 1;
-        let mut oldoffs = 0;
-        while let Some(url) = parser.next() {
+        while let Some((url, linenum)) = links.next() {
             let link = Link::from(url.as_ref());
             let skippable = opt.check_skippable(&link, Cow::Borrowed(filename), &client);
             if let Err(reason) = skippable {
-                linenum += count(&buffer.as_bytes()[oldoffs..parser.get_offset()], b'\n');
-                oldoffs = parser.get_offset();
                 println!("{}: {}:{}: {}", reason, filename, linenum, link);
             }
         }
