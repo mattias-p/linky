@@ -18,7 +18,6 @@ use std::io::Read;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -37,7 +36,7 @@ use unicode_normalization::UnicodeNormalization;
 use url::Url;
 
 #[derive(Debug)]
-enum LinkError {
+pub enum LinkError {
     Client(reqwest::Error),
     Io(io::Error),
     HttpStatus(StatusCode),
@@ -107,7 +106,7 @@ impl From<url::ParseError> for LinkError {
 }
 
 #[derive(Debug)]
-struct DomainOrPathError;
+pub struct DomainOrPathError;
 
 impl fmt::Display for DomainOrPathError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -125,7 +124,7 @@ impl Error for DomainOrPathError {
 }
 
 #[derive(Debug)]
-struct DomainOrPath(Link);
+pub struct DomainOrPath(Link);
 
 impl FromStr for DomainOrPath {
     type Err = DomainOrPathError;
@@ -152,70 +151,67 @@ struct Opt {
     file: Vec<String>,
 }
 
-impl Opt {
+pub fn check_skippable<'a>(link: &Link, origin: Cow<'a, str>, client: &Client, base: &Option<DomainOrPath>) -> Result<(), LinkError> {
+    match *link {
+        Link::Path(ref path) => {
+            if PathBuf::from(path).is_relative() {
+                let path = relative_path(path, origin);
+                check_skippable_path(path.as_ref())
+            } else if let Some(DomainOrPath(Link::Path(ref base_path))) = *base {
+                let path = join_absolute(base_path, path);
+                check_skippable_path(path.to_string_lossy().as_ref())
+            } else if let Some(DomainOrPath(Link::Url(ref base_domain))) = *base {
+                check_skippable_url(&base_domain.join(path)?, client)
+            } else {
+                Err(LinkError::Absolute)
+            }
+        },
+        Link::Url(ref url) => check_skippable_url(url, client),
+    }
+}
 
-    pub fn check_skippable<'a>(&self, link: &Link, origin: Cow<'a, str>, client: &Client) -> Result<(), LinkError> {
-        match *link {
-            Link::Path(ref path) => {
-                if PathBuf::from(path).is_relative() {
-                    let path = relative_path(path, origin);
-                    self.check_skippable_path(path.as_ref())
-                } else if let Some(DomainOrPath(Link::Path(ref base_path))) = self.base {
-                    let path = join_absolute(base_path, path);
-                    self.check_skippable_path(path.to_string_lossy().as_ref())
-                } else if let Some(DomainOrPath(Link::Url(ref base_domain))) = self.base {
-                    self.check_skippable_url(&base_domain.join(path)?, client)
-                } else {
-                    Err(LinkError::Absolute)
-                }
-            },
-            Link::Url(ref url) => self.check_skippable_url(url, client),
+fn check_skippable_path(path: &str) -> Result<(), LinkError> {
+    if let Some((path, fragment)) = split_fragment(path) {
+        let mut buffer = String::new();
+        slurp(&path, &mut buffer)?;
+        if MdAnchorParser::from(buffer.as_str()).any(|anchor| *anchor == *fragment) {
+            Ok(())
+        } else {
+            Err(LinkError::NoAnchor)
+        }
+    } else {
+        if Path::new(path).exists() {
+            Ok(())
+        } else {
+            Err(LinkError::NoDocument)
         }
     }
+}
 
-    fn check_skippable_path(&self, path: &str) -> Result<(), LinkError> {
-        if let Some((path, fragment)) = split_fragment(path) {
+fn check_skippable_url(url: &Url, client: &Client) -> Result<(), LinkError> {
+    if url.scheme() == "http" || url.scheme() == "https" {
+        if let Some(fragment) = url.fragment() {
+            let mut response = client.get(url.clone()).send()?;
+            if !response.status().is_success() {
+                Err(LinkError::HttpStatus(response.status()))?;
+            }
             let mut buffer = String::new();
-            slurp(&path, &mut buffer)?;
-            if MdAnchorParser::from(buffer.as_str()).any(|anchor| *anchor == *fragment) {
+            response.read_to_string(&mut buffer)?;
+            if has_html_anchor(&buffer, fragment) {
                 Ok(())
             } else {
                 Err(LinkError::NoAnchor)
             }
         } else {
-            if Path::new(path).exists() {
+            let response = client.head(url.clone()).send()?;
+            if response.status().is_success() {
                 Ok(())
             } else {
-                Err(LinkError::NoDocument)
+                Err(LinkError::HttpStatus(response.status()))
             }
         }
-    }
-
-    fn check_skippable_url(&self, url: &Url, client: &Client) -> Result<(), LinkError> {
-        if url.scheme() == "http" || url.scheme() == "https" {
-            if let Some(fragment) = url.fragment() {
-                let mut response = client.get(url.clone()).send()?;
-                if !response.status().is_success() {
-                    Err(LinkError::HttpStatus(response.status()))?;
-                }
-                let mut buffer = String::new();
-                response.read_to_string(&mut buffer)?;
-                if has_html_anchor(&buffer, fragment) {
-                    Ok(())
-                } else {
-                    Err(LinkError::NoAnchor)
-                }
-            } else {
-                let response = client.head(url.clone()).send()?;
-                if response.status().is_success() {
-                    Ok(())
-                } else {
-                    Err(LinkError::HttpStatus(response.status()))
-                }
-            }
-        } else {
-            Err(LinkError::Protocol)
-        }
+    } else {
+        Err(LinkError::Protocol)
     }
 }
 
@@ -418,18 +414,6 @@ impl<'a> Iterator for LinkIter<'a> {
     }
 }
 
-struct FileLinkIter<'a> {
-    path: Rc<String>,
-    links: LinkIter<'a>,
-}
-
-impl<'a> Iterator for FileLinkIter<'a> {
-    type Item = (Cow<'a, str>, Rc<String>, usize);
-    fn next(&mut self) -> Option<Self::Item> {
-        self.links.next().map(|(link, linenum)| (link, self.path.clone(), linenum))
-    }
-}
-
 fn main() {
     let opt = Opt::from_args();
 
@@ -455,7 +439,7 @@ fn main() {
 
         while let Some((url, linenum)) = links.next() {
             let link = Link::from(url.as_ref());
-            let skippable = opt.check_skippable(&link, Cow::Borrowed(filename), &client);
+            let skippable = check_skippable(&link, Cow::Borrowed(filename), &client, &opt.base);
             if let Err(reason) = skippable {
                 println!("{}: {}:{}: {}", reason, filename, linenum, link);
             }
