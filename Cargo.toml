@@ -8,6 +8,7 @@ name = "mdlinks"
 
 [[bin]]
 name = "mdlinks"
+path = "src/mdlinks.rs"
 
 [dependencies]
 bytecount = "0.2.0"
