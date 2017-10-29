@@ -25,6 +25,7 @@ use pulldown_cmark::Parser;
 use pulldown_cmark::Tag;
 use reqwest::Client;
 use reqwest::StatusCode;
+use shell_escape::escape;
 use unicode_categories::UnicodeCategories;
 use unicode_normalization::UnicodeNormalization;
 use url::Url;
@@ -362,4 +363,14 @@ impl<'a> Iterator for MdLinkParser<'a> {
         }
         None
     }
+}
+
+pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<(&'a str, usize, Link)>) -> io::Result<()> {
+    let mut buffer = String::new();
+    slurp(&path, &mut buffer)?;
+    let parser = MdLinkParser::new(buffer.as_str())
+                     .map(|(lineno, url)| (path, lineno, Link::from(url.as_ref())));
+
+    links.extend(parser);
+    Ok(())
 }

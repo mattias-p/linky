@@ -14,9 +14,7 @@ extern crate regex;
 
 use std::borrow::Cow;
 
-use linky::Link;
-use linky::MdLinkParser;
-use linky::slurp;
+use linky::md_file_links;
 use shell_escape::escape;
 use structopt::StructOpt;
 
@@ -30,20 +28,17 @@ struct Opt {
 fn main() {
     let opt = Opt::from_args();
 
-    for filename in &opt.file {
-        let mut buffer = String::new();
-        if let Err(err) = slurp(filename, &mut buffer) {
-            eprintln!("{}: error: reading file {}: {}",
-                      Opt::clap().get_name(),
-                      escape(Cow::from(filename.as_str())),
-                      err);
-            continue;
-        }
-        let mut links = MdLinkParser::new(buffer.as_str())
-                            .map(|(lineno, url)| (filename, lineno, Link::from(url.as_ref())));
+    let mut links = vec![];
 
-        while let Some((filename, linenum, link)) = links.next() {
-            println!("{}:{}: {}", filename, linenum, link);
+    for path in &opt.file {
+        if let Err(err) = md_file_links(path, &mut links) {
+            eprintln!("error: reading file {}: {}",
+                      escape(Cow::Borrowed(path)),
+                      err);
         }
+    }
+
+    for (path, linenum, link) in links {
+        println!("{}:{}: {}", path, linenum, link);
     }
 }
