@@ -15,8 +15,8 @@ Features
   * Verify that fragments in local URLs correspond Markdown headings
 
 
-Usage
------
+Examples
+--------
 
 ### Inputs
 
@@ -35,7 +35,7 @@ $ linky --check example.md
 Extract links from Markdown and check the ones containing "README":
 
 ```sh
-$ linky example.md | grep README | linky --check
+$ linky example.md | grep 'README[^ ]*' | linky --check
 ```
 
 ### Resolution
@@ -43,19 +43,19 @@ $ linky example.md | grep README | linky --check
 Resolve absolute local URLs as relative to a local directory:
 
 ```sh
-$ linky --base ./examples/markdown_site absolute.md
+$ linky --check --base ./examples/markdown_site absolute.md
 ```
 
 Resolve absolute local URLs as relative to a base domain:
 
 ```sh
-$ linky --base https://github.com/ github.md
+$ linky --check --base https://github.com/ github.md
 ```
 
 Resolve absolute local URLs as relative to a base domain, allowing HTTP redirects:
 
 ```sh
-$ linky --base https://github.com/ github.md
+$ linky --check --base https://github.com/ github.md
 ```
 
 
@@ -81,3 +81,5 @@ Compile and link the binary:
 ```sh
 $ cargo build --release
 ```
+
+[Install stable Rust and Cargo]: http://doc.crates.io/
