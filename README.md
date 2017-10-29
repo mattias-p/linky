@@ -1,6 +1,6 @@
 Linky
 =====
-A link extraction and checking utility.
+Extract and check links.
 
 
 Features
