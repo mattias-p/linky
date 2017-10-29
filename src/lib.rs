@@ -235,38 +235,6 @@ fn relative_path<'a>(path: &'a str, origin: Cow<'a, str>) -> Cow<'a, str> {
     }
 }
 
-pub struct MdLinkParser<'a> {
-    parser: Parser<'a>,
-}
-
-impl<'a> MdLinkParser<'a> {
-    pub fn new(parser: Parser<'a>) -> Self {
-        MdLinkParser { parser: parser }
-    }
-
-    pub fn get_offset(&self) -> usize {
-        self.parser.get_offset()
-    }
-}
-
-impl<'a> From<&'a str> for MdLinkParser<'a> {
-    fn from(buffer: &'a str) -> Self {
-        MdLinkParser::new(Parser::new(buffer))
-    }
-}
-
-impl<'a> Iterator for MdLinkParser<'a> {
-    type Item = Cow<'a, str>;
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(event) = self.parser.next() {
-            if let Event::Start(Tag::Link(url, _)) = event {
-                return Some(url);
-            }
-        }
-        None
-    }
-}
-
 pub struct MdAnchorParser<'a> {
     parser: Parser<'a>,
     is_header: bool,
@@ -364,17 +332,17 @@ pub fn anchor(text: &str) -> String {
     text.to_lowercase()
 }
 
-pub struct LinkIter<'a> {
+pub struct MdLinkParser<'a> {
     buffer: &'a str,
-    parser: MdLinkParser<'a>,
+    parser: Parser<'a>,
     linenum: usize,
     oldoffs: usize,
 }
 
-impl<'a> LinkIter<'a> {
+impl<'a> MdLinkParser<'a> {
     pub fn new(buffer: &'a str) -> Self {
-        LinkIter {
-            parser: MdLinkParser::from(buffer),
+        MdLinkParser {
+            parser: Parser::new(buffer),
             buffer: buffer,
             linenum: 1,
             oldoffs: 0,
@@ -382,13 +350,15 @@ impl<'a> LinkIter<'a> {
     }
 }
 
-impl<'a> Iterator for LinkIter<'a> {
-    type Item = (Cow<'a, str>, usize);
+impl<'a> Iterator for MdLinkParser<'a> {
+    type Item = (usize, Cow<'a, str>);
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(url) = self.parser.next() {
-            self.linenum += count(&self.buffer.as_bytes()[self.oldoffs..self.parser.get_offset()], b'\n');
-            self.oldoffs = self.parser.get_offset();
-            return Some((url, self.linenum));
+        while let Some(event) = self.parser.next() {
+            if let Event::Start(Tag::Link(url, _)) = event {
+                self.linenum += count(&self.buffer.as_bytes()[self.oldoffs..self.parser.get_offset()], b'\n');
+                self.oldoffs = self.parser.get_offset();
+                return Some((self.linenum, url));
+            }
         }
         None
     }

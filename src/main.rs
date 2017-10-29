@@ -15,7 +15,7 @@ extern crate regex;
 use std::borrow::Cow;
 
 use linky::Link;
-use linky::LinkIter;
+use linky::MdLinkParser;
 use linky::slurp;
 use shell_escape::escape;
 use structopt::StructOpt;
@@ -39,8 +39,8 @@ fn main() {
                       err);
             continue;
         }
-        let mut links = LinkIter::new(buffer.as_str())
-                            .map(|(url, lineno)| (filename, lineno, Link::from(url.as_ref())));
+        let mut links = MdLinkParser::new(buffer.as_str())
+                            .map(|(lineno, url)| (filename, lineno, Link::from(url.as_ref())));
 
         while let Some((filename, linenum, link)) = links.next() {
             println!("{}:{}: {}", filename, linenum, link);
