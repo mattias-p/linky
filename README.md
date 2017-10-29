@@ -49,19 +49,19 @@ Examples
 Extract links from Markdown files:
 
 ```sh
-$ linky example.md example2.md
+$ linky examples/single.md examples/exhibition.md
 ```
 
 Extract and check links from Markdown files:
 
 ```sh
-$ linky --check example.md
+$ linky --check examples/single.md
 ```
 
 Extract links from Markdown and check the ones containing "README":
 
 ```sh
-$ linky example.md | grep 'README[^ ]*' | linky --check
+$ linky examples/single.md | grep 'README[^ ]*' | linky --check
 ```
 
 ### Resolution
@@ -69,17 +69,17 @@ $ linky example.md | grep 'README[^ ]*' | linky --check
 Resolve absolute local URLs as relative to a local directory:
 
 ```sh
-$ linky --check --base ./examples/markdown_site absolute.md
+$ linky --check --base ./examples/markdown_site examples/exhibition.md
 ```
 
 Resolve absolute local URLs as relative to a base domain:
 
 ```sh
-$ linky --check --base https://github.com/ github.md
+$ linky --check --base https://github.com/ examples/exhibition.md
 ```
 
 Resolve absolute local URLs as relative to a base domain, allowing HTTP redirects:
 
 ```sh
-$ linky --check --base https://github.com/ github.md
+$ linky --check --relative --base http://github.com/ examples/exhibition.md
 ```
