@@ -11,10 +11,10 @@
   * [Missing anchor](http://github.com/mattias-p/linky/blob/master/README.md#missing-anchor)
 
 * Relative local URLs
-  * [Dead link](markdown-site/mattias-p/linky/blob/master/dead-link)
-  * [Linky](markdown-site/mattias-p/linky/blob/master/README.md)
-  * [Examples anchor](markdown-site/mattias-p/linky/blob/master/README.md#examples)
-  * [Missing anchor](markdown-site/mattias-p/linky/blob/master/README.md#missing-anchor)
+  * [Dead link](markdown_site/dead-link)
+  * [Linky](markdown_site/README.md)
+  * [Examples anchor](markdown_site/README.md#examples)
+  * [Missing anchor](markdown_site/README.md#missing-anchor)
 
 * Absolute local URLs
   * [Dead link](/dead-link)
