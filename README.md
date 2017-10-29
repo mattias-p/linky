@@ -15,6 +15,32 @@ Features
   * Verify that fragments in local URLs correspond Markdown headings
 
 
+
+Installation
+------------
+[Install stable Rust and Cargo]:
+
+```sh
+$ curl -sSf https://static.rust-lang.org/rustup.sh | sh
+```
+
+Download and unpack source code from the current master branch:
+
+```sh
+$ curl https://github.com/mattias-p/linky/archive/master.zip
+$ unzip master.zip
+$ cd linky-master
+```
+
+Compile and link the binary:
+
+```sh
+$ cargo build --release
+```
+
+[Install stable Rust and Cargo]: http://doc.crates.io/
+
+
 Examples
 --------
 
@@ -57,29 +83,3 @@ Resolve absolute local URLs as relative to a base domain, allowing HTTP redirect
 ```sh
 $ linky --check --base https://github.com/ github.md
 ```
-
-
-
-Installation
-------------
-[Install stable Rust and Cargo]:
-
-```sh
-$ curl -sSf https://static.rust-lang.org/rustup.sh | sh
-```
-
-Download and unpack source code from the current master branch:
-
-```sh
-$ curl https://github.com/mattias-p/linky/archive/master.zip
-$ unzip master.zip
-$ cd linky-master
-```
-
-Compile and link the binary:
-
-```sh
-$ cargo build --release
-```
-
-[Install stable Rust and Cargo]: http://doc.crates.io/
