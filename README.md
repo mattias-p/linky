@@ -76,11 +76,11 @@ $ linky --check --base ./examples/markdown_site examples/exhibition.md
 Resolve absolute local URLs as relative to a base domain:
 
 ```sh
-$ linky --check --base https://github.com/ examples/exhibition.md
+$ linky --check --base https://github.com/mattias-p/blob/master examples/exhibition.md
 ```
 
 Resolve absolute local URLs as relative to a base domain, allowing HTTP redirects:
 
 ```sh
-$ linky --check --relative --base http://github.com/ examples/exhibition.md
+$ linky --check --relative --base http://github.com/mattias-p/blob/master examples/exhibition.md
 ```
