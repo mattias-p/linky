@@ -50,7 +50,7 @@ Examples
 Extract links from Markdown files:
 
 ```sh
-$ linky examples/single.md examples/exhibition.md
+$ linky examples/single.md examples/examples.md
 ```
 
 Extract and check links from Markdown files:
@@ -70,17 +70,17 @@ $ linky examples/single.md | grep 'README[^ ]*' | linky --check
 Resolve absolute local URLs as relative to a local directory:
 
 ```sh
-$ linky --check --base ./examples/markdown_site examples/exhibition.md
+$ linky --check --base ./examples/markdown_site examples/examples.md
 ```
 
 Resolve absolute local URLs as relative to a base domain:
 
 ```sh
-$ linky --check --base https://github.com/mattias-p/blob/master examples/exhibition.md
+$ linky --check --base https://github.com/mattias-p/blob/master examples/examples.md
 ```
 
 Resolve absolute local URLs as relative to a base domain, allowing HTTP redirects:
 
 ```sh
-$ linky --check --relative --base http://github.com/mattias-p/blob/master examples/exhibition.md
+$ linky --check --relative --base http://github.com/mattias-p/blob/master examples/examples.md
 ```
