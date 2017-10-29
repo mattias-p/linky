@@ -6,13 +6,14 @@ Extract and check links.
 Features
 --------
 * Input:
+  * Command line interface.
   * Extract links from Markdown files.
   * Read links to check from stdin in `grep -Hn` format.
 * Checking:
-  * Verify that HTTP(S) URLs are resolvable to successful HTTP status codes
-  * Verify that local URLs are resolvable to local files
-  * Verify that fragments in HTTP(S) URLs correspond HTML anchors
-  * Verify that fragments in local URLs correspond Markdown headings
+  * Verify that HTTP(S) URLs are resolvable to successful HTTP status codes.
+  * Verify that local URLs are resolvable to local files.
+  * Verify that fragments in HTTP(S) URLs correspond HTML anchors.
+  * Verify that fragments in local URLs correspond Markdown headings.
 
 
 
