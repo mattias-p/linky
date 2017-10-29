@@ -13,8 +13,12 @@ extern crate url;
 extern crate regex;
 
 use std::borrow::Cow;
+use std::io;
+use std::io::BufRead;
 
+use linky::Link;
 use linky::md_file_links;
+use regex::Regex;
 use shell_escape::escape;
 use structopt::StructOpt;
 
@@ -30,11 +34,25 @@ fn main() {
 
     let mut links = vec![];
 
-    for path in &opt.file {
-        if let Err(err) = md_file_links(path, &mut links) {
-            eprintln!("error: reading file {}: {}",
-                      escape(Cow::Borrowed(path)),
-                      err);
+    if opt.file.is_empty() {
+        let re = Regex::new(r"^(.*):(\d+): ([^ ]*)$").unwrap();
+        let stdin = io::stdin();
+        for line in stdin.lock().lines() {
+            let line = line.unwrap().as_str().to_string();
+            let cap = re.captures(line.as_str()).unwrap();
+            let path = cap.get(1).unwrap().as_str();
+            let lineno = cap.get(2).unwrap().as_str();
+            let link = cap.get(3).unwrap().as_str();
+
+            links.push((path.to_string(), lineno.parse().unwrap(), Link::from(link)));
+        }
+    } else {
+        for path in &opt.file {
+            if let Err(err) = md_file_links(path, &mut links) {
+                eprintln!("error: reading file {}: {}",
+                          escape(Cow::Borrowed(path)),
+                          err);
+            }
         }
     }
 
