@@ -17,7 +17,7 @@
   * [Missing anchor](markdown-site/mattias-p/linky/blob/master/README.md#missing-anchor)
 
 * Absolute local URLs
-  * [Dead link](/mattias-p/linky/blob/master/dead-link)
-  * [Linky](/mattias-p/linky/blob/master/README.md)
-  * [Examples anchor](/mattias-p/linky/blob/master/README.md#examples)
-  * [Missing anchor](/mattias-p/linky/blob/master/README.md#missing-anchor)
+  * [Dead link](/dead-link)
+  * [Linky](/README.md)
+  * [Examples anchor](/README.md#examples)
+  * [Missing anchor](/README.md#missing-anchor)
