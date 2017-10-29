@@ -39,10 +39,10 @@ fn main() {
                       err);
             continue;
         }
-        let mut links = LinkIter::new(buffer.as_str());
+        let mut links = LinkIter::new(buffer.as_str())
+                            .map(|(url, lineno)| (filename, lineno, Link::from(url.as_ref())));
 
-        while let Some((url, linenum)) = links.next() {
-            let link = Link::from(url.as_ref());
+        while let Some((filename, linenum, link)) = links.next() {
             println!("{}:{}: {}", filename, linenum, link);
         }
     }
