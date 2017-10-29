@@ -1,18 +1,7 @@
 [package]
-name = "mdlinks"
+name = "linky"
 version = "0.1.0"
 authors = ["Mattias Päivärinta <mattias.paivarinta@iis.se>"]
-
-[lib]
-name = "mdlinks"
-
-[[bin]]
-name = "mdlinks"
-path = "src/mdlinks.rs"
-
-[[bin]]
-name = "linkck"
-path = "src/linkck.rs"
 
 [dependencies]
 bytecount = "0.2.0"
