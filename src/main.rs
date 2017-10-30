@@ -13,6 +13,7 @@ extern crate url;
 extern crate regex;
 
 use std::borrow::Cow;
+use std::fmt;
 use std::io::BufRead;
 use std::io;
 use std::path::Path;
@@ -81,13 +82,16 @@ fn main() {
         };
         match parsed {
             Ok(link) => {
-                if let &Some(ref client) = &client {
+                let status: Box<fmt::Display> = if let &Some(ref client) = &client {
                     if let Err(err) = check_skippable(&link, &client) {
-                        println!("{}:{}: {} {}", path, linenum, err, link);
-                    };
+                        Box::new(err)
+                    } else {
+                        continue;
+                    }
                 } else {
-                    println!("{}:{}:  {}", path, linenum, link);
-                }
+                    Box::new("")
+                };
+                println!("{}:{}: {} {}", path, linenum, status, link);
             }
             Err(err) => eprintln!("{}:{}: error: {}: {}", path, linenum, err, link),
         }
