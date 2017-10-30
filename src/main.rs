@@ -19,6 +19,7 @@ use std::path::Path;
 
 use linky::BaseLink;
 use linky::BaseLinkError;
+use linky::check_skippable;
 use linky::Link;
 use linky::md_file_links;
 use regex::Regex;
@@ -31,12 +32,23 @@ struct Opt {
     #[structopt(long = "base", short = "b", help = "Join absolute paths to a base URL")]
     base: Option<BaseLink>,
 
+    #[structopt(long = "check", short = "c", help = "Check URLs")]
+    check: bool,
+
     #[structopt(help = "Files to parse")]
     file: Vec<String>,
 }
 
 fn main() {
     let opt = Opt::from_args();
+
+    let client = if opt.check {
+        Some(reqwest::Client::builder()
+                 .build()
+                 .unwrap())
+    } else {
+        None
+    };
 
     let mut links = vec![];
 
@@ -69,7 +81,15 @@ fn main() {
             Link::parse(link.as_str()).map_err(BaseLinkError::from)
         };
         match parsed {
-            Ok(link) => println!("{}:{}: {}", path, linenum, link),
+            Ok(link) => {
+                if let &Some(ref client) = &client {
+                    if let Err(err) = check_skippable(&link, &client) {
+                        println!("{}:{}: {} {}", path, linenum, err, link);
+                    };
+                } else {
+                    println!("{}:{}:  {}", path, linenum, link);
+                }
+            }
             Err(err) => eprintln!("{}:{}: error: {}: {}", path, linenum, err, link),
         }
     }

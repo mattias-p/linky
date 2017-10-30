@@ -100,17 +100,11 @@ impl From<url::ParseError> for LookupError {
     }
 }
 
-pub fn check_skippable<'a>(link: &Link, origin: Cow<'a, str>, client: &Client, base: &Option<BaseLink>) -> Result<(), LookupError> {
+pub fn check_skippable<'a>(link: &Link, client: &Client) -> Result<(), LookupError> {
     match *link {
         Link::Path(ref path) => {
-            if PathBuf::from(path).is_relative() {
-                let path = relative_path(path, origin);
+            if Path::new(path).is_relative() {
                 check_skippable_path(path.as_ref())
-            } else if let Some(BaseLink(Link::Path(ref base_path))) = *base {
-                let path = join_absolute(base_path, path);
-                check_skippable_path(path.to_string_lossy().as_ref())
-            } else if let Some(BaseLink(Link::Url(ref base_domain))) = *base {
-                check_skippable_url(&base_domain.join(path)?, client)
             } else {
                 Err(LookupError::Absolute)
             }
@@ -195,16 +189,6 @@ fn split_fragment(path: &str) -> Option<(&str, &str)> {
         Some((&path[0..pos], &path[pos+1..]))
     } else {
         None
-    }
-}
-
-fn relative_path<'a>(path: &'a str, origin: Cow<'a, str>) -> Cow<'a, str> {
-    if path.is_empty() {
-        origin
-    } else {
-        let base_dir = Path::new(origin.as_ref()).parent().unwrap();
-        let path = base_dir.join(path).to_string_lossy().into_owned();
-        Cow::Owned(path)
     }
 }
 
