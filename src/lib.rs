@@ -173,11 +173,10 @@ fn join_absolute<P1: AsRef<Path>, P2: AsRef<Path>>(base_path: &P1, path: &P2) ->
 fn has_html_anchor(buffer: &str, anchor: &str) -> bool {
     for (_, tag) in htmlstream::tag_iter(buffer) {
         for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
-            if attr.value == anchor
-                && (attr.name == "id"
-                    || (tag.name == "a" && attr.name == "name"))
-            {
-                return true;
+            if tag.name == "a" && (attr.name == "name" || attr.name == "id") {
+                if attr.value == anchor {
+                    return true;
+                }
             }
         }
     }
