@@ -18,7 +18,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-
 use bytecount::count;
 use pulldown_cmark::Event;
 use pulldown_cmark::Parser;
@@ -27,10 +26,11 @@ use reqwest::Client;
 use reqwest::StatusCode;
 use unicode_categories::UnicodeCategories;
 use unicode_normalization::UnicodeNormalization;
+use url::ParseError;
 use url::Url;
 
 #[derive(Debug)]
-pub enum LinkError {
+pub enum LookupError {
     Client(reqwest::Error),
     Io(io::Error),
     HttpStatus(StatusCode),
@@ -41,157 +41,125 @@ pub enum LinkError {
     Url(url::ParseError),
 }
 
-impl fmt::Display for LinkError {
+impl fmt::Display for LookupError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match *self {
-            LinkError::Client(_) => write!(f, "CLIENT"),
-            LinkError::Io(_) => write!(f, "IO"),
-            LinkError::HttpStatus(status) => write!(f, "HTTP_{}", status.as_u16()),
-            LinkError::NoDocument => write!(f, "NO_DOCUMENT"),
-            LinkError::NoAnchor => write!(f, "NO_ANCHOR"),
-            LinkError::Protocol => write!(f, "PROTOCOL"),
-            LinkError::Absolute => write!(f, "ABSOLUTE"),
-            LinkError::Url(_) => write!(f, "URL"),
+            LookupError::Client(_) => write!(f, "CLIENT"),
+            LookupError::Io(_) => write!(f, "IO"),
+            LookupError::HttpStatus(status) => write!(f, "HTTP_{}", status.as_u16()),
+            LookupError::NoDocument => write!(f, "NO_DOCUMENT"),
+            LookupError::NoAnchor => write!(f, "NO_ANCHOR"),
+            LookupError::Protocol => write!(f, "PROTOCOL"),
+            LookupError::Absolute => write!(f, "ABSOLUTE"),
+            LookupError::Url(_) => write!(f, "URL"),
         }
     }
 }
 
-impl Error for LinkError {
+impl Error for LookupError {
 
 	fn description(&self) -> &str {
 		match *self {
-            LinkError::Client(ref err) => err.description(),
-            LinkError::Io(ref err) => err.description(),
-            LinkError::HttpStatus(_) => "unexpected http status",
-            LinkError::NoDocument => "document not found",
-            LinkError::NoAnchor => "anchor not found",
-            LinkError::Protocol => "unrecognized protocol",
-            LinkError::Absolute => "unhandled absolute path",
-            LinkError::Url(_) => "invalid url",
+            LookupError::Client(ref err) => err.description(),
+            LookupError::Io(ref err) => err.description(),
+            LookupError::HttpStatus(_) => "unexpected http status",
+            LookupError::NoDocument => "document not found",
+            LookupError::NoAnchor => "anchor not found",
+            LookupError::Protocol => "unrecognized protocol",
+            LookupError::Absolute => "unhandled absolute path",
+            LookupError::Url(_) => "invalid url",
         }
 	}
 
 	fn cause(&self) -> Option<&Error> {
 		match *self {
-            LinkError::Client(ref err) => Some(err),
-            LinkError::Io(ref err) => Some(err),
-            LinkError::Url(ref err) => Some(err),
+            LookupError::Client(ref err) => Some(err),
+            LookupError::Io(ref err) => Some(err),
+            LookupError::Url(ref err) => Some(err),
             _ => None,
         }
 	}
 }
 
-impl From<io::Error> for LinkError {
+impl From<io::Error> for LookupError {
     fn from(err: io::Error) -> Self {
-        LinkError::Io(err)
+        LookupError::Io(err)
     }
 }
 
-impl From<reqwest::Error> for LinkError {
+impl From<reqwest::Error> for LookupError {
     fn from(err: reqwest::Error) -> Self {
-        LinkError::Client(err)
+        LookupError::Client(err)
     }
 }
 
-impl From<url::ParseError> for LinkError {
+impl From<url::ParseError> for LookupError {
     fn from(err: url::ParseError) -> Self {
-        LinkError::Url(err)
+        LookupError::Url(err)
     }
 }
 
-#[derive(Debug)]
-pub struct DomainOrPathError;
-
-impl fmt::Display for DomainOrPathError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Contains path, query and/or fragment")
-    }
-}
-
-impl Error for DomainOrPathError {
-	fn description(&self) -> &str {
-        "bad parts"
-    }
-	fn cause(&self) -> Option<&Error> {
-        None
-    }
-}
-
-#[derive(Debug)]
-pub struct DomainOrPath(Link);
-
-impl FromStr for DomainOrPath {
-    type Err = DomainOrPathError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let link = Link::from(s);
-        match link {
-            Link::Url(ref url) if url.path_segments().is_some() && url.query().is_some() && url.fragment().is_some() => Err(DomainOrPathError),
-            _ => Ok(DomainOrPath(link)),
-        }
-    }
-}
-
-pub fn check_skippable<'a>(link: &Link, origin: Cow<'a, str>, client: &Client, base: &Option<DomainOrPath>) -> Result<(), LinkError> {
+pub fn check_skippable<'a>(link: &Link, origin: Cow<'a, str>, client: &Client, base: &Option<BaseLink>) -> Result<(), LookupError> {
     match *link {
         Link::Path(ref path) => {
             if PathBuf::from(path).is_relative() {
                 let path = relative_path(path, origin);
                 check_skippable_path(path.as_ref())
-            } else if let Some(DomainOrPath(Link::Path(ref base_path))) = *base {
+            } else if let Some(BaseLink(Link::Path(ref base_path))) = *base {
                 let path = join_absolute(base_path, path);
                 check_skippable_path(path.to_string_lossy().as_ref())
-            } else if let Some(DomainOrPath(Link::Url(ref base_domain))) = *base {
+            } else if let Some(BaseLink(Link::Url(ref base_domain))) = *base {
                 check_skippable_url(&base_domain.join(path)?, client)
             } else {
-                Err(LinkError::Absolute)
+                Err(LookupError::Absolute)
             }
         },
         Link::Url(ref url) => check_skippable_url(url, client),
     }
 }
 
-fn check_skippable_path(path: &str) -> Result<(), LinkError> {
+fn check_skippable_path(path: &str) -> Result<(), LookupError> {
     if let Some((path, fragment)) = split_fragment(path) {
         let mut buffer = String::new();
         slurp(&path, &mut buffer)?;
         if MdAnchorParser::from(buffer.as_str()).any(|anchor| *anchor == *fragment) {
             Ok(())
         } else {
-            Err(LinkError::NoAnchor)
+            Err(LookupError::NoAnchor)
         }
     } else {
         if Path::new(path).exists() {
             Ok(())
         } else {
-            Err(LinkError::NoDocument)
+            Err(LookupError::NoDocument)
         }
     }
 }
 
-fn check_skippable_url(url: &Url, client: &Client) -> Result<(), LinkError> {
+fn check_skippable_url(url: &Url, client: &Client) -> Result<(), LookupError> {
     if url.scheme() == "http" || url.scheme() == "https" {
         if let Some(fragment) = url.fragment() {
             let mut response = client.get(url.clone()).send()?;
             if !response.status().is_success() {
-                Err(LinkError::HttpStatus(response.status()))?;
+                Err(LookupError::HttpStatus(response.status()))?;
             }
             let mut buffer = String::new();
             response.read_to_string(&mut buffer)?;
             if has_html_anchor(&buffer, fragment) {
                 Ok(())
             } else {
-                Err(LinkError::NoAnchor)
+                Err(LookupError::NoAnchor)
             }
         } else {
             let response = client.head(url.clone()).send()?;
             if response.status().is_success() {
                 Ok(())
             } else {
-                Err(LinkError::HttpStatus(response.status()))
+                Err(LookupError::HttpStatus(response.status()))
             }
         }
     } else {
-        Err(LinkError::Protocol)
+        Err(LookupError::Protocol)
     }
 }
 
@@ -284,12 +252,12 @@ pub enum Link {
     Path(String),
 }
 
-impl<'a> From<&'a str> for Link {
-    fn from(s: &str) -> Self {
-        if let Ok(url) = Url::parse(s) {
-            Link::Url(url)
-        } else {
-            Link::Path(s.to_string())
+impl Link {
+    fn parse(s: &str) -> Result<Self, ParseError> {
+        match Url::parse(s) {
+            Ok(url) => Ok(Link::Url(url)),
+            Err(ParseError::RelativeUrlWithoutBase) => Ok(Link::Path(s.to_string())),
+            Err(err) => Err(err),
         }
     }
 }
@@ -302,6 +270,25 @@ impl fmt::Display for Link {
         }
     }
 }
+
+pub enum BaseLinkError {
+    CannotBeABase,
+    ParseError(ParseError),
+}
+
+#[derive(Debug)]
+pub struct BaseLink(Link);
+
+impl BaseLink {
+    fn parse(s: &str) -> Result<Self, BaseLinkError> {
+        match Link::parse(s) {
+            Ok(Link::Url(ref url)) if url.cannot_be_a_base() => Err(BaseLinkError::CannotBeABase),
+            Ok(link) => Ok(BaseLink(link)),
+            Err(err) => Err(BaseLinkError::ParseError(err)),
+        }
+    }
+}
+
 
 pub fn slurp<P: AsRef<Path>>(filename: &P, mut buffer: &mut String) -> io::Result<usize> {
     File::open(filename.as_ref())?.read_to_string(&mut buffer)
@@ -364,11 +351,11 @@ impl<'a> Iterator for MdLinkParser<'a> {
     }
 }
 
-pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<(String, usize, Link)>) -> io::Result<()> {
+pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<(String, usize, String)>) -> io::Result<()> {
     let mut buffer = String::new();
     slurp(&path, &mut buffer)?;
     let parser = MdLinkParser::new(buffer.as_str())
-                     .map(|(lineno, url)| (path.to_string(), lineno, Link::from(url.as_ref())));
+                     .map(|(lineno, url)| (path.to_string(), lineno, url.as_ref().to_string()));
 
     links.extend(parser);
     Ok(())

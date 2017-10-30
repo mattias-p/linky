@@ -44,7 +44,7 @@ fn main() {
             let lineno = cap.get(2).unwrap().as_str();
             let link = cap.get(3).unwrap().as_str();
 
-            links.push((path.to_string(), lineno.parse().unwrap(), Link::from(link)));
+            links.push((path.to_string(), lineno.parse().unwrap(), link.to_string()));
         }
     } else {
         for path in &opt.file {
