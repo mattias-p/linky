@@ -18,7 +18,6 @@ use std::io;
 use std::path::Path;
 
 use linky::BaseLink;
-use linky::BaseLinkError;
 use linky::check_skippable;
 use linky::Link;
 use linky::md_file_links;
@@ -78,7 +77,7 @@ fn main() {
         let parsed = if let &Some(ref base) = &opt.base {
             Link::parse_with_base(link.as_str(), &Path::new(&path), base)
         } else {
-            Link::parse(link.as_str()).map_err(BaseLinkError::from)
+            Link::parse_with_origin(link.as_str(), &Path::new(&path))
         };
         match parsed {
             Ok(link) => {

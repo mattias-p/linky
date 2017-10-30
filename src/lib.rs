@@ -242,7 +242,7 @@ pub enum Link {
 }
 
 impl Link {
-    pub fn parse(s: &str) -> Result<Self, ParseError> {
+    fn parse(s: &str) -> Result<Self, ParseError> {
         match Url::parse(s) {
             Ok(url) => Ok(Link::Url(url)),
             Err(ParseError::RelativeUrlWithoutBase) => Ok(Link::Path(s.to_string())),
@@ -250,16 +250,40 @@ impl Link {
         }
     }
 
-    pub fn parse_with_base(link: &str, origin: &Path, base: &BaseLink) -> Result<Self, BaseLinkError> {
+    pub fn parse_with_origin(link: &str, origin: &Path) -> Result<Self, BaseLinkError> {
         match Url::parse(link) {
-            Ok(url) => Ok(Link::Url(url)),
+            Ok(url) => {
+                Ok(Link::Url(url))
+            }
             Err(ParseError::RelativeUrlWithoutBase) => {
                 if Path::new(link).is_relative() {
                     let link = if link.starts_with('#') {
                         let file_name = origin.file_name().unwrap().to_string_lossy().to_string().add(link);
                         origin.with_file_name(file_name)
                     } else {
-                        origin.parent().unwrap().join(link)
+                        origin.with_file_name(link)
+                    };
+                    Ok(Link::Path(link.to_string_lossy().to_string()))
+                } else {
+                    Ok(Link::Path(link.to_string()))
+                }
+            }
+            Err(err) => Err(BaseLinkError::from(err)),
+        }
+    }
+
+    pub fn parse_with_base(link: &str, origin: &Path, base: &BaseLink) -> Result<Self, BaseLinkError> {
+        match Url::parse(link) {
+            Ok(url) => {
+                Ok(Link::Url(url))
+            }
+            Err(ParseError::RelativeUrlWithoutBase) => {
+                if Path::new(link).is_relative() {
+                    let link = if link.starts_with('#') {
+                        let file_name = origin.file_name().unwrap().to_string_lossy().to_string().add(link);
+                        origin.with_file_name(file_name)
+                    } else {
+                        origin.with_file_name(link)
                     };
                     Ok(Link::Path(link.to_string_lossy().to_string()))
                 } else {
