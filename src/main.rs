@@ -16,16 +16,12 @@ use std::borrow::Cow;
 use std::io;
 use std::io::BufRead;
 
-use linky::as_relative;
 use linky::BaseLink;
-use linky::BaseLinkError;
 use linky::Link;
 use linky::md_file_links;
 use regex::Regex;
 use shell_escape::escape;
 use structopt::StructOpt;
-use url::Url;
-use url::ParseError;
 
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
@@ -65,19 +61,7 @@ fn main() {
     }
 
     for (path, linenum, link) in links {
-        let parsed = match Url::parse(link.as_str()) {
-            Err(ParseError::RelativeUrlWithoutBase) => {
-                match &opt.base {
-                    &Some(ref base) => base.parse(as_relative(&link).to_string_lossy().to_string().as_str()).map(|base| base.into_link()),
-                    &None => Link::parse(link.as_str()).map_err(BaseLinkError::from),
-                }
-            },
-            Ok(url) => Ok(Link::Url(url)),
-            Err(err) => {
-                Err(BaseLinkError::from(err))
-            },
-        };
-        match parsed {
+        match Link::parse_with_base(link.as_str(), &opt.base) {
             Ok(link) => println!("{}:{}: {}", path, linenum, link),
             Err(err) => eprintln!("{}:{}: error: {}: {}", path, linenum, err, link),
         }

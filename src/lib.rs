@@ -264,6 +264,22 @@ impl Link {
             Err(err) => Err(err),
         }
     }
+
+    pub fn parse_with_base(link: &str, base: &Option<BaseLink>) -> Result<Self, BaseLinkError> {
+        match Url::parse(link) {
+            Err(ParseError::RelativeUrlWithoutBase) => {
+                match *base {
+                    Some(ref base) => {
+                        base.parse(as_relative(&link).to_string_lossy().to_string().as_str())
+                            .map(|base| base.into_link())
+                    }
+                    None => Link::parse(link).map_err(BaseLinkError::from),
+                }
+            }
+            Ok(url) => Ok(Link::Url(url)),
+            Err(err) => Err(BaseLinkError::from(err)),
+        }
+    }
 }
 
 impl fmt::Display for Link {
