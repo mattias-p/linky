@@ -163,12 +163,16 @@ fn check_skippable_url(url: &Url, client: &Client) -> Result<(), LookupError> {
     }
 }
 
-fn join_absolute<P1: AsRef<Path>, P2: AsRef<Path>>(base_path: &P1, path: &P2) -> PathBuf {
+pub fn as_relative<'a, P: AsRef<Path>>(path: &'a P) -> &'a Path {
     let mut components = path.as_ref().components();
     while components.as_path().has_root() {
         components.next();
     }
-    base_path.as_ref().join(components.as_path())
+    components.as_path()
+}
+
+fn join_absolute<P1: AsRef<Path>, P2: AsRef<Path>>(base_path: &P1, path: &P2) -> PathBuf {
+    base_path.as_ref().join(as_relative(path))
 }
 
 fn has_html_anchor(buffer: &str, anchor: &str) -> bool {
@@ -253,7 +257,7 @@ pub enum Link {
 }
 
 impl Link {
-    fn parse(s: &str) -> Result<Self, ParseError> {
+    pub fn parse(s: &str) -> Result<Self, ParseError> {
         match Url::parse(s) {
             Ok(url) => Ok(Link::Url(url)),
             Err(ParseError::RelativeUrlWithoutBase) => Ok(Link::Path(s.to_string())),
@@ -270,19 +274,67 @@ impl fmt::Display for Link {
         }
     }
 }
+impl Error for BaseLinkError {
 
+	fn description(&self) -> &str {
+		match *self {
+            BaseLinkError::ParseError(ref err) => err.description(),
+            BaseLinkError::CannotBeABase => "cannot be a base",
+        }
+	}
+
+	fn cause(&self) -> Option<&Error> {
+		match *self {
+            BaseLinkError::ParseError(ref err) => Some(err),
+            BaseLinkError::CannotBeABase => None,
+        }
+	}
+}
+
+#[derive(Debug)]
 pub enum BaseLinkError {
     CannotBeABase,
     ParseError(ParseError),
+}
+
+impl fmt::Display for BaseLinkError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            BaseLinkError::ParseError(ref err) => err.fmt(f),
+            BaseLinkError::CannotBeABase => write!(f, "cannot be a base"),
+        }
+    }
+}
+
+impl From<ParseError> for BaseLinkError {
+    fn from(err: ParseError) -> Self {
+        BaseLinkError::ParseError(err)
+    }
 }
 
 #[derive(Debug)]
 pub struct BaseLink(Link);
 
 impl BaseLink {
-    fn parse(s: &str) -> Result<Self, BaseLinkError> {
+    pub fn into_link(self) -> Link {
+        self.0
+    }
+    pub fn parse(&self, s: &str) -> Result<Self, BaseLinkError> {
+        match self.0 {
+            Link::Url(ref base) => match base.join(s) {
+                Ok(link) => Ok(BaseLink(Link::Url(link))),
+                Err(err) => Err(BaseLinkError::ParseError(err)),
+            },
+            Link::Path(ref base) => Ok(BaseLink(Link::Path(join_absolute(&base, &s).to_string_lossy().to_string()))),
+        }
+    }
+}
+
+impl FromStr for BaseLink {
+    type Err = BaseLinkError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match Link::parse(s) {
-            Ok(Link::Url(ref url)) if url.cannot_be_a_base() => Err(BaseLinkError::CannotBeABase),
+            Ok(Link::Url(ref base)) if base.cannot_be_a_base() => Err(BaseLinkError::CannotBeABase),
             Ok(link) => Ok(BaseLink(link)),
             Err(err) => Err(BaseLinkError::ParseError(err)),
         }
