@@ -14,6 +14,7 @@ use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use std::io;
+use std::ops::Add;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -265,18 +266,23 @@ impl Link {
         }
     }
 
-    pub fn parse_with_base(link: &str, base: &Option<BaseLink>) -> Result<Self, BaseLinkError> {
+    pub fn parse_with_base(link: &str, origin: &Path, base: &BaseLink) -> Result<Self, BaseLinkError> {
         match Url::parse(link) {
+            Ok(url) => Ok(Link::Url(url)),
             Err(ParseError::RelativeUrlWithoutBase) => {
-                match *base {
-                    Some(ref base) => {
-                        base.parse(as_relative(&link).to_string_lossy().to_string().as_str())
-                            .map(|base| base.into_link())
-                    }
-                    None => Link::parse(link).map_err(BaseLinkError::from),
+                if Path::new(link).is_relative() {
+                    let link = if link.starts_with('#') {
+                        let file_name = origin.file_name().unwrap().to_string_lossy().to_string().add(link);
+                        origin.with_file_name(file_name)
+                    } else {
+                        origin.parent().unwrap().join(link)
+                    };
+                    Ok(Link::Path(link.to_string_lossy().to_string()))
+                } else {
+                    base.parse(as_relative(&link).to_string_lossy().to_string().as_str())
+                        .map(|base| base.into_link())
                 }
             }
-            Ok(url) => Ok(Link::Url(url)),
             Err(err) => Err(BaseLinkError::from(err)),
         }
     }

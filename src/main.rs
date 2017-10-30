@@ -13,10 +13,12 @@ extern crate url;
 extern crate regex;
 
 use std::borrow::Cow;
-use std::io;
 use std::io::BufRead;
+use std::io;
+use std::path::Path;
 
 use linky::BaseLink;
+use linky::BaseLinkError;
 use linky::Link;
 use linky::md_file_links;
 use regex::Regex;
@@ -26,7 +28,7 @@ use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
-    #[structopt(long = "base", help = "Base link to use for relative URLs without base")]
+    #[structopt(long = "base", short = "b", help = "Join absolute paths to a base URL")]
     base: Option<BaseLink>,
 
     #[structopt(help = "Files to parse")]
@@ -61,7 +63,12 @@ fn main() {
     }
 
     for (path, linenum, link) in links {
-        match Link::parse_with_base(link.as_str(), &opt.base) {
+        let parsed = if let &Some(ref base) = &opt.base {
+            Link::parse_with_base(link.as_str(), &Path::new(&path), base)
+        } else {
+            Link::parse(link.as_str()).map_err(BaseLinkError::from)
+        };
+        match parsed {
             Ok(link) => println!("{}:{}: {}", path, linenum, link),
             Err(err) => eprintln!("{}:{}: error: {}: {}", path, linenum, err, link),
         }
