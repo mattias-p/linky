@@ -158,7 +158,7 @@ fn check_skippable_url(url: &Url, client: &Client) -> Result<(), LookupError> {
     }
 }
 
-pub fn as_relative<'a, P: AsRef<Path>>(path: &'a P) -> &'a Path {
+fn as_relative<'a, P: AsRef<Path>>(path: &'a P) -> &'a Path {
     let mut components = path.as_ref().components();
     while components.as_path().has_root() {
         components.next();
@@ -191,21 +191,17 @@ fn split_fragment(path: &str) -> Option<(&str, &str)> {
     }
 }
 
-pub struct MdAnchorParser<'a> {
+struct MdAnchorParser<'a> {
     parser: Parser<'a>,
     is_header: bool,
 }
 
 impl<'a> MdAnchorParser<'a> {
-    pub fn new(parser: Parser<'a>) -> Self {
+    fn new(parser: Parser<'a>) -> Self {
         MdAnchorParser {
             parser: parser,
             is_header: false,
         }
-    }
-
-    pub fn get_offset(&self) -> usize {
-        self.parser.get_offset()
     }
 }
 
@@ -345,10 +341,10 @@ impl From<ParseError> for BaseLinkError {
 pub struct BaseLink(Link);
 
 impl BaseLink {
-    pub fn into_link(self) -> Link {
+    fn into_link(self) -> Link {
         self.0
     }
-    pub fn parse(&self, s: &str) -> Result<Self, BaseLinkError> {
+    fn parse(&self, s: &str) -> Result<Self, BaseLinkError> {
         match self.0 {
             Link::Url(ref base) => match base.join(s) {
                 Ok(link) => Ok(BaseLink(Link::Url(link))),
@@ -371,11 +367,11 @@ impl FromStr for BaseLink {
 }
 
 
-pub fn slurp<P: AsRef<Path>>(filename: &P, mut buffer: &mut String) -> io::Result<usize> {
+fn slurp<P: AsRef<Path>>(filename: &P, mut buffer: &mut String) -> io::Result<usize> {
     File::open(filename.as_ref())?.read_to_string(&mut buffer)
 }
 
-pub fn anchor(text: &str) -> String {
+fn anchor(text: &str) -> String {
     let text = text.nfkc();
     let text = text.map(|c| if c.is_letter() || c.is_number() {
         c
@@ -400,7 +396,7 @@ pub fn anchor(text: &str) -> String {
     text.to_lowercase()
 }
 
-pub struct MdLinkParser<'a> {
+struct MdLinkParser<'a> {
     buffer: &'a str,
     parser: Parser<'a>,
     linenum: usize,
@@ -408,7 +404,7 @@ pub struct MdLinkParser<'a> {
 }
 
 impl<'a> MdLinkParser<'a> {
-    pub fn new(buffer: &'a str) -> Self {
+    fn new(buffer: &'a str) -> Self {
         MdLinkParser {
             parser: Parser::new(buffer),
             buffer: buffer,
