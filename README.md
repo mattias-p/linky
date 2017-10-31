@@ -1,20 +1,20 @@
 Linky
 =====
-Extract and check links.
+Extract and check links from Markdown files.
+
+A command line utility to extract links from Markdown files and to check links
+for brokenness.
 
 
-Features
---------
-* Input:
-  * Command line interface.
-  * Extract links from Markdown files.
-  * Read links to check from stdin in `grep -Hn` format.
-* Checking:
-  * Verify that HTTP(S) URLs are resolvable to successful HTTP status codes.
-  * Verify that local URLs are resolvable to local files.
-  * Verify that fragments in HTTP(S) URLs correspond HTML anchors.
-  * Verify that fragments in local URLs correspond Markdown headings.
+Motivation
+----------
 
+Maintaining Markdown documentation you often end up having lots of links to keep up to date.
+Linky checks all of the links and singles out the broken ones so you can fix them.
+
+Specifically, linky was created to ease maintenance of Markdown documentation on Github.
+
+It also checks links read from stdin in `grep -Hn` format.
 
 
 Installation
