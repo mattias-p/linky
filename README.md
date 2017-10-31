@@ -82,5 +82,5 @@ $ linky --check --base https://github.com/mattias-p/blob/master examples/example
 Resolve absolute local URLs as relative to a base domain, allowing HTTP redirects:
 
 ```sh
-$ linky --check --relative --base http://github.com/mattias-p/blob/master examples/examples.md
+$ linky --check --redirect --base http://github.com/mattias-p/blob/master examples/examples.md
 ```
