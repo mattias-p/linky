@@ -39,8 +39,6 @@ Compile and link the binary:
 $ cargo build --release
 ```
 
-[Install stable Rust and Cargo]: http://doc.crates.io/
-
 
 Examples
 --------
@@ -84,3 +82,22 @@ Resolve absolute local URLs as relative to a base domain, allowing HTTP redirect
 ```sh
 $ linky --check --redirect --base http://github.com/mattias-p/blob/master examples/examples.md
 ```
+
+
+Link checking
+-------------
+
+Invalid URLs are reported, as are links that cannot be resolved.
+
+Absolute path links are either reported immediately or joined to a base URL and resolved.
+Relative path links are resolved to readable ordinary files and directories in the local filesystem.
+HTTP(S) links are resolved to 200 responses, optionally following redirects.
+
+Links with fragments have their targets parsed so that the fragment can be resolved.
+For HTTP(S) links fragments are resolved to HTML anchors.
+For relative path links fragments are resolved to Markdown headings.
+
+HTTP(S) links with fragments are always resolved using GET requests.
+HTTP(S) links without fragments are resolved using HEAD requests, possibly followed up by a GET request for 405 responses allowing it.
+
+[Install stable Rust and Cargo]: http://doc.crates.io/
