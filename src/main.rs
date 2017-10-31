@@ -23,6 +23,8 @@ use linky::check_skippable;
 use linky::Link;
 use linky::md_file_links;
 use regex::Regex;
+use reqwest::Client;
+use reqwest::RedirectPolicy;
 use shell_escape::escape;
 use structopt::StructOpt;
 
@@ -35,6 +37,9 @@ struct Opt {
     #[structopt(long = "check", short = "c", help = "Check URLs")]
     check: bool,
 
+    #[structopt(long = "redirect", short = "r", help = "Follow HTTP redirects")]
+    redirect: bool,
+
     #[structopt(help = "Files to parse")]
     file: Vec<String>,
 }
@@ -43,9 +48,11 @@ fn main() {
     let opt = Opt::from_args();
 
     let client = if opt.check {
-        Some(reqwest::Client::builder()
-                 .build()
-                 .unwrap())
+        let mut builder = Client::builder();
+        if !opt.redirect {
+            builder.redirect(RedirectPolicy::none());
+        }
+        Some(builder.build().unwrap())
     } else {
         None
     };
