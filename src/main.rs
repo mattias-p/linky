@@ -31,10 +31,10 @@ use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
-    #[structopt(long = "base", short = "b", help = "Join absolute paths to a base URL")]
+    #[structopt(long = "base", short = "b", name = "url", help = "Join absolute paths to a base URL")]
     base: Option<BaseLink>,
 
-    #[structopt(long = "check", short = "c", help = "Check URLs")]
+    #[structopt(long = "check", short = "c", help = "Check links")]
     check: bool,
 
     #[structopt(long = "redirect", short = "r", help = "Follow HTTP redirects")]
