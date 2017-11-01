@@ -45,13 +45,17 @@ Usage
 
 The simplest thing you can do with linky is to extract links from a Markdown file:
 
-    linky example_site/path/to/example.md
+```sh
+linky example_site/path/to/example.md
+```
 
 To extract links from a directory structure we use find and xargs:
 
-    find examples -type f | xargs linky
+```sh
+find examples -type f | xargs linky
+```
 
-> **Note:** You'll need the -print0 and -0 options for find and xargs if your paths contain spaces.
+> **Note:** In case your paths contain spaces you may need the find -print0 and xargs -0 options.
 
 Let's take a look at the output format.
 Each line presents a link and where it was found, with source file path and line numbers.
@@ -61,11 +65,13 @@ Each line presents a link and where it was found, with source file path and line
 
 To check which links are broken and in what way, just add the --check option:
 
-    linky --check example_site/path/to/example.md
+```sh
+linky --check example_site/path/to/example.md
+```
 
 Notice that fewer lines are printed.
 The links that could be successfully resolved were filtered out of the output.
-For details on how links are checked see the [link resolution] section.
+For details on how links are checked see the [link resolution section].
 
 Also notice that an error token has been added to each one of the remaining lines.
 This error token indicates how the link resolution failed.
@@ -78,12 +84,16 @@ Linky can't resolve those links because the document root isn't at the file syst
 We need to override that with the --root option.
 As a first step, let's just take a quick look at the --root transformation in isolation:
 
-    linky --root=example_site example_site/path/to/example.md
+```sh
+linky --root=example_site example_site/path/to/example.md
+```
 
 The absolute local links are no longer printed exactly as they were in the source document.
 Now, check the links with specified --root:
 
-    linky --check --root=example_site example_site/path/to/example.md
+```sh
+linky --check --root=example_site example_site/path/to/example.md
+```
 
 Notice that even more lines have disappeared from the output.
 
@@ -94,7 +104,9 @@ Checkin the links in examples.md you probably see a couple of lines with HTTP_30
 By default linky does not follow HTTP redirects.
 If you want HTTP redirects to be followed simply specify the --redirects option.
 
-    linky --check --redirects example_site/path/to/examples.md
+```sh
+linky --check --redirects example_site/path/to/examples.md
+```
 
 Notice that the links that previously had HTTP_301 error tokens now have disappeared or have contracted other resolution problems. 
 
@@ -103,7 +115,9 @@ Notice that the links that previously had HTTP_301 error tokens now have disappe
 
 If you, for example, want to check links against a development version of a sister site you can pipe your links through sed to transform the base URL.
 
-    linky example_site/path/to/examples.md | sed 's,/master/,/develop/,' | linky --check
+```sh
+linky example_site/path/to/examples.md | sed 's,/master/,/develop/,' | linky --check
+```
 
 > **Note:** You may need to be careful with your sed expressoins so you don't inadvertently transform the path prefixes.
 
@@ -123,3 +137,4 @@ HTTP(S) links without fragments are resolved using HEAD requests, possibly follo
 
 
 [Install stable Rust and Cargo]: http://doc.crates.io/
+[Link resolution section]: #link-resolution
