@@ -1,5 +1,6 @@
 Linky
 =====
+
 Extract and check links from Markdown files.
 
 A command line utility to extract links from Markdown files and to check links
@@ -136,5 +137,24 @@ HTTP(S) links with fragments are always resolved using GET requests.
 HTTP(S) links without fragments are resolved using HEAD requests, possibly followed up by a GET request for 405 responses allowing it.
 
 
+License
+-------
+
+Copyright 2017 Mattias Päivärinta
+
+Licensed under the [Apache License, Version 2.0] (the "License");
+you may not use files in this distribution except in compliance with the
+License. You may obtain a copy of the License at
+
+    <http://www.apache.org/licenses/LICENSE-2.0>
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+
+[Apache License, Version 2.0]: LICENSE
 [Install stable Rust and Cargo]: http://doc.crates.io/
 [Link resolution section]: #link-resolution
