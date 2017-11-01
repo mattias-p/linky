@@ -14,8 +14,6 @@ Linky checks all of the links and singles out the broken ones so you can fix the
 
 Specifically, linky was created to ease maintenance of Markdown documentation on Github.
 
-It also checks links read from stdin in `grep -Hn` format.
-
 
 Installation
 ------------
