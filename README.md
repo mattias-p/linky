@@ -40,64 +40,88 @@ $ cargo build --release
 ```
 
 
-Examples
---------
+Usage
+-----
 
-### Inputs
+### Extracting links
 
-Extract links from Markdown files:
+The simplest thing you can do with linky is to extract links from a Markdown file:
 
-```sh
-$ linky examples/single.md examples/examples.md
-```
+    linky example_site/path/to/example.md
 
-Extract and check links from Markdown files:
+To extract links from a directory structure we use find and xargs:
 
-```sh
-$ linky --check examples/single.md
-```
+    find examples -type f | xargs linky
 
-Extract links from Markdown and check the ones containing "README":
+> **Note:** You'll need the -print0 and -0 options for find and xargs if your paths contain spaces.
 
-```sh
-$ linky examples/single.md | grep 'README[^ ]*' | linky --check
-```
-
-### Resolution
-
-Resolve absolute local URLs as relative to a local directory:
-
-```sh
-$ linky --check --base ./examples/markdown_site examples/examples.md
-```
-
-Resolve absolute local URLs as relative to a base domain:
-
-```sh
-$ linky --check --base https://github.com/mattias-p/blob/master examples/examples.md
-```
-
-Resolve absolute local URLs as relative to a base domain, allowing HTTP redirects:
-
-```sh
-$ linky --check --redirect --base http://github.com/mattias-p/blob/master examples/examples.md
-```
+Let's take a look at the output format.
+Each line presents a link and where it was found, with source file path and line numbers.
 
 
-Link checking
--------------
+### Checking links
 
-Invalid URLs are reported, as are links that cannot be resolved.
+To check which links are broken and in what way, just add the --check option:
 
-Absolute path links are either reported immediately or joined to a base URL and resolved.
-Relative path links are resolved to readable ordinary files and directories in the local filesystem.
-HTTP(S) links are resolved to 200 responses, optionally following redirects.
+    linky --check example_site/path/to/example.md
 
-Links with fragments have their targets parsed so that the fragment can be resolved.
+Notice that fewer lines are printed.
+The links that could be successfully resolved were filtered out of the output.
+For details on how links are checked see the [link resolution] section.
+
+Also notice that an error token has been added to each one of the remaining lines.
+This error token indicates how the link resolution failed.
+
+
+### Dealing with absolute local links
+
+Checkin the links in examples.md you probably see a couple of lines with ABSOLUTE error tokens.
+Linky can't resolve those links because the document root isn't at the file system root.
+We need to override that with the --root option.
+As a first step, let's just take a quick look at the --root transformation in isolation:
+
+    linky --root=example_site example_site/path/to/example.md
+
+The absolute local links are no longer printed exactly as they were in the source document.
+Now, check the links with specified --root:
+
+    linky --check --root=example_site example_site/path/to/example.md
+
+Notice that even more lines have disappeared from the output.
+
+
+### Dealing with HTTP redirects
+
+Checkin the links in examples.md you probably see a couple of lines with HTTP_301 error tokens.
+By default linky does not follow HTTP redirects.
+If you want HTTP redirects to be followed simply specify the --redirects option.
+
+    linky --check --redirects example_site/path/to/examples.md
+
+Notice that the links that previously had HTTP_301 error tokens now have disappeared or have contracted other resolution problems. 
+
+
+### Custom link transformation prior to resolution
+
+If you, for example, want to check links against a development version of a sister site you can pipe your links through sed to transform the base URL.
+
+    linky example_site/path/to/examples.md | sed 's,/master/,/develop/,' | linky --check
+
+> **Note:** You may need to be careful with your sed expressoins so you don't inadvertently transform the path prefixes.
+
+
+Link resolution
+---------------
+
+Local links are resolved to readable ordinary files and directories in the local filesystem.
+HTTP(S) links are resolved to 200-responses, optionally following redirects.
+
+For links with fragments the target documents are read, as opposed to just being checked for existence.
 For HTTP(S) links fragments are resolved to HTML anchors.
-For relative path links fragments are resolved to Markdown headings.
+For local links fragments are resolved to Markdown headings.
 
 HTTP(S) links with fragments are always resolved using GET requests.
 HTTP(S) links without fragments are resolved using HEAD requests, possibly followed up by a GET request for 405 responses allowing it.
+
 
 [Install stable Rust and Cargo]: http://doc.crates.io/
