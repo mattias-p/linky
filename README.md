@@ -143,8 +143,8 @@ License
 Copyright 2017 Mattias Päivärinta
 
 Licensed under the [Apache License, Version 2.0] (the "License");
-you may not use any files in this distribution except in compliance with the
-License. You may obtain a copy of the License at
+you may not use any of the files in this distribution except in compliance with
+the License. You may obtain a copy of the License at
 
 <http://www.apache.org/licenses/LICENSE-2.0>
 
