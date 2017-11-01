@@ -19,7 +19,6 @@ use std::io::BufRead;
 use std::io;
 use std::path::Path;
 
-use linky::BaseLink;
 use linky::check_skippable;
 use linky::Link;
 use linky::md_file_links;
@@ -32,14 +31,14 @@ use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
-    #[structopt(long = "base", short = "b", name = "url", help = "Join absolute paths to a base URL")]
-    base: Option<BaseLink>,
-
     #[structopt(long = "check", short = "c", help = "Check links")]
     check: bool,
 
-    #[structopt(long = "redirect", short = "r", help = "Follow HTTP redirects")]
+    #[structopt(long = "follow", short = "f", help = "Follow HTTP redirects")]
     redirect: bool,
+
+    #[structopt(long = "root", short = "r", name = "path", help = "Join absolute local links to a document root", default_value = "/")]
+    root: String,
 
     #[structopt(help = "Files to parse")]
     file: Vec<String>,
@@ -83,12 +82,7 @@ fn main() {
     }
 
     for (path, linenum, link) in links {
-        let parsed = if let &Some(ref base) = &opt.base {
-            Link::parse_with_base(link.as_str(), &Path::new(&path), base)
-        } else {
-            Link::parse_with_origin(link.as_str(), &Path::new(&path))
-        };
-        match parsed {
+        match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
             Ok(link) => {
                 let status: Box<fmt::Display> = if let &Some(ref client) = &client {
                     if let Err(err) = check_skippable(&link, &client) {

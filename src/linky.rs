@@ -6,7 +6,6 @@ use std::io::Read;
 use std::io;
 use std::ops::Add;
 use std::path::Path;
-use std::path::PathBuf;
 use std::str::FromStr;
 
 use bytecount::count;
@@ -159,10 +158,6 @@ fn as_relative<'a, P: AsRef<Path>>(path: &'a P) -> &'a Path {
     components.as_path()
 }
 
-fn join_absolute<P1: AsRef<Path>, P2: AsRef<Path>>(base_path: &P1, path: &P2) -> PathBuf {
-    base_path.as_ref().join(as_relative(path))
-}
-
 fn has_html_anchor(buffer: &str, anchor: &str) -> bool {
     for (_, tag) in htmlstream::tag_iter(buffer) {
         for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
@@ -238,7 +233,7 @@ impl Link {
         }
     }
 
-    pub fn parse_with_origin(link: &str, origin: &Path) -> Result<Self, BaseLinkError> {
+    pub fn parse_with_root<P1: AsRef<Path>, P2: AsRef<Path>>(link: &str, origin: &P1, root: &P2) -> Result<Self, BaseLinkError> {
         match Url::parse(link) {
             Ok(url) => {
                 Ok(Link::Url(url))
@@ -246,37 +241,14 @@ impl Link {
             Err(ParseError::RelativeUrlWithoutBase) => {
                 if Path::new(link).is_relative() {
                     let link = if link.starts_with('#') {
-                        let file_name = origin.file_name().unwrap().to_string_lossy().to_string().add(link);
-                        origin.with_file_name(file_name)
+                        let file_name = origin.as_ref().file_name().unwrap().to_string_lossy().to_string().add(link);
+                        origin.as_ref().with_file_name(file_name)
                     } else {
-                        origin.with_file_name(link)
+                        origin.as_ref().with_file_name(link)
                     };
                     Ok(Link::Path(link.to_string_lossy().to_string()))
                 } else {
-                    Ok(Link::Path(link.to_string()))
-                }
-            }
-            Err(err) => Err(BaseLinkError::from(err)),
-        }
-    }
-
-    pub fn parse_with_base(link: &str, origin: &Path, base: &BaseLink) -> Result<Self, BaseLinkError> {
-        match Url::parse(link) {
-            Ok(url) => {
-                Ok(Link::Url(url))
-            }
-            Err(ParseError::RelativeUrlWithoutBase) => {
-                if Path::new(link).is_relative() {
-                    let link = if link.starts_with('#') {
-                        let file_name = origin.file_name().unwrap().to_string_lossy().to_string().add(link);
-                        origin.with_file_name(file_name)
-                    } else {
-                        origin.with_file_name(link)
-                    };
-                    Ok(Link::Path(link.to_string_lossy().to_string()))
-                } else {
-                    base.parse(as_relative(&link).to_string_lossy().to_string().as_str())
-                        .map(|base| base.into_link())
+                    Ok(Link::Path(root.as_ref().join(as_relative(&link)).to_string_lossy().to_string()))
                 }
             }
             Err(err) => Err(BaseLinkError::from(err)),
@@ -332,21 +304,6 @@ impl From<ParseError> for BaseLinkError {
 
 #[derive(Debug)]
 pub struct BaseLink(Link);
-
-impl BaseLink {
-    fn into_link(self) -> Link {
-        self.0
-    }
-    fn parse(&self, s: &str) -> Result<Self, BaseLinkError> {
-        match self.0 {
-            Link::Url(ref base) => match base.join(s) {
-                Ok(link) => Ok(BaseLink(Link::Url(link))),
-                Err(err) => Err(BaseLinkError::ParseError(err)),
-            },
-            Link::Path(ref base) => Ok(BaseLink(Link::Path(join_absolute(&base, &s).to_string_lossy().to_string()))),
-        }
-    }
-}
 
 impl FromStr for BaseLink {
     type Err = BaseLinkError;
