@@ -1,6 +1,5 @@
 extern crate bytecount;
 extern crate htmlstream;
-extern crate linky;
 extern crate pulldown_cmark;
 extern crate reqwest;
 extern crate shell_escape;
@@ -11,6 +10,8 @@ extern crate unicode_categories;
 extern crate unicode_normalization;
 extern crate url;
 extern crate regex;
+
+mod linky;
 
 use std::borrow::Cow;
 use std::fmt;

@@ -1,13 +1,3 @@
-extern crate bytecount;
-extern crate htmlstream;
-extern crate pulldown_cmark;
-extern crate reqwest;
-extern crate shell_escape;
-extern crate structopt;
-extern crate unicode_categories;
-extern crate unicode_normalization;
-extern crate url;
-
 use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;
@@ -20,13 +10,16 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use bytecount::count;
+use htmlstream;
 use pulldown_cmark::Event;
 use pulldown_cmark::Parser;
 use pulldown_cmark::Tag;
+use reqwest;
 use reqwest::Client;
 use reqwest::StatusCode;
 use unicode_categories::UnicodeCategories;
 use unicode_normalization::UnicodeNormalization;
+use url;
 use url::ParseError;
 use url::Url;
 
