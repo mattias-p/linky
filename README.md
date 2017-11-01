@@ -10,9 +10,8 @@ for brokenness.
 Motivation
 ----------
 
-Maintaining Markdown documentation you often end up having lots of links to keep up to date.
-Linky checks all of the links and singles out the broken ones so you can fix them.
-
+Maintaining Markdown documentation you often end up with lots of links to tend to.
+Linky extracts all links and checks them, pointing out the broken ones so you can fix them.
 Specifically, linky was created to ease maintenance of Markdown documentation on Github.
 
 
@@ -32,10 +31,10 @@ $ unzip master.zip
 $ cd linky-master
 ```
 
-Compile and link the binary:
+Compile and install the binary:
 
 ```sh
-$ cargo build --release
+$ cargo install
 ```
 
 
@@ -80,7 +79,7 @@ This error token indicates how the link resolution failed.
 
 ### Dealing with absolute local links
 
-Checkin the links in examples.md you probably see a couple of lines with ABSOLUTE error tokens.
+Checking the links in examples.md with linky you should see a couple of lines with ABSOLUTE error tokens.
 Linky can't resolve those links because the document root isn't at the file system root.
 We need to override that with the --root option.
 As a first step, let's just take a quick look at the --root transformation in isolation:
@@ -101,7 +100,7 @@ Notice that even more lines have disappeared from the output.
 
 ### Dealing with HTTP redirects
 
-Checkin the links in examples.md you probably see a couple of lines with HTTP_301 error tokens.
+Checking the links in examples.md with linky you should see a couple of lines with HTTP_301 error tokens.
 By default linky does not follow HTTP redirects.
 If you want HTTP redirects to be followed simply specify the --redirects option.
 
