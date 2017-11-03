@@ -13,14 +13,17 @@ use htmlstream;
 use pulldown_cmark::Event;
 use pulldown_cmark::Parser;
 use pulldown_cmark::Tag;
-use reqwest;
 use reqwest::Client;
+use reqwest::Method;
+use reqwest::Response;
 use reqwest::StatusCode;
+use reqwest::header::Allow;
+use reqwest;
 use unicode_categories::UnicodeCategories;
 use unicode_normalization::UnicodeNormalization;
-use url;
 use url::ParseError;
 use url::Url;
+use url;
 
 #[derive(Debug)]
 pub enum LookupError {
@@ -138,16 +141,36 @@ fn check_skippable_url(url: &Url, client: &Client) -> Result<(), LookupError> {
                 Err(LookupError::NoAnchor)
             }
         } else {
-            let response = client.head(url.clone()).send()?;
-            if response.status().is_success() {
-                Ok(())
-            } else {
-                Err(LookupError::HttpStatus(response.status()))
+            match lookup(url.clone(), client)? {
+                StatusCode::Ok => Ok(()),
+                status => Err(LookupError::HttpStatus(status)),
             }
         }
     } else {
         Err(LookupError::Protocol)
     }
+}
+
+trait AllowsMethod {
+    fn allows_method(&self, method: Method) -> bool;
+}
+
+impl AllowsMethod for Response {
+    fn allows_method(&self, method: Method) -> bool {
+        self.headers().get::<Allow>().map_or(false, |allow|
+            allow.0.iter().any(|m| *m == method)
+        )
+    }
+}
+
+fn lookup(url: Url, client: &Client) -> reqwest::Result<StatusCode> {
+    let response = client.head(url.clone()).send()?;
+    let response = if response.status() == StatusCode::MethodNotAllowed && response.allows_method(Method::Get) {
+        client.get(url).send()?
+    } else {
+        response
+    };
+    Ok(response.status())
 }
 
 fn as_relative<'a, P: AsRef<Path>>(path: &'a P) -> &'a Path {
