@@ -52,7 +52,7 @@ linky example_site/path/to/example.md
 To extract links from a directory structure we use find and xargs:
 
 ```sh
-find examples -type f | xargs linky
+find example_site -type f | xargs linky
 ```
 
 > **Note:** In case your paths contain spaces you may need the find -print0 and xargs -0 options.
@@ -79,7 +79,7 @@ This error token indicates how the link resolution failed.
 
 ### Dealing with absolute local links
 
-Checking the links in examples.md with linky you should see a couple of lines with ABSOLUTE error tokens.
+Checking the links in example.md with linky you should see a couple of lines with ABSOLUTE error tokens.
 Linky can't resolve those links because the document root isn't at the file system root.
 We need to override that with the --root option.
 As a first step, let's just take a quick look at the --root transformation in isolation:
@@ -100,15 +100,15 @@ Notice that even more lines have disappeared from the output.
 
 ### Dealing with HTTP redirects
 
-Checking the links in examples.md with linky you should see a couple of lines with HTTP_301 error tokens.
+Checking the links in example.md with linky you should see a couple of lines with HTTP\_301 error tokens.
 By default linky does not follow HTTP redirects.
 If you want HTTP redirects to be followed simply specify the --redirects option.
 
 ```sh
-linky --check --redirects example_site/path/to/examples.md
+linky --check --redirects example_site/path/to/example.md
 ```
 
-Notice that the links that previously had HTTP_301 error tokens now have disappeared or have contracted other resolution problems. 
+Notice that the links that previously had HTTP\_301 error tokens now have disappeared or have contracted other resolution problems.
 
 
 ### Custom link transformation prior to resolution
@@ -116,7 +116,7 @@ Notice that the links that previously had HTTP_301 error tokens now have disappe
 If you, for example, want to check links against a development version of a sister site you can pipe your links through sed to transform the base URL.
 
 ```sh
-linky example_site/path/to/examples.md | sed 's,/master/,/develop/,' | linky --check
+linky example_site/path/to/example.md | sed 's,/master/,/develop/,' | linky --check
 ```
 
 > **Note:** You may need to be careful with your sed expressoins so you don't inadvertently transform the path prefixes.
