@@ -116,7 +116,7 @@ Notice that the links that previously had HTTP\_301 error tokens now have disapp
 If you, for example, want to check links against a development version of a sister site you can pipe your links through sed to transform the base URL.
 
 ```sh
-linky example_site/path/to/example.md | sed 's,/master/,/develop/,' | linky --check
+linky example_site/path/to/example.md | sed 's,/master/,/example/,' | linky --check
 ```
 
 > **Note:** You may need to be careful with your sed expressoins so you don't inadvertently transform the path prefixes.
