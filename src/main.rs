@@ -83,9 +83,9 @@ fn main() {
 
     for (path, linenum, link) in links {
         match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
-            Ok(link) => {
+            Ok(parsed) => {
                 let status: Box<fmt::Display> = if let &Some(ref client) = &client {
-                    if let Err(err) = check_skippable(&link, &client) {
+                    if let Err(err) = check_skippable(&parsed, &client) {
                         Box::new(err)
                     } else {
                         continue;
