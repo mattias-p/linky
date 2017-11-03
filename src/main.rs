@@ -60,7 +60,7 @@ fn main() {
     let mut links = vec![];
 
     if opt.file.is_empty() {
-        let re = Regex::new(r"^(.*):(\d+): ([^ ]*)$").unwrap();
+        let re = Regex::new(r"^(.*):(\d+):  ([^ ]*)$").unwrap();
         let stdin = io::stdin();
         for line in stdin.lock().lines() {
             let line = line.unwrap().as_str().to_string();
