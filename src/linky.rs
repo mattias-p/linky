@@ -184,7 +184,7 @@ fn as_relative<'a, P: AsRef<Path>>(path: &'a P) -> &'a Path {
 fn has_html_anchor(buffer: &str, anchor: &str) -> bool {
     for (_, tag) in htmlstream::tag_iter(buffer) {
         for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
-            if tag.name == "a" && (attr.name == "name" || attr.name == "id") {
+            if attr.name == "id" || (tag.name == "a" && attr.name == "name") {
                 if attr.value == anchor {
                     return true;
                 }

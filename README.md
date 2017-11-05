@@ -51,7 +51,7 @@ example_site/path/to/example.md:2:  https://github.com/mattias-p/linky/blob/mast
 example_site/path/to/example.md:3:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
 example_site/path/to/example.md:4:  other.md
 example_site/path/to/example.md:5:  non-existing.md
-example_site/path/to/example.md:6:  other.md#heading
+example_site/path/to/example.md:6:  other.md#existing
 example_site/path/to/example.md:7:  other.md#non-existing
 example_site/path/to/example.md:8:  #heading
 example_site/path/to/example.md:9:  #non-existing
@@ -65,7 +65,6 @@ To check which links are broken and in what way, just add the --check option:
 $ linky --check example_site/path/to/example.md
 example_site/path/to/example.md:3: NO_ANCHOR https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
 example_site/path/to/example.md:5: NO_DOCUMENT non-existing.md
-example_site/path/to/example.md:6: NO_ANCHOR other.md#heading
 example_site/path/to/example.md:7: NO_ANCHOR other.md#non-existing
 example_site/path/to/example.md:9: NO_ANCHOR #non-existing
 ```
@@ -93,7 +92,7 @@ example_site/path/to/example.md:2:  https://github.com/mattias-p/linky/blob/mast
 example_site/path/to/example.md:3:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
 example_site/path/to/example.md:4:  other.md
 example_site/path/to/example.md:5:  non-existing.md
-example_site/path/to/example.md:6:  other.md#heading
+example_site/path/to/example.md:6:  other.md#existing
 example_site/path/to/example.md:7:  other.md#non-existing
 example_site/path/to/example.md:8:  #heading
 example_site/path/to/example.md:9:  #non-existing
