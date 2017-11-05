@@ -55,19 +55,20 @@ example_site/path/to/example.md:6:  other.md
 example_site/path/to/example.md:7:  non-existing.md
 example_site/path/to/example.md:8:  other.md#heading
 example_site/path/to/example.md:9:  other.md#non-existing
-example_site/path/to/example.md:10:  /path/to/other.md
-example_site/path/to/example.md:11:  /path/to/non-existing.md
-example_site/path/to/example.md:12:  /path/to/other.md#existing
-example_site/path/to/example.md:13:  /path/to/other.md#non-existing
-example_site/path/to/example.md:14:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/only-on-example-branch.md
-example_site/path/to/example.md:15:  #heading
-example_site/path/to/example.md:16:  #non-existing
+example_site/path/to/example.md:10:  #heading
+example_site/path/to/example.md:11:  #non-existing
 ```
 
 To extract links from a directory structure we use find and xargs:
 
 ```sh
 $ find example_site -type f | xargs linky
+example_site/path/to/absolute.md:2:  /path/to/other.md
+example_site/path/to/absolute.md:3:  /path/to/non-existing.md
+example_site/path/to/absolute.md:4:  /path/to/other.md#existing
+example_site/path/to/absolute.md:5:  /path/to/other.md#non-existing
+example_site/path/to/transform.md:2:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/non-existing.md
+example_site/path/to/transform.md:3:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/only-on-example-branch.md
 example_site/path/to/example.md:2:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
 example_site/path/to/example.md:3:  http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
 example_site/path/to/example.md:4:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
@@ -76,13 +77,8 @@ example_site/path/to/example.md:6:  other.md
 example_site/path/to/example.md:7:  non-existing.md
 example_site/path/to/example.md:8:  other.md#heading
 example_site/path/to/example.md:9:  other.md#non-existing
-example_site/path/to/example.md:10:  /path/to/other.md
-example_site/path/to/example.md:11:  /path/to/non-existing.md
-example_site/path/to/example.md:12:  /path/to/other.md#existing
-example_site/path/to/example.md:13:  /path/to/other.md#non-existing
-example_site/path/to/example.md:14:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/only-on-example-branch.md
-example_site/path/to/example.md:15:  #heading
-example_site/path/to/example.md:16:  #non-existing
+example_site/path/to/example.md:10:  #heading
+example_site/path/to/example.md:11:  #non-existing
 example_site/path/to/other.md:2:  example.md
 ```
 
@@ -104,12 +100,7 @@ example_site/path/to/example.md:5: HTTP_301 http://github.com/mattias-p/linky/bl
 example_site/path/to/example.md:7: NO_DOCUMENT non-existing.md
 example_site/path/to/example.md:8: NO_ANCHOR other.md#heading
 example_site/path/to/example.md:9: NO_ANCHOR other.md#non-existing
-example_site/path/to/example.md:10: ABSOLUTE /path/to/other.md
-example_site/path/to/example.md:11: ABSOLUTE /path/to/non-existing.md
-example_site/path/to/example.md:12: ABSOLUTE /path/to/other.md#existing
-example_site/path/to/example.md:13: ABSOLUTE /path/to/other.md#non-existing
-example_site/path/to/example.md:14: HTTP_404 https://github.com/mattias-p/linky/blob/master/example_site/path/to/only-on-example-branch.md
-example_site/path/to/example.md:16: NO_ANCHOR #non-existing
+example_site/path/to/example.md:11: NO_ANCHOR #non-existing
 ```
 
 Notice that fewer lines are printed.
@@ -124,6 +115,7 @@ This error token indicates how the link resolution failed.
 
 If absolute local links are used, linky can't resolve those without knowing the document root directory.
 This is specified using the --root option (which defaults to the file system root).
+
 First, let's just examine the links in the example file:
 
 ```sh
@@ -156,12 +148,7 @@ example_site/path/to/example.md:5: NO_ANCHOR http://github.com/mattias-p/linky/b
 example_site/path/to/example.md:7: NO_DOCUMENT non-existing.md
 example_site/path/to/example.md:8: NO_ANCHOR other.md#heading
 example_site/path/to/example.md:9: NO_ANCHOR other.md#non-existing
-example_site/path/to/example.md:10: ABSOLUTE /path/to/other.md
-example_site/path/to/example.md:11: ABSOLUTE /path/to/non-existing.md
-example_site/path/to/example.md:12: ABSOLUTE /path/to/other.md#existing
-example_site/path/to/example.md:13: ABSOLUTE /path/to/other.md#non-existing
-example_site/path/to/example.md:14: HTTP_404 https://github.com/mattias-p/linky/blob/master/example_site/path/to/only-on-example-branch.md
-example_site/path/to/example.md:16: NO_ANCHOR #non-existing
+example_site/path/to/example.md:11: NO_ANCHOR #non-existing
 ```
 
 Notice that the links that previously had HTTP\_301 error tokens now have disappeared or have contracted other resolution problems.
