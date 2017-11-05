@@ -41,7 +41,7 @@ $ cargo install
 Usage
 -----
 
-### Extracting links
+### Extracting and checking links
 
 The simplest thing you can do with linky is to extract links from a Markdown file:
 
@@ -57,7 +57,31 @@ example_site/path/to/example.md:8:  #heading
 example_site/path/to/example.md:9:  #non-existing
 ```
 
-To extract links from a directory structure we use find and xargs:
+Each line in the output presents a link and where it was found, with source file path and line numbers.
+
+To check which links are broken and in what way, just add the --check option:
+
+```sh
+$ linky --check example_site/path/to/example.md
+example_site/path/to/example.md:3: NO_ANCHOR https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
+example_site/path/to/example.md:5: NO_DOCUMENT non-existing.md
+example_site/path/to/example.md:6: NO_ANCHOR other.md#heading
+example_site/path/to/example.md:7: NO_ANCHOR other.md#non-existing
+example_site/path/to/example.md:9: NO_ANCHOR #non-existing
+```
+
+Notice that fewer lines are printed.
+The links that could be successfully resolved were filtered out of the output.
+For details on how links are checked see the [link resolution section].
+
+Also notice that an error token has been added to each one of the remaining lines.
+This error token indicates how the link resolution failed.
+
+
+### Recursive directory traversal
+
+Linky doesn't do directory traversal on its own.
+Instead it integrates well with find and xargs:
 
 ```sh
 $ find example_site -type f | xargs linky
@@ -81,30 +105,6 @@ example_site/path/to/transform.md:3:  https://github.com/mattias-p/linky/blob/ma
 ```
 
 > **Note:** In case your paths contain spaces you may need the find -print0 and xargs -0 options.
-
-Let's take a look at the output format.
-Each line presents a link and where it was found, with source file path and line numbers.
-
-
-### Checking links
-
-To check which links are broken and in what way, just add the --check option:
-
-```sh
-$ linky --check example_site/path/to/example.md
-example_site/path/to/example.md:3: NO_ANCHOR https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
-example_site/path/to/example.md:5: NO_DOCUMENT non-existing.md
-example_site/path/to/example.md:6: NO_ANCHOR other.md#heading
-example_site/path/to/example.md:7: NO_ANCHOR other.md#non-existing
-example_site/path/to/example.md:9: NO_ANCHOR #non-existing
-```
-
-Notice that fewer lines are printed.
-The links that could be successfully resolved were filtered out of the output.
-For details on how links are checked see the [link resolution section].
-
-Also notice that an error token has been added to each one of the remaining lines.
-This error token indicates how the link resolution failed.
 
 
 ### Dealing with absolute local links
