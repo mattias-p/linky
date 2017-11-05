@@ -84,16 +84,14 @@ fn main() {
     for (path, linenum, link) in links {
         match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
             Ok(parsed) => {
-                let status: Box<fmt::Display> = if let &Some(ref client) = &client {
-                    if let Err(err) = check_skippable(&parsed, &client) {
-                        Box::new(err)
-                    } else {
-                        continue;
-                    }
+                let status = if let &Some(ref client) = &client {
+                    check_skippable(&parsed, &client).err().map(|err| Box::new(err) as Box<fmt::Display>)
                 } else {
-                    Box::new("")
+                    Some(Box::new("") as Box<fmt::Display>)
                 };
-                println!("{}:{}: {} {}", path, linenum, status, link);
+                if let Some(status) = status {
+                    println!("{}:{}: {} {}", path, linenum, status, link);
+                }
             }
             Err(err) => eprintln!("{}:{}: error: {}: {}", path, linenum, err, link),
         }
