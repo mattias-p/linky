@@ -122,25 +122,25 @@ This error token indicates how the link resolution failed.
 
 ### Dealing with absolute local links
 
-Checking the links in example.md with linky you should see a couple of lines with ABSOLUTE error tokens.
-Linky can't resolve those links because the document root isn't at the file system root.
-We need to override that with the --root option:
+If absolute local links are used, linky can't resolve those without knowing the document root directory.
+This is specified using the --root option (which defaults to the file system root).
+First, let's just examine the links in the example file:
 
 ```sh
-$ linky --check --root=example_site example_site/path/to/example.md
-example_site/path/to/example.md:3: HTTP_301 http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
-example_site/path/to/example.md:4: NO_ANCHOR https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
-example_site/path/to/example.md:5: HTTP_301 http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#non-existing
-example_site/path/to/example.md:7: NO_DOCUMENT non-existing.md
-example_site/path/to/example.md:8: NO_ANCHOR other.md#heading
-example_site/path/to/example.md:9: NO_ANCHOR other.md#non-existing
-example_site/path/to/example.md:11: NO_DOCUMENT /path/to/non-existing.md
-example_site/path/to/example.md:13: NO_ANCHOR /path/to/other.md#non-existing
-example_site/path/to/example.md:14: HTTP_404 https://github.com/mattias-p/linky/blob/master/example_site/path/to/only-on-example-branch.md
-example_site/path/to/example.md:16: NO_ANCHOR #non-existing
+$ linky --check example_site/path/to/absolute.md
+example_site/path/to/absolute.md:2: ABSOLUTE /path/to/other.md
+example_site/path/to/absolute.md:3: ABSOLUTE /path/to/non-existing.md
+example_site/path/to/absolute.md:4: ABSOLUTE /path/to/other.md#existing
+example_site/path/to/absolute.md:5: ABSOLUTE /path/to/other.md#non-existing
 ```
 
-Notice that even more lines have disappeared from the output.
+Specify the document root directory to let the resolution to continue:
+
+```sh
+$ linky --check --root=example_site example_site/path/to/absolute.md
+example_site/path/to/absolute.md:3: NO_DOCUMENT /path/to/non-existing.md
+example_site/path/to/absolute.md:5: NO_ANCHOR /path/to/other.md#non-existing
+```
 
 
 ### Dealing with HTTP redirects
