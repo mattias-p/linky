@@ -11,6 +11,5 @@
 * [absolute link without fragment, not fixed by --root=example\_site](/path/to/non-existing.md)
 * [absolute link with fragment, fixed by --root=example\_site](/path/to/other.md#existing)
 * [absolute link with fragment, not fixed by --root=example\_site](/path/to/other.md#non-existing)
-* [remote link witout fragment, fixed by transformation](https://github.com/mattias-p/linky/blob/master/example_site/path/to/only-on-example-branch.md)
 * [in-document link with fragment, ok](#heading)
 * [in-document link with fragment, broken](#non-existing)

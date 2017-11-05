@@ -170,24 +170,30 @@ Notice that the links that previously had HTTP\_301 error tokens now have disapp
 ### Custom link transformation prior to resolution
 
 If you, for example, want to check links against a development version of a sister site you can pipe your links through sed to transform the base URL.
+First, let's just extract the links from the example file:
 
 ```sh
-$ linky example_site/path/to/example.md | sed 's,/master/,/example/,' | linky --check
-example_site/path/to/example.md:2: HTTP_404 https://github.com/mattias-p/linky/blob/example/example_site/path/to/other.md
-example_site/path/to/example.md:3: HTTP_301 http://github.com/mattias-p/linky/blob/example/example_site/path/to/other.md
-example_site/path/to/example.md:4: HTTP_404 https://github.com/mattias-p/linky/blob/example/example_site/path/to/other.md#existing
-example_site/path/to/example.md:5: HTTP_301 http://github.com/mattias-p/linky/blob/example/example_site/path/to/other.md#non-existing
-example_site/path/to/example.md:7: NO_DOCUMENT non-existing.md
-example_site/path/to/example.md:8: NO_ANCHOR other.md#heading
-example_site/path/to/example.md:9: NO_ANCHOR other.md#non-existing
-example_site/path/to/example.md:10: ABSOLUTE /path/to/other.md
-example_site/path/to/example.md:11: ABSOLUTE /path/to/non-existing.md
-example_site/path/to/example.md:12: ABSOLUTE /path/to/other.md#existing
-example_site/path/to/example.md:13: ABSOLUTE /path/to/other.md#non-existing
-example_site/path/to/example.md:16: NO_ANCHOR #non-existing
+$ linky example_site/path/to/transform.md
+example_site/path/to/transform.md:2:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/non-existing.md
+example_site/path/to/transform.md:3:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/only-on-example-branch.md
+```
+
+Then use sed to edit the links to point to the sister site:
+
+```sh
+$ linky example_site/path/to/transform.md | sed 's,/master/,/example/,'
+example_site/path/to/transform.md:2:  https://github.com/mattias-p/linky/blob/example/example_site/path/to/non-existing.md
+example_site/path/to/transform.md:3:  https://github.com/mattias-p/linky/blob/example/example_site/path/to/only-on-example-branch.md
 ```
 
 > **Note:** You may need to be careful with your sed expressoins so you don't inadvertently transform the path prefixes.
+
+Finally, pipe the edited linky output into another linky process that actually checks the links:
+
+```sh
+$ linky example_site/path/to/transform.md | sed 's,/master/,/example/,' | linky --check
+example_site/path/to/transform.md:2: HTTP_404 https://github.com/mattias-p/linky/blob/master/example_site/path/to/non-existing.md
+```
 
 
 Link resolution
