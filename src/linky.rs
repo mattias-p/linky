@@ -410,3 +410,23 @@ pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<(String, usize, String)>
     links.extend(parser);
     Ok(())
 }
+
+pub fn link_status(link: &Link, client: &Option<Client>) -> LookupTag {
+    if let &Some(ref client) = client {
+        LookupTag(Some(check_skippable(&link, &client).err()))
+    } else {
+        LookupTag(None)
+    }
+}
+
+pub struct LookupTag(Option<Option<LookupError>>);
+
+impl LookupTag {
+    pub fn display(self) -> Option<Box<fmt::Display>> {
+        match self.0 {
+            Some(Some(err)) => Some(Box::new(err) as Box<fmt::Display>),
+            Some(None) => None,
+            None => Some(Box::new("") as Box<fmt::Display>),
+        }
+    }
+}

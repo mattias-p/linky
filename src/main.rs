@@ -14,13 +14,12 @@ extern crate regex;
 mod linky;
 
 use std::borrow::Cow;
-use std::fmt;
 use std::io::BufRead;
 use std::io;
 use std::path::Path;
 
-use linky::check_skippable;
 use linky::Link;
+use linky::link_status;
 use linky::md_file_links;
 use regex::Regex;
 use reqwest::Client;
@@ -84,13 +83,8 @@ fn main() {
     for (path, linenum, link) in links {
         match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
             Ok(parsed) => {
-                let status = if let &Some(ref client) = &client {
-                    check_skippable(&parsed, &client).err().map(|err| Box::new(err) as Box<fmt::Display>)
-                } else {
-                    Some(Box::new("") as Box<fmt::Display>)
-                };
-                if let Some(status) = status {
-                    println!("{}:{}: {} {}", path, linenum, status, link);
+                if let Some(tag) = link_status(&parsed, &client).display() {
+                    println!("{}:{}: {} {}", path, linenum, tag, link);
                 }
             }
             Err(err) => eprintln!("{}:{}: error: {}: {}", path, linenum, err, link),
