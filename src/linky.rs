@@ -18,7 +18,10 @@ use pulldown_cmark::Parser;
 use pulldown_cmark::Tag;
 use regex::Regex;
 use reqwest::Client;
+use reqwest::header::ContentType;
 use reqwest::Method;
+use reqwest::mime;
+use reqwest::mime::Mime;
 use reqwest::Response;
 use reqwest::StatusCode;
 use reqwest::header::Allow;
@@ -37,6 +40,7 @@ pub enum LookupError {
     Protocol,
     Absolute,
     Url(url::ParseError),
+    Mime(Option<Mime>),
 }
 
 impl fmt::Display for LookupError {
@@ -50,6 +54,7 @@ impl fmt::Display for LookupError {
             LookupError::Protocol => write!(f, "PROTOCOL"),
             LookupError::Absolute => write!(f, "ABSOLUTE"),
             LookupError::Url(_) => write!(f, "URL"),
+            LookupError::Mime(_) => write!(f, "MIME"),
         }
     }
 }
@@ -66,6 +71,7 @@ impl Error for LookupError {
             LookupError::Protocol => "unrecognized protocol",
             LookupError::Absolute => "unhandled absolute path",
             LookupError::Url(_) => "invalid url",
+            LookupError::Mime(_) => "unrecognized mime type",
         }
 	}
 
@@ -128,13 +134,18 @@ fn check_skippable_path(path: &str, id_transform: &ToId, headers: &mut Headers) 
     }
 }
 
-fn check_skippable_url(url: &Url, client: &Client, prefix: &str) -> Result<(), LookupError> {
+fn check_skippable_url(url: &Url, client: &Client) -> Result<(), LookupError> {
     if url.scheme() == "http" || url.scheme() == "https" {
         if let Some(fragment) = url.fragment() {
             let mut response = client.get(url.clone()).send()?;
             if !response.status().is_success() {
                 Err(LookupError::HttpStatus(response.status()))?;
             }
+            match response.headers().get::<ContentType>() {
+                None => Err(LookupError::Mime(None))?,
+                Some(&ContentType(ref mime_type)) if mime_type.type_() != mime::TEXT || mime_type.subtype() != mime::HTML => Err(LookupError::Mime(Some(mime_type.clone())))?,
+                _ => {},
+            };
             let mut buffer = String::new();
             response.read_to_string(&mut buffer)?;
             if has_html_anchor(&buffer, fragment) {
