@@ -1,23 +1,26 @@
 extern crate bytecount;
 extern crate htmlstream;
+#[macro_use]
+extern crate lazy_static;
 extern crate pulldown_cmark;
 extern crate reqwest;
 extern crate shell_escape;
 extern crate structopt;
 #[macro_use]
 extern crate structopt_derive;
-extern crate unicode_categories;
-extern crate unicode_normalization;
 extern crate url;
 extern crate regex;
 
 mod linky;
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::io::BufRead;
 use std::io;
 use std::path::Path;
 
+use linky::GithubId;
+use linky::Headers;
 use linky::Link;
 use linky::link_status;
 use linky::md_file_links;
@@ -80,10 +83,12 @@ fn main() {
         }
     }
 
+    let mut all_headers = HashMap::new();
     for (path, linenum, link) in links {
         match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
             Ok(parsed) => {
-                if let Some(tag) = link_status(&parsed, &client).display() {
+                let headers = all_headers.entry(path.clone()).or_insert_with(|| Headers::new());
+                if let Some(tag) = link_status(&parsed, &client, &GithubId, headers).display() {
                     println!("{}:{}: {} {}", path, linenum, tag, link);
                 }
             }

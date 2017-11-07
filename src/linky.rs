@@ -1,4 +1,7 @@
+use std::ascii::AsciiExt;
 use std::borrow::Cow;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::error::Error;
 use std::fmt;
 use std::fs::File;
@@ -13,14 +16,13 @@ use htmlstream;
 use pulldown_cmark::Event;
 use pulldown_cmark::Parser;
 use pulldown_cmark::Tag;
+use regex::Regex;
 use reqwest::Client;
 use reqwest::Method;
 use reqwest::Response;
 use reqwest::StatusCode;
 use reqwest::header::Allow;
 use reqwest;
-use unicode_categories::UnicodeCategories;
-use unicode_normalization::UnicodeNormalization;
 use url::ParseError;
 use url::Url;
 use url;
@@ -95,11 +97,11 @@ impl From<url::ParseError> for LookupError {
     }
 }
 
-pub fn check_skippable<'a>(link: &Link, client: &Client) -> Result<(), LookupError> {
+pub fn check_skippable<'a>(link: &Link, client: &Client, id_transform: &ToId, headers: &mut Headers) -> Result<(), LookupError> {
     match *link {
         Link::Path(ref path) => {
             if Path::new(path).is_relative() {
-                check_skippable_path(path.as_ref())
+                check_skippable_path(path.as_ref(), id_transform, headers)
             } else {
                 Err(LookupError::Absolute)
             }
@@ -108,11 +110,11 @@ pub fn check_skippable<'a>(link: &Link, client: &Client) -> Result<(), LookupErr
     }
 }
 
-fn check_skippable_path(path: &str) -> Result<(), LookupError> {
+fn check_skippable_path(path: &str, id_transform: &ToId, headers: &mut Headers) -> Result<(), LookupError> {
     if let Some((path, fragment)) = split_fragment(path) {
         let mut buffer = String::new();
         slurp(&path, &mut buffer)?;
-        if MdAnchorParser::from(buffer.as_str()).any(|anchor| *anchor == *fragment) {
+        if MdAnchorParser::from_buffer(buffer.as_str(), id_transform, headers).any(|anchor| *anchor == *fragment) {
             Ok(())
         } else {
             Err(LookupError::NoAnchor)
@@ -126,7 +128,7 @@ fn check_skippable_path(path: &str) -> Result<(), LookupError> {
     }
 }
 
-fn check_skippable_url(url: &Url, client: &Client) -> Result<(), LookupError> {
+fn check_skippable_url(url: &Url, client: &Client, prefix: &str) -> Result<(), LookupError> {
     if url.scheme() == "http" || url.scheme() == "https" {
         if let Some(fragment) = url.fragment() {
             let mut response = client.get(url.clone()).send()?;
@@ -205,20 +207,22 @@ fn split_fragment(path: &str) -> Option<(&str, &str)> {
 struct MdAnchorParser<'a> {
     parser: Parser<'a>,
     is_header: bool,
+    headers: &'a mut Headers,
+    id_transform: &'a ToId,
 }
 
 impl<'a> MdAnchorParser<'a> {
-    fn new(parser: Parser<'a>) -> Self {
+    fn new(parser: Parser<'a>, id_transform: &'a ToId, headers: &'a mut Headers) -> Self {
         MdAnchorParser {
             parser: parser,
             is_header: false,
+            headers: headers,
+            id_transform: id_transform,
         }
     }
-}
 
-impl<'a> From<&'a str> for MdAnchorParser<'a> {
-    fn from(buffer: &'a str) -> Self {
-        MdAnchorParser::new(Parser::new(buffer))
+    fn from_buffer(buffer: &'a str, id_transform: &'a ToId, headers: &'a mut Headers) -> Self {
+        MdAnchorParser::new(Parser::new(buffer), id_transform, headers)
     }
 }
 
@@ -232,7 +236,8 @@ impl<'a> Iterator for MdAnchorParser<'a> {
                 }
                 Event::Text(text) => if self.is_header {
                     self.is_header = false;
-                    return Some(anchor(text.as_ref()));
+                    let count = self.headers.register(text.to_string());
+                    return Some(self.id_transform.to_id(text.as_ref(), count));
                 },
                 _ => (),
             }
@@ -344,29 +349,50 @@ fn slurp<P: AsRef<Path>>(filename: &P, mut buffer: &mut String) -> io::Result<us
     File::open(filename.as_ref())?.read_to_string(&mut buffer)
 }
 
-fn anchor(text: &str) -> String {
-    let text = text.nfkc();
-    let text = text.map(|c| if c.is_letter() || c.is_number() {
-        c
-    } else {
-        '-'
-    });
-    let mut was_hyphen = true;
-    let text = text.filter(|c| if *c != '-' {
-        was_hyphen = false;
-        true
-    } else if !was_hyphen {
-        was_hyphen = true;
-        true
-    } else {
-        was_hyphen = true;
-        false
-    });
-    let mut text: String = text.collect();
-    if text.ends_with('-') {
-        text.pop();
+lazy_static! {
+    static ref GITHUB_PUNCTUATION: Regex = Regex::new(r"[^\w -]").unwrap();
+}
+
+pub trait ToId {
+    fn to_id(&self, text: &str, repetition: usize) -> String;
+}
+
+pub struct GithubId;
+
+impl ToId for GithubId {
+    fn to_id(&self, text: &str, repetition: usize) -> String {
+        let text = GITHUB_PUNCTUATION.replace_all(text, "");
+        let text = text.to_ascii_lowercase();
+        let text = text.replace('-', "-");
+        if repetition == 0 {
+            text
+        } else {
+            format!("-{}", repetition)
+        }
     }
-    text.to_lowercase()
+}
+
+pub struct Headers(HashMap<String, usize>);
+
+impl Headers {
+
+    pub fn new() -> Self {
+        Headers(HashMap::new())
+    }
+
+    pub fn register(&mut self, text: String) -> usize {
+        match self.0.entry(text.to_string()) {
+            Entry::Occupied(ref mut occupied) => {
+                let count = *occupied.get();
+                *occupied.get_mut() = count + 1;
+                count
+            }
+            Entry::Vacant(vacant) => {
+                vacant.insert(1);
+                0
+            }
+        }
+    }
 }
 
 struct MdLinkParser<'a> {
@@ -411,9 +437,9 @@ pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<(String, usize, String)>
     Ok(())
 }
 
-pub fn link_status(link: &Link, client: &Option<Client>) -> LookupTag {
+pub fn link_status(link: &Link, client: &Option<Client>, id_transform: &ToId, headers: &mut Headers) -> LookupTag {
     if let &Some(ref client) = client {
-        LookupTag(Some(check_skippable(&link, &client).err()))
+        LookupTag(Some(check_skippable(&link, &client, id_transform, headers).err()))
     } else {
         LookupTag(None)
     }
