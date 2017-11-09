@@ -103,20 +103,7 @@ impl From<url::ParseError> for LookupError {
     }
 }
 
-pub fn check_skippable<'a>(link: &Link, client: &Client, id_transform: &ToId, headers: &mut Headers) -> Result<(), LookupError> {
-    match *link {
-        Link::Path(ref path) => {
-            if Path::new(path).is_relative() {
-                check_skippable_path(path.as_ref(), id_transform, headers)
-            } else {
-                Err(LookupError::Absolute)
-            }
-        },
-        Link::Url(ref url) => check_skippable_url(url, client),
-    }
-}
-
-fn check_skippable_path(path: &str, id_transform: &ToId, headers: &mut Headers) -> Result<(), LookupError> {
+pub fn check_skippable_path(path: &str, id_transform: &ToId, headers: &mut Headers) -> Result<(), LookupError> {
     if let Some((path, fragment)) = split_fragment(path) {
         let mut buffer = String::new();
         slurp(&path, &mut buffer)?;
@@ -134,7 +121,7 @@ fn check_skippable_path(path: &str, id_transform: &ToId, headers: &mut Headers) 
     }
 }
 
-fn check_skippable_url(url: &Url, client: &Client) -> Result<(), LookupError> {
+pub fn check_skippable_url(url: &Url, client: &Client) -> Result<(), LookupError> {
     if url.scheme() == "http" || url.scheme() == "https" {
         if let Some(fragment) = url.fragment() {
             let mut response = client.get(url.clone()).send()?;

@@ -19,11 +19,13 @@ use std::io::BufRead;
 use std::io;
 use std::path::Path;
 
-use linky::check_skippable;
+use linky::check_skippable_path;
+use linky::check_skippable_url;
 use linky::GithubId;
 use linky::Headers;
 use linky::Link;
 use linky::LookupTag;
+use linky::LookupError;
 use linky::md_file_links;
 use regex::Regex;
 use reqwest::Client;
@@ -90,7 +92,16 @@ fn main() {
             Ok(parsed) => {
                 let headers = all_headers.entry(path.clone()).or_insert_with(|| Headers::new());
                 let status = if let &Some(ref client) = &client {
-                    let skippable = check_skippable(&parsed, &client, &GithubId, headers);
+                    let skippable = match parsed {
+                        Link::Path(ref path) => {
+                            if Path::new(path).is_relative() {
+                                check_skippable_path(path.as_ref(), &GithubId, headers)
+                            } else {
+                                Err(LookupError::Absolute)
+                            }
+                        },
+                        Link::Url(ref url) => check_skippable_url(url, client),
+                    };
                     Some(skippable.err())
                 } else {
                     None
