@@ -31,6 +31,7 @@ use reqwest::Client;
 use reqwest::RedirectPolicy;
 use shell_escape::escape;
 use structopt::StructOpt;
+use url::Url;
 
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
@@ -46,6 +47,18 @@ struct Opt {
 
     #[structopt(help = "Files to parse")]
     file: Vec<String>,
+}
+
+fn split_path_fragment(path: &str) -> (&str, Option<&str>) {
+    if let Some((path, fragment)) = split_fragment(path) {
+        (path, Some(fragment))
+    } else {
+        (path, None)
+    }
+}
+
+fn split_url_fragment(url: &Url) -> (&Url, Option<&str>) {
+    (url, url.fragment())
 }
 
 fn main() {
@@ -92,24 +105,26 @@ fn main() {
                     let skippable = match parsed {
                         Link::Path(ref path) => {
                             if Path::new(path).is_relative() {
-                                if let Some((path, fragment)) = split_fragment(path) {
-                                    get_path_ids(path.as_ref(), &GithubId).and_then(|ids| {
+                                let (path, fragment) = split_path_fragment(path);
+                                get_path_ids(path.as_ref(), &GithubId).and_then(|ids| {
+                                    if let Some(fragment) = fragment {
                                         if ids.contains(&fragment.to_string()) {
                                             Ok(())
                                         } else {
                                             Err(LookupError::NoAnchor)
                                         }
-                                    })
-                                } else {
-                                    get_path_ids(path.as_ref(), &GithubId).map(|_| ())
-                                }
+                                    } else {
+                                        Ok(())
+                                    }
+                                })
                             } else {
                                 Err(LookupError::Absolute)
                             }
                         },
                         Link::Url(ref url) => {
+                            let (url, fragment) = split_url_fragment(url);
                             get_url_ids(url, client).and_then(|ids| {
-                                if let Some(fragment) = url.fragment() {
+                                if let Some(fragment) = fragment {
                                     if ids.contains(&fragment.to_string()) {
                                         Ok(())
                                     } else {
