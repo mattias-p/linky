@@ -121,34 +121,35 @@ pub fn check_skippable_path(path: &str, id_transform: &ToId, headers: &mut Heade
     }
 }
 
-pub fn check_skippable_url(url: &Url, client: &Client) -> Result<(), LookupError> {
+pub fn get_url_ids(url: &Url, client: &Client) -> Result<Vec<String>, LookupError> {
     if url.scheme() == "http" || url.scheme() == "https" {
-        if let Some(fragment) = url.fragment() {
-            let mut response = client.get(url.clone()).send()?;
-            if !response.status().is_success() {
-                Err(LookupError::HttpStatus(response.status()))?;
-            }
-            match response.headers().get::<ContentType>() {
-                None => Err(LookupError::Mime(None))?,
-                Some(&ContentType(ref mime_type)) if mime_type.type_() != mime::TEXT || mime_type.subtype() != mime::HTML => Err(LookupError::Mime(Some(mime_type.clone())))?,
-                _ => {},
-            };
-            let mut buffer = String::new();
-            response.read_to_string(&mut buffer)?;
-            if has_html_anchor(&buffer, fragment) {
-                Ok(())
-            } else {
-                Err(LookupError::NoAnchor)
-            }
-        } else {
-            match lookup(url.clone(), client)? {
-                StatusCode::Ok => Ok(()),
-                status => Err(LookupError::HttpStatus(status)),
-            }
+        let mut response = client.get(url.clone()).send()?;
+        if !response.status().is_success() {
+            Err(LookupError::HttpStatus(response.status()))?;
         }
+        match response.headers().get::<ContentType>() {
+            None => Err(LookupError::Mime(None))?,
+            Some(&ContentType(ref mime_type)) if mime_type.type_() != mime::TEXT || mime_type.subtype() != mime::HTML => Err(LookupError::Mime(Some(mime_type.clone())))?,
+            _ => {},
+        };
+        let mut buffer = String::new();
+        response.read_to_string(&mut buffer)?;
+        Ok(get_html_ids(&buffer))
     } else {
         Err(LookupError::Protocol)
     }
+}
+
+fn get_html_ids(buffer: &str) -> Vec<String> {
+    let mut result = vec![];
+    for (_, tag) in htmlstream::tag_iter(buffer) {
+        for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
+            if attr.name == "id" || (tag.name == "a" && attr.name == "name") {
+                result.push(attr.value.clone());
+            }
+        }
+    }
+    result
 }
 
 trait AllowsMethod {
@@ -163,35 +164,12 @@ impl AllowsMethod for Response {
     }
 }
 
-fn lookup(url: Url, client: &Client) -> reqwest::Result<StatusCode> {
-    let response = client.head(url.clone()).send()?;
-    let response = if response.status() == StatusCode::MethodNotAllowed && response.allows_method(Method::Get) {
-        client.get(url).send()?
-    } else {
-        response
-    };
-    Ok(response.status())
-}
-
 fn as_relative<'a, P: AsRef<Path>>(path: &'a P) -> &'a Path {
     let mut components = path.as_ref().components();
     while components.as_path().has_root() {
         components.next();
     }
     components.as_path()
-}
-
-fn has_html_anchor(buffer: &str, anchor: &str) -> bool {
-    for (_, tag) in htmlstream::tag_iter(buffer) {
-        for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
-            if attr.name == "id" || (tag.name == "a" && attr.name == "name") {
-                if attr.value == anchor {
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
 }
 
 fn split_fragment(path: &str) -> Option<(&str, &str)> {

@@ -20,7 +20,7 @@ use std::io;
 use std::path::Path;
 
 use linky::check_skippable_path;
-use linky::check_skippable_url;
+use linky::get_url_ids;
 use linky::GithubId;
 use linky::Headers;
 use linky::Link;
@@ -100,7 +100,19 @@ fn main() {
                                 Err(LookupError::Absolute)
                             }
                         },
-                        Link::Url(ref url) => check_skippable_url(url, client),
+                        Link::Url(ref url) => {
+                            get_url_ids(url, client).and_then(|ids| {
+                                if let Some(fragment) = url.fragment() {
+                                    if ids.contains(&fragment.to_string()) {
+                                        Ok(())
+                                    } else {
+                                        Err(LookupError::NoAnchor)
+                                    }
+                                } else {
+                                    Ok(())
+                                }
+                            })
+                        },
                     };
                     Some(skippable.err())
                 } else {
