@@ -103,22 +103,11 @@ impl From<url::ParseError> for LookupError {
     }
 }
 
-pub fn check_skippable_path(path: &str, id_transform: &ToId, headers: &mut Headers) -> Result<(), LookupError> {
-    if let Some((path, fragment)) = split_fragment(path) {
-        let mut buffer = String::new();
-        slurp(&path, &mut buffer)?;
-        if MdAnchorParser::from_buffer(buffer.as_str(), id_transform, headers).any(|anchor| *anchor == *fragment) {
-            Ok(())
-        } else {
-            Err(LookupError::NoAnchor)
-        }
-    } else {
-        if Path::new(path).exists() {
-            Ok(())
-        } else {
-            Err(LookupError::NoDocument)
-        }
-    }
+pub fn get_path_ids(path: &str, id_transform: &ToId) -> Result<Vec<String>, LookupError> {
+    let mut headers = Headers::new();
+    let mut buffer = String::new();
+    slurp(&path, &mut buffer)?;
+    Ok(MdAnchorParser::from_buffer(buffer.as_str(), id_transform, &mut headers).map(|id| id.to_string()).collect())
 }
 
 pub fn get_url_ids(url: &Url, client: &Client) -> Result<Vec<String>, LookupError> {
@@ -172,7 +161,7 @@ fn as_relative<'a, P: AsRef<Path>>(path: &'a P) -> &'a Path {
     components.as_path()
 }
 
-fn split_fragment(path: &str) -> Option<(&str, &str)> {
+pub fn split_fragment(path: &str) -> Option<(&str, &str)> {
     if let Some(pos) = path.find('#') {
         Some((&path[0..pos], &path[pos+1..]))
     } else {
@@ -343,7 +332,7 @@ impl ToId for GithubId {
         if repetition == 0 {
             text
         } else {
-            format!("-{}", repetition)
+            format!("{}-{}", text, repetition)
         }
     }
 }

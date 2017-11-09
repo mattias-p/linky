@@ -14,19 +14,18 @@ extern crate regex;
 mod linky;
 
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::io::BufRead;
 use std::io;
 use std::path::Path;
 
-use linky::check_skippable_path;
+use linky::get_path_ids;
 use linky::get_url_ids;
 use linky::GithubId;
-use linky::Headers;
 use linky::Link;
 use linky::LookupTag;
 use linky::LookupError;
 use linky::md_file_links;
+use linky::split_fragment;
 use regex::Regex;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
@@ -86,16 +85,24 @@ fn main() {
         }
     }
 
-    let mut all_headers = HashMap::new();
     for (path, linenum, link) in links {
         match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
             Ok(parsed) => {
-                let headers = all_headers.entry(path.clone()).or_insert_with(|| Headers::new());
                 let status = if let &Some(ref client) = &client {
                     let skippable = match parsed {
                         Link::Path(ref path) => {
                             if Path::new(path).is_relative() {
-                                check_skippable_path(path.as_ref(), &GithubId, headers)
+                                if let Some((path, fragment)) = split_fragment(path) {
+                                    get_path_ids(path.as_ref(), &GithubId).and_then(|ids| {
+                                        if ids.contains(&fragment.to_string()) {
+                                            Ok(())
+                                        } else {
+                                            Err(LookupError::NoAnchor)
+                                        }
+                                    })
+                                } else {
+                                    get_path_ids(path.as_ref(), &GithubId).map(|_| ())
+                                }
                             } else {
                                 Err(LookupError::Absolute)
                             }
