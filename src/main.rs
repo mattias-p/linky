@@ -101,8 +101,8 @@ fn main() {
     for (path, linenum, link) in links {
         match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
             Ok(parsed) => {
-                let status = if let &Some(ref client) = &client {
-                    let err = match parsed {
+                let status = client.as_ref().map(|client| {
+                    match parsed {
                         Link::Path(ref path) => {
                             if Path::new(path).is_relative() {
                                 let (path, fragment) = split_path_fragment(path);
@@ -126,11 +126,8 @@ fn main() {
                             Ok(())
                         }
                     })
-                    .err();
-                    Some(err)
-                } else {
-                    None
-                };
+                    .err()
+                });
                 if let Some(tag) = LookupTag(status).display() {
                     println!("{}:{}: {} {}", path, linenum, tag, link);
                 }
