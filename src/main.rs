@@ -90,11 +90,12 @@ fn main() {
             Ok(parsed) => {
                 let headers = all_headers.entry(path.clone()).or_insert_with(|| Headers::new());
                 let status = if let &Some(ref client) = &client {
-                    LookupTag(Some(check_skippable(&parsed, &client, &GithubId, headers).err()))
+                    let skippable = check_skippable(&parsed, &client, &GithubId, headers);
+                    Some(skippable.err())
                 } else {
-                    LookupTag(None)
+                    None
                 };
-                if let Some(tag) = status.display() {
+                if let Some(tag) = LookupTag(status).display() {
                     println!("{}:{}: {} {}", path, linenum, tag, link);
                 }
             }
