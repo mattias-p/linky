@@ -102,41 +102,32 @@ fn main() {
         match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
             Ok(parsed) => {
                 let status = if let &Some(ref client) = &client {
-                    let skippable = match parsed {
+                    let err = match parsed {
                         Link::Path(ref path) => {
                             if Path::new(path).is_relative() {
                                 let (path, fragment) = split_path_fragment(path);
-                                get_path_ids(path.as_ref(), &GithubId).and_then(|ids| {
-                                    if let Some(fragment) = fragment {
-                                        if ids.contains(&fragment.to_string()) {
-                                            Ok(())
-                                        } else {
-                                            Err(LookupError::NoAnchor)
-                                        }
-                                    } else {
-                                        Ok(())
-                                    }
-                                })
+                                get_path_ids(path.as_ref(), &GithubId).map(|ids| (ids, fragment))
                             } else {
                                 Err(LookupError::Absolute)
                             }
                         },
                         Link::Url(ref url) => {
                             let (url, fragment) = split_url_fragment(url);
-                            get_url_ids(url, client).and_then(|ids| {
-                                if let Some(fragment) = fragment {
-                                    if ids.contains(&fragment.to_string()) {
-                                        Ok(())
-                                    } else {
-                                        Err(LookupError::NoAnchor)
-                                    }
-                                } else {
-                                    Ok(())
-                                }
-                            })
+                            get_url_ids(url, client).map(|ids| (ids, fragment))
                         },
-                    };
-                    Some(skippable.err())
+                    }.and_then(|(ids, fragment)| {
+                        if let Some(fragment) = fragment {
+                            if ids.contains(&fragment.to_string()) {
+                                Ok(())
+                            } else {
+                                Err(LookupError::NoAnchor)
+                            }
+                        } else {
+                            Ok(())
+                        }
+                    })
+                    .err();
+                    Some(err)
                 } else {
                     None
                 };
