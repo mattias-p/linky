@@ -19,10 +19,11 @@ use std::io::BufRead;
 use std::io;
 use std::path::Path;
 
+use linky::check_skippable;
 use linky::GithubId;
 use linky::Headers;
 use linky::Link;
-use linky::link_status;
+use linky::LookupTag;
 use linky::md_file_links;
 use regex::Regex;
 use reqwest::Client;
@@ -88,7 +89,12 @@ fn main() {
         match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
             Ok(parsed) => {
                 let headers = all_headers.entry(path.clone()).or_insert_with(|| Headers::new());
-                if let Some(tag) = link_status(&parsed, &client, &GithubId, headers).display() {
+                let status = if let &Some(ref client) = &client {
+                    LookupTag(Some(check_skippable(&parsed, &client, &GithubId, headers).err()))
+                } else {
+                    LookupTag(None)
+                };
+                if let Some(tag) = status.display() {
                     println!("{}:{}: {} {}", path, linenum, tag, link);
                 }
             }

@@ -448,15 +448,7 @@ pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<(String, usize, String)>
     Ok(())
 }
 
-pub fn link_status(link: &Link, client: &Option<Client>, id_transform: &ToId, headers: &mut Headers) -> LookupTag {
-    if let &Some(ref client) = client {
-        LookupTag(Some(check_skippable(&link, &client, id_transform, headers).err()))
-    } else {
-        LookupTag(None)
-    }
-}
-
-pub struct LookupTag(Option<Option<LookupError>>);
+pub struct LookupTag(pub Option<Option<LookupError>>);
 
 impl LookupTag {
     pub fn display(self) -> Option<Box<fmt::Display>> {
