@@ -405,11 +405,11 @@ pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<(String, usize, String)>
 pub struct LookupTag(pub Option<Option<LookupError>>);
 
 impl LookupTag {
-    pub fn display(self) -> Option<Box<fmt::Display>> {
+    pub fn display(&self) -> Option<&fmt::Display> {
         match self.0 {
-            Some(Some(err)) => Some(Box::new(err) as Box<fmt::Display>),
+            Some(Some(ref err)) => Some(err as &fmt::Display),
             Some(None) => None,
-            None => Some(Box::new("") as Box<fmt::Display>),
+            None => Some(&"" as &fmt::Display),
         }
     }
 }
