@@ -169,6 +169,18 @@ pub fn split_fragment(path: &str) -> Option<(&str, &str)> {
     }
 }
 
+fn split_path_fragment(path: &str) -> (&str, Option<&str>) {
+    if let Some((path, fragment)) = split_fragment(path) {
+        (path, Some(fragment))
+    } else {
+        (path, None)
+    }
+}
+
+fn split_url_fragment(url: &Url) -> (&Url, Option<&str>) {
+    (url, url.fragment())
+}
+
 struct MdAnchorParser<'a> {
     parser: Parser<'a>,
     is_header: bool,
@@ -245,6 +257,23 @@ impl Link {
                 }
             }
             Err(err) => Err(BaseLinkError::from(err)),
+        }
+    }
+
+    pub fn get_targets(&self, client: &Client) -> Result<(Vec<String>, Option<&str>), LookupError> {
+        match self {
+            &Link::Path(ref path) => {
+                if Path::new(path).is_relative() {
+                    let (path, fragment) = split_path_fragment(path);
+                    get_path_ids(path.as_ref(), &GithubId).map(|ids| (ids, fragment))
+                } else {
+                    Err(LookupError::Absolute)
+                }
+            }
+            &Link::Url(ref url) => {
+                let (url, fragment) = split_url_fragment(url);
+                get_url_ids(url, client).map(|ids| (ids, fragment))
+            }
         }
     }
 }

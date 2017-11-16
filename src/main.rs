@@ -18,20 +18,15 @@ use std::io::BufRead;
 use std::io;
 use std::path::Path;
 
-use linky::get_path_ids;
-use linky::get_url_ids;
-use linky::GithubId;
 use linky::Link;
 use linky::LookupTag;
 use linky::LookupError;
 use linky::md_file_links;
-use linky::split_fragment;
 use regex::Regex;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
 use shell_escape::escape;
 use structopt::StructOpt;
-use url::Url;
 
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
@@ -47,18 +42,6 @@ struct Opt {
 
     #[structopt(help = "Files to parse")]
     file: Vec<String>,
-}
-
-fn split_path_fragment(path: &str) -> (&str, Option<&str>) {
-    if let Some((path, fragment)) = split_fragment(path) {
-        (path, Some(fragment))
-    } else {
-        (path, None)
-    }
-}
-
-fn split_url_fragment(url: &Url) -> (&Url, Option<&str>) {
-    (url, url.fragment())
 }
 
 fn main() {
@@ -102,20 +85,7 @@ fn main() {
         match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
             Ok(parsed) => {
                 let status = client.as_ref().map(|client| {
-                    match parsed {
-                        Link::Path(ref path) => {
-                            if Path::new(path).is_relative() {
-                                let (path, fragment) = split_path_fragment(path);
-                                get_path_ids(path.as_ref(), &GithubId).map(|ids| (ids, fragment))
-                            } else {
-                                Err(LookupError::Absolute)
-                            }
-                        },
-                        Link::Url(ref url) => {
-                            let (url, fragment) = split_url_fragment(url);
-                            get_url_ids(url, client).map(|ids| (ids, fragment))
-                        },
-                    }.and_then(|(ids, fragment)| {
+                    parsed.get_targets(client).and_then(|(ids, fragment)| {
                         if let Some(fragment) = fragment {
                             if ids.contains(&fragment.to_string()) {
                                 Ok(())
