@@ -87,33 +87,38 @@ fn main() {
         }
     }
 
-    let mut all_targets = HashMap::new();
-    for (path, linenum, link) in links {
+    let links = links.into_iter().filter_map(|(path, linenum, link)| {
         match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
-            Ok(parsed) => {
-                let status = client.as_ref().map(|client| {
-                    let (link, fragment) = parsed.split_fragment();
-                    let targets = all_targets
-                        .entry(link.clone())
-                        .or_insert_with(|| client.fetch_targets(&link));
-                    targets
-                        .as_ref()
-                        .and_then(|ids| if let Some(ref fragment) = fragment {
-                            if ids.contains(fragment) {
-                                Ok(())
-                            } else {
-                                Err(&LookupError::NoAnchor)
-                            }
-                        } else {
-                            Ok(())
-                        })
-                        .err()
-                });
-                if let Some(tag) = LookupTag(status).display() {
-                    println!("{}:{}: {} {}", path, linenum, tag, link);
-                }
+            Ok(parsed) => Some((path, linenum, link, parsed)),
+            Err(err) => {
+                eprintln!("{}:{}: error: {}: {}", path, linenum, err, link);
+                None
             }
-            Err(err) => eprintln!("{}:{}: error: {}: {}", path, linenum, err, link),
+        }
+    });
+
+    let mut all_targets = HashMap::new();
+    for (path, linenum, link, parsed) in links {
+        let status = client.as_ref().map(|client| {
+            let (link, fragment) = parsed.split_fragment();
+            let targets = all_targets
+                .entry(link.clone())
+                .or_insert_with(|| client.fetch_targets(&link));
+            targets
+                .as_ref()
+                .and_then(|ids| if let Some(ref fragment) = fragment {
+                    if ids.contains(fragment) {
+                        Ok(())
+                    } else {
+                        Err(&LookupError::NoAnchor)
+                    }
+                } else {
+                    Ok(())
+                })
+                .err()
+        });
+        if let Some(tag) = LookupTag(status).display() {
+            println!("{}:{}: {} {}", path, linenum, tag, link);
         }
     }
 }
