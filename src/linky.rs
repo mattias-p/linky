@@ -238,6 +238,19 @@ impl Link {
         }
     }
 
+    pub fn split_fragment(&self) -> (Link, Option<String>) {
+        match self {
+            &Link::Path(ref path) => {
+                let (path, fragment) = split_path_fragment(path);
+                (Link::Path(path.to_string()), fragment.map(|f| f.to_string()))
+            }
+            &Link::Url(ref url) => {
+                let (url, fragment) = split_url_fragment(url);
+                (Link::Url(url.clone()), fragment.map(|f| f.to_string()))
+            }
+        }
+    }
+
     pub fn parse_with_root<P1: AsRef<Path>, P2: AsRef<Path>>(link: &str, origin: &P1, root: &P2) -> Result<Self, BaseLinkError> {
         match Url::parse(link) {
             Ok(url) => {
@@ -262,22 +275,21 @@ impl Link {
 }
 
 pub trait Targets {
-    fn fetch_targets<'a>(&self, link: &'a Link) -> Result<(Vec<String>, Option<&'a str>), LookupError>;
+    fn fetch_targets(&self, link: &Link) -> Result<(Vec<String>, Option<String>), LookupError>;
 }
 
 impl Targets for Client {
-    fn fetch_targets<'a>(&self, link: &'a Link) -> Result<(Vec<String>, Option<&'a str>), LookupError> {
+    fn fetch_targets(&self, link: &Link) -> Result<(Vec<String>, Option<String>), LookupError> {
+        let (link, fragment) = link.split_fragment();
         match link {
-            &Link::Path(ref path) => {
+            Link::Path(ref path) => {
                 if Path::new(path).is_relative() {
-                    let (path, fragment) = split_path_fragment(path);
                     get_path_ids(path.as_ref(), &GithubId).map(|ids| (ids, fragment))
                 } else {
                     Err(LookupError::Absolute)
                 }
             }
-            &Link::Url(ref url) => {
-                let (url, fragment) = split_url_fragment(url);
+            Link::Url(ref url) => {
                 get_url_ids(url, self).map(|ids| (ids, fragment))
             }
         }
