@@ -223,7 +223,7 @@ impl<'a> Iterator for MdAnchorParser<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Link {
     Url(Url),
     Path(String),
@@ -246,7 +246,9 @@ impl Link {
             }
             &Link::Url(ref url) => {
                 let (url, fragment) = split_url_fragment(url);
-                (Link::Url(url.clone()), fragment.map(|f| f.to_string()))
+                let mut url = url.clone();
+                url.set_fragment(None);
+                (Link::Url(url), fragment.map(|f| f.to_string()))
             }
         }
     }
@@ -448,9 +450,9 @@ pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<(String, usize, String)>
     Ok(())
 }
 
-pub struct LookupTag(pub Option<Option<LookupError>>);
+pub struct LookupTag<'a>(pub Option<Option<&'a LookupError>>);
 
-impl LookupTag {
+impl<'a> LookupTag<'a> {
     pub fn display(&self) -> Option<&fmt::Display> {
         match self.0 {
             Some(Some(ref err)) => Some(err as &fmt::Display),

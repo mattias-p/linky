@@ -14,6 +14,7 @@ extern crate regex;
 mod linky;
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::io::BufRead;
 use std::io;
 use std::path::Path;
@@ -82,17 +83,19 @@ fn main() {
         }
     }
 
+    let mut all_targets = HashMap::new();
     for (path, linenum, link) in links {
         match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
             Ok(parsed) => {
                 let status = client.as_ref().map(|client| {
                     let (link, fragment) = parsed.split_fragment();
-                    client.fetch_targets(&link).and_then(|ids| {
+                    let targets = all_targets.entry(link.clone()).or_insert_with(|| client.fetch_targets(&link));
+                    targets.as_ref().and_then(|ids| {
                         if let Some(ref fragment) = fragment {
                             if ids.contains(fragment) {
                                 Ok(())
                             } else {
-                                Err(LookupError::NoAnchor)
+                                Err(&LookupError::NoAnchor)
                             }
                         } else {
                             Ok(())
