@@ -45,7 +45,7 @@ pub enum LookupError {
 
 impl fmt::Display for LookupError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match *self {
+        match *self {
             LookupError::Client(_) => write!(f, "CLIENT"),
             LookupError::Io(_) => write!(f, "IO"),
             LookupError::HttpStatus(status) => write!(f, "HTTP_{}", status.as_u16()),
@@ -60,9 +60,8 @@ impl fmt::Display for LookupError {
 }
 
 impl Error for LookupError {
-
-	fn description(&self) -> &str {
-		match *self {
+    fn description(&self) -> &str {
+        match *self {
             LookupError::Client(ref err) => err.description(),
             LookupError::Io(ref err) => err.description(),
             LookupError::HttpStatus(_) => "unexpected http status",
@@ -73,16 +72,16 @@ impl Error for LookupError {
             LookupError::Url(_) => "invalid url",
             LookupError::Mime(_) => "unrecognized mime type",
         }
-	}
+    }
 
-	fn cause(&self) -> Option<&Error> {
-		match *self {
+    fn cause(&self) -> Option<&Error> {
+        match *self {
             LookupError::Client(ref err) => Some(err),
             LookupError::Io(ref err) => Some(err),
             LookupError::Url(ref err) => Some(err),
             _ => None,
         }
-	}
+    }
 }
 
 impl From<io::Error> for LookupError {
@@ -107,7 +106,11 @@ pub fn get_path_ids(path: &str, id_transform: &ToId) -> Result<Vec<String>, Look
     let mut headers = Headers::new();
     let mut buffer = String::new();
     slurp(&path, &mut buffer)?;
-    Ok(MdAnchorParser::from_buffer(buffer.as_str(), id_transform, &mut headers).map(|id| id.to_string()).collect())
+    Ok(
+        MdAnchorParser::from_buffer(buffer.as_str(), id_transform, &mut headers)
+            .map(|id| id.to_string())
+            .collect(),
+    )
 }
 
 pub fn get_url_ids(url: &Url, client: &Client) -> Result<Vec<String>, LookupError> {
@@ -118,8 +121,12 @@ pub fn get_url_ids(url: &Url, client: &Client) -> Result<Vec<String>, LookupErro
         }
         match response.headers().get::<ContentType>() {
             None => Err(LookupError::Mime(None))?,
-            Some(&ContentType(ref mime_type)) if mime_type.type_() != mime::TEXT || mime_type.subtype() != mime::HTML => Err(LookupError::Mime(Some(mime_type.clone())))?,
-            _ => {},
+            Some(&ContentType(ref mime_type))
+                if mime_type.type_() != mime::TEXT || mime_type.subtype() != mime::HTML =>
+            {
+                Err(LookupError::Mime(Some(mime_type.clone())))?
+            }
+            _ => {}
         };
         let mut buffer = String::new();
         response.read_to_string(&mut buffer)?;
@@ -147,9 +154,9 @@ trait AllowsMethod {
 
 impl AllowsMethod for Response {
     fn allows_method(&self, method: Method) -> bool {
-        self.headers().get::<Allow>().map_or(false, |allow|
-            allow.0.iter().any(|m| *m == method)
-        )
+        self.headers()
+            .get::<Allow>()
+            .map_or(false, |allow| allow.0.iter().any(|m| *m == method))
     }
 }
 
@@ -163,7 +170,7 @@ fn as_relative<'a, P: AsRef<Path>>(path: &'a P) -> &'a Path {
 
 pub fn split_fragment(path: &str) -> Option<(&str, &str)> {
     if let Some(pos) = path.find('#') {
-        Some((&path[0..pos], &path[pos+1..]))
+        Some((&path[0..pos], &path[pos + 1..]))
     } else {
         None
     }
@@ -242,7 +249,10 @@ impl Link {
         match self {
             &Link::Path(ref path) => {
                 let (path, fragment) = split_path_fragment(path);
-                (Link::Path(path.to_string()), fragment.map(|f| f.to_string()))
+                (
+                    Link::Path(path.to_string()),
+                    fragment.map(|f| f.to_string()),
+                )
             }
             &Link::Url(ref url) => {
                 let (url, fragment) = split_url_fragment(url);
@@ -253,24 +263,35 @@ impl Link {
         }
     }
 
-    pub fn parse_with_root<P1: AsRef<Path>, P2: AsRef<Path>>(link: &str, origin: &P1, root: &P2) -> Result<Self, BaseLinkError> {
+    pub fn parse_with_root<P1: AsRef<Path>, P2: AsRef<Path>>(
+        link: &str,
+        origin: &P1,
+        root: &P2,
+    ) -> Result<Self, BaseLinkError> {
         match Url::parse(link) {
-            Ok(url) => {
-                Ok(Link::Url(url))
-            }
-            Err(ParseError::RelativeUrlWithoutBase) => {
-                if Path::new(link).is_relative() {
-                    let link = if link.starts_with('#') {
-                        let file_name = origin.as_ref().file_name().unwrap().to_string_lossy().to_string().add(link);
-                        origin.as_ref().with_file_name(file_name)
-                    } else {
-                        origin.as_ref().with_file_name(link)
-                    };
-                    Ok(Link::Path(link.to_string_lossy().to_string()))
+            Ok(url) => Ok(Link::Url(url)),
+            Err(ParseError::RelativeUrlWithoutBase) => if Path::new(link).is_relative() {
+                let link = if link.starts_with('#') {
+                    let file_name = origin
+                        .as_ref()
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .to_string()
+                        .add(link);
+                    origin.as_ref().with_file_name(file_name)
                 } else {
-                    Ok(Link::Path(root.as_ref().join(as_relative(&link)).to_string_lossy().to_string()))
-                }
-            }
+                    origin.as_ref().with_file_name(link)
+                };
+                Ok(Link::Path(link.to_string_lossy().to_string()))
+            } else {
+                Ok(Link::Path(
+                    root.as_ref()
+                        .join(as_relative(&link))
+                        .to_string_lossy()
+                        .to_string(),
+                ))
+            },
             Err(err) => Err(BaseLinkError::from(err)),
         }
     }
@@ -283,16 +304,12 @@ pub trait Targets {
 impl Targets for Client {
     fn fetch_targets(&self, link: &Link) -> Result<Vec<String>, LookupError> {
         match link {
-            &Link::Path(ref path) => {
-                if Path::new(path).is_relative() {
-                    get_path_ids(path.as_ref(), &GithubId)
-                } else {
-                    Err(LookupError::Absolute)
-                }
-            }
-            &Link::Url(ref url) => {
-                get_url_ids(url, self)
-            }
+            &Link::Path(ref path) => if Path::new(path).is_relative() {
+                get_path_ids(path.as_ref(), &GithubId)
+            } else {
+                Err(LookupError::Absolute)
+            },
+            &Link::Url(ref url) => get_url_ids(url, self),
         }
     }
 }
@@ -306,20 +323,19 @@ impl fmt::Display for Link {
     }
 }
 impl Error for BaseLinkError {
-
-	fn description(&self) -> &str {
-		match *self {
+    fn description(&self) -> &str {
+        match *self {
             BaseLinkError::ParseError(ref err) => err.description(),
             BaseLinkError::CannotBeABase => "cannot be a base",
         }
-	}
+    }
 
-	fn cause(&self) -> Option<&Error> {
-		match *self {
+    fn cause(&self) -> Option<&Error> {
+        match *self {
             BaseLinkError::ParseError(ref err) => Some(err),
             BaseLinkError::CannotBeABase => None,
         }
-	}
+    }
 }
 
 #[derive(Debug)]
@@ -388,7 +404,6 @@ impl ToId for GithubId {
 pub struct Headers(HashMap<String, usize>);
 
 impl Headers {
-
     pub fn new() -> Self {
         Headers(HashMap::new())
     }
@@ -431,7 +446,10 @@ impl<'a> Iterator for MdLinkParser<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(event) = self.parser.next() {
             if let Event::Start(Tag::Link(url, _)) = event {
-                self.linenum += count(&self.buffer.as_bytes()[self.oldoffs..self.parser.get_offset()], b'\n');
+                self.linenum += count(
+                    &self.buffer.as_bytes()[self.oldoffs..self.parser.get_offset()],
+                    b'\n',
+                );
                 self.oldoffs = self.parser.get_offset();
                 return Some((self.linenum, url));
             }
@@ -440,11 +458,15 @@ impl<'a> Iterator for MdLinkParser<'a> {
     }
 }
 
-pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<(String, usize, String)>) -> io::Result<()> {
+pub fn md_file_links<'a>(
+    path: &'a str,
+    links: &mut Vec<(String, usize, String)>,
+) -> io::Result<()> {
     let mut buffer = String::new();
     slurp(&path, &mut buffer)?;
-    let parser = MdLinkParser::new(buffer.as_str())
-                     .map(|(lineno, url)| (path.to_string(), lineno, url.as_ref().to_string()));
+    let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| {
+        (path.to_string(), lineno, url.as_ref().to_string())
+    });
 
     links.extend(parser);
     Ok(())

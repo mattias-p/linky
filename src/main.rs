@@ -3,13 +3,13 @@ extern crate htmlstream;
 #[macro_use]
 extern crate lazy_static;
 extern crate pulldown_cmark;
+extern crate regex;
 extern crate reqwest;
 extern crate shell_escape;
 extern crate structopt;
 #[macro_use]
 extern crate structopt_derive;
 extern crate url;
-extern crate regex;
 
 mod linky;
 
@@ -33,17 +33,15 @@ use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
-    #[structopt(long = "check", short = "c", help = "Check links")]
-    check: bool,
+    #[structopt(long = "check", short = "c", help = "Check links")] check: bool,
 
-    #[structopt(long = "follow", short = "f", help = "Follow HTTP redirects")]
-    redirect: bool,
+    #[structopt(long = "follow", short = "f", help = "Follow HTTP redirects")] redirect: bool,
 
-    #[structopt(long = "root", short = "r", name = "path", help = "Join absolute local links to a document root", default_value = "/")]
+    #[structopt(long = "root", short = "r", name = "path",
+                help = "Join absolute local links to a document root", default_value = "/")]
     root: String,
 
-    #[structopt(help = "Files to parse")]
-    file: Vec<String>,
+    #[structopt(help = "Files to parse")] file: Vec<String>,
 }
 
 fn main() {
@@ -71,14 +69,20 @@ fn main() {
             let lineno = cap.get(2).unwrap().as_str();
             let link = cap.get(3).unwrap().as_str();
 
-            links.push((path.to_string(), lineno.parse().unwrap(), link.to_string()));
+            links.push((
+                path.to_string(),
+                lineno.parse().unwrap(),
+                link.to_string(),
+            ));
         }
     } else {
         for path in &opt.file {
             if let Err(err) = md_file_links(path, &mut links) {
-                eprintln!("error: reading file {}: {}",
-                          escape(Cow::Borrowed(path)),
-                          err);
+                eprintln!(
+                    "error: reading file {}: {}",
+                    escape(Cow::Borrowed(path)),
+                    err
+                );
             }
         }
     }
@@ -89,9 +93,12 @@ fn main() {
             Ok(parsed) => {
                 let status = client.as_ref().map(|client| {
                     let (link, fragment) = parsed.split_fragment();
-                    let targets = all_targets.entry(link.clone()).or_insert_with(|| client.fetch_targets(&link));
-                    targets.as_ref().and_then(|ids| {
-                        if let Some(ref fragment) = fragment {
+                    let targets = all_targets
+                        .entry(link.clone())
+                        .or_insert_with(|| client.fetch_targets(&link));
+                    targets
+                        .as_ref()
+                        .and_then(|ids| if let Some(ref fragment) = fragment {
                             if ids.contains(fragment) {
                                 Ok(())
                             } else {
@@ -99,9 +106,8 @@ fn main() {
                             }
                         } else {
                             Ok(())
-                        }
-                    })
-                    .err()
+                        })
+                        .err()
                 });
                 if let Some(tag) = LookupTag(status).display() {
                     println!("{}:{}: {} {}", path, linenum, tag, link);
