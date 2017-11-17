@@ -86,9 +86,10 @@ fn main() {
         match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
             Ok(parsed) => {
                 let status = client.as_ref().map(|client| {
-                    client.fetch_targets(&parsed).and_then(|(ids, fragment)| {
-                        if let Some(fragment) = fragment {
-                            if ids.contains(&fragment.to_string()) {
+                    let (link, fragment) = parsed.split_fragment();
+                    client.fetch_targets(&link).and_then(|ids| {
+                        if let Some(ref fragment) = fragment {
+                            if ids.contains(fragment) {
                                 Ok(())
                             } else {
                                 Err(LookupError::NoAnchor)

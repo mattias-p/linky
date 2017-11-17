@@ -275,22 +275,21 @@ impl Link {
 }
 
 pub trait Targets {
-    fn fetch_targets(&self, link: &Link) -> Result<(Vec<String>, Option<String>), LookupError>;
+    fn fetch_targets(&self, link: &Link) -> Result<Vec<String>, LookupError>;
 }
 
 impl Targets for Client {
-    fn fetch_targets(&self, link: &Link) -> Result<(Vec<String>, Option<String>), LookupError> {
-        let (link, fragment) = link.split_fragment();
+    fn fetch_targets(&self, link: &Link) -> Result<Vec<String>, LookupError> {
         match link {
-            Link::Path(ref path) => {
+            &Link::Path(ref path) => {
                 if Path::new(path).is_relative() {
-                    get_path_ids(path.as_ref(), &GithubId).map(|ids| (ids, fragment))
+                    get_path_ids(path.as_ref(), &GithubId)
                 } else {
                     Err(LookupError::Absolute)
                 }
             }
-            Link::Url(ref url) => {
-                get_url_ids(url, self).map(|ids| (ids, fragment))
+            &Link::Url(ref url) => {
+                get_url_ids(url, self)
             }
         }
     }
