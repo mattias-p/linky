@@ -89,7 +89,10 @@ fn main() {
 
     let links = links.into_iter().filter_map(|(path, linenum, link)| {
         match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
-            Ok(parsed) => Some((path, linenum, link, parsed)),
+            Ok(parsed) => {
+                let (base, fragment) = parsed.split_fragment();
+                Some((path, linenum, link, base, fragment))
+            }
             Err(err) => {
                 eprintln!("{}:{}: error: {}: {}", path, linenum, err, link);
                 None
@@ -98,12 +101,11 @@ fn main() {
     });
 
     let mut all_targets = HashMap::new();
-    for (path, linenum, link, parsed) in links {
+    for (path, linenum, raw, base, fragment) in links {
         let status = client.as_ref().map(|client| {
-            let (link, fragment) = parsed.split_fragment();
             let targets = all_targets
-                .entry(link.clone())
-                .or_insert_with(|| client.fetch_targets(&link));
+                .entry(base.clone())
+                .or_insert_with(|| client.fetch_targets(&base));
             targets
                 .as_ref()
                 .and_then(|ids| if let Some(ref fragment) = fragment {
@@ -118,7 +120,7 @@ fn main() {
                 .err()
         });
         if let Some(tag) = LookupTag(status).display() {
-            println!("{}:{}: {} {}", path, linenum, tag, link);
+            println!("{}:{}: {} {}", path, linenum, tag, raw);
         }
     }
 }
