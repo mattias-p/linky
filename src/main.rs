@@ -108,14 +108,12 @@ fn main() {
                 .or_insert_with(|| client.fetch_targets(&base));
             targets
                 .as_ref()
-                .and_then(|ids| if let Some(ref fragment) = fragment {
-                    if ids.contains(fragment) {
+                .and_then(|ids| {
+                    if fragment.map_or(true, |fragment| ids.contains(&fragment)) {
                         Ok(())
                     } else {
                         Err(&LookupError::NoAnchor)
                     }
-                } else {
-                    Ok(())
                 })
                 .err()
         });
