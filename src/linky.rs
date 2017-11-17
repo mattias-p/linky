@@ -259,9 +259,15 @@ impl Link {
             Err(err) => Err(BaseLinkError::from(err)),
         }
     }
+}
 
-    pub fn get_targets(&self, client: &Client) -> Result<(Vec<String>, Option<&str>), LookupError> {
-        match self {
+pub trait Targets {
+    fn fetch_targets<'a>(&self, link: &'a Link) -> Result<(Vec<String>, Option<&'a str>), LookupError>;
+}
+
+impl Targets for Client {
+    fn fetch_targets<'a>(&self, link: &'a Link) -> Result<(Vec<String>, Option<&'a str>), LookupError> {
+        match link {
             &Link::Path(ref path) => {
                 if Path::new(path).is_relative() {
                     let (path, fragment) = split_path_fragment(path);
@@ -272,7 +278,7 @@ impl Link {
             }
             &Link::Url(ref url) => {
                 let (url, fragment) = split_url_fragment(url);
-                get_url_ids(url, client).map(|ids| (ids, fragment))
+                get_url_ids(url, self).map(|ids| (ids, fragment))
             }
         }
     }

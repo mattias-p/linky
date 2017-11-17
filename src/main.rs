@@ -22,6 +22,7 @@ use linky::Link;
 use linky::LookupTag;
 use linky::LookupError;
 use linky::md_file_links;
+use linky::Targets;
 use regex::Regex;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
@@ -85,7 +86,7 @@ fn main() {
         match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
             Ok(parsed) => {
                 let status = client.as_ref().map(|client| {
-                    parsed.get_targets(client).and_then(|(ids, fragment)| {
+                    client.fetch_targets(&parsed).and_then(|(ids, fragment)| {
                         if let Some(fragment) = fragment {
                             if ids.contains(&fragment.to_string()) {
                                 Ok(())
