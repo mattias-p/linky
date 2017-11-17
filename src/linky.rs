@@ -41,6 +41,7 @@ pub enum LookupError {
     Absolute,
     Url(url::ParseError),
     Mime(Option<Mime>),
+    Prefix,
 }
 
 impl fmt::Display for LookupError {
@@ -55,6 +56,7 @@ impl fmt::Display for LookupError {
             LookupError::Absolute => write!(f, "ABSOLUTE"),
             LookupError::Url(_) => write!(f, "URL"),
             LookupError::Mime(_) => write!(f, "MIME"),
+            LookupError::Prefix => write!(f, "PREFIX"),
         }
     }
 }
@@ -71,6 +73,7 @@ impl Error for LookupError {
             LookupError::Absolute => "unhandled absolute path",
             LookupError::Url(_) => "invalid url",
             LookupError::Mime(_) => "unrecognized mime type",
+            LookupError::Prefix => "prefixed fragmendt",
         }
     }
 

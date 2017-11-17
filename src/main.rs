@@ -37,6 +37,8 @@ struct Opt {
 
     #[structopt(long = "follow", short = "f", help = "Follow HTTP redirects")] redirect: bool,
 
+    #[structopt(long = "prefix", short = "p", help = "Fragment prefixes")] prefixes: Vec<String>,
+
     #[structopt(long = "root", short = "r", name = "path",
                 help = "Join absolute local links to a document root", default_value = "/")]
     root: String,
@@ -109,10 +111,16 @@ fn main() {
             targets
                 .as_ref()
                 .and_then(|ids| {
-                    if fragment.map_or(true, |fragment| ids.contains(&fragment)) {
-                        Ok(())
+                    if let &Some(ref fragment) = &fragment {
+                        if ids.contains(&fragment) {
+                            Ok(())
+                        } else if opt.prefixes.iter().any(|p| ids.contains(&format!("{}{}", p, fragment))) {
+                            Err(&LookupError::Prefix)
+                        } else {
+                            Err(&LookupError::NoAnchor)
+                        }
                     } else {
-                        Err(&LookupError::NoAnchor)
+                        Ok(())
                     }
                 })
                 .err()
