@@ -9,6 +9,7 @@ use std::io::Read;
 use std::io;
 use std::ops::Add;
 use std::path::Path;
+use std::result;
 use std::str::FromStr;
 
 use bytecount::count;
@@ -137,7 +138,7 @@ impl From<url::ParseError> for LookupError {
     }
 }
 
-pub fn get_path_ids(path: &str, id_transform: &ToId) -> Result<Vec<String>, LookupError> {
+pub fn get_path_ids(path: &str, id_transform: &ToId) -> result::Result<Vec<String>, LookupError> {
     let mut headers = Headers::new();
     let mut buffer = String::new();
     slurp(&path, &mut buffer)?;
@@ -146,7 +147,7 @@ pub fn get_path_ids(path: &str, id_transform: &ToId) -> Result<Vec<String>, Look
            .collect())
 }
 
-pub fn get_url_ids(url: &Url, client: &Client) -> Result<Vec<String>, LookupError> {
+pub fn get_url_ids(url: &Url, client: &Client) -> result::Result<Vec<String>, LookupError> {
     if url.scheme() == "http" || url.scheme() == "https" {
         let mut response = client.get(url.clone()).send()?;
         if !response.status().is_success() {
@@ -275,7 +276,7 @@ pub enum Link {
 }
 
 impl Link {
-    fn parse(s: &str) -> Result<Self, ParseError> {
+    fn parse(s: &str) -> result::Result<Self, ParseError> {
         match Url::parse(s) {
             Ok(url) => Ok(Link::Url(url)),
             Err(ParseError::RelativeUrlWithoutBase) => Ok(Link::Path(s.to_string())),
@@ -302,7 +303,7 @@ impl Link {
     pub fn parse_with_root<P1: AsRef<Path>, P2: AsRef<Path>>(link: &str,
                                                              origin: &P1,
                                                              root: &P2)
-                                                             -> Result<Self, BaseLinkError> {
+                                                             -> result::Result<Self, BaseLinkError> {
         match Url::parse(link) {
             Ok(url) => Ok(Link::Url(url)),
             Err(ParseError::RelativeUrlWithoutBase) => {
@@ -332,11 +333,11 @@ impl Link {
 }
 
 pub trait Targets {
-    fn fetch_targets(&self, link: &Link) -> Result<Vec<String>, LookupError>;
+    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, LookupError>;
 }
 
 impl Targets for Client {
-    fn fetch_targets(&self, link: &Link) -> Result<Vec<String>, LookupError> {
+    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, LookupError> {
         match link {
             &Link::Path(ref path) => {
                 if Path::new(path).is_relative() {
@@ -400,7 +401,7 @@ pub struct BaseLink(Link);
 
 impl FromStr for BaseLink {
     type Err = BaseLinkError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> result::Result<Self, Self::Err> {
         match Link::parse(s) {
             Ok(Link::Url(ref base)) if base.cannot_be_a_base() => Err(BaseLinkError::CannotBeABase),
             Ok(link) => Ok(BaseLink(link)),
