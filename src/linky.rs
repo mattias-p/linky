@@ -89,7 +89,11 @@ impl Error for LookupError {
 
 impl From<io::Error> for LookupError {
     fn from(err: io::Error) -> Self {
-        LookupError::Io(err)
+        if err.kind() == io::ErrorKind::NotFound {
+            LookupError::NoDocument
+        } else {
+            LookupError::Io(err)
+        }
     }
 }
 
@@ -120,7 +124,11 @@ pub fn get_url_ids(url: &Url, client: &Client) -> Result<Vec<String>, LookupErro
     if url.scheme() == "http" || url.scheme() == "https" {
         let mut response = client.get(url.clone()).send()?;
         if !response.status().is_success() {
-            Err(LookupError::HttpStatus(response.status()))?;
+            if response.status() == StatusCode::NotFound {
+                Err(LookupError::NoDocument)?;
+            } else {
+                Err(LookupError::HttpStatus(response.status()))?;
+            }
         }
         match response.headers().get::<ContentType>() {
             None => Err(LookupError::Mime(None))?,
