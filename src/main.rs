@@ -15,6 +15,7 @@ mod linky;
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::io::BufRead;
 use std::io;
 use std::path::Path;
@@ -38,6 +39,8 @@ struct Opt {
 
     #[structopt(long = "follow", short = "f", help = "Follow HTTP redirects")] redirect: bool,
 
+    #[structopt(long = "silence", short = "s", help = "Silence tags")] silence: Vec<String>,
+
     #[structopt(long = "prefix", short = "p", help = "Fragment prefixes")] prefixes: Vec<String>,
 
     #[structopt(long = "root", short = "r", name = "path",
@@ -49,6 +52,7 @@ struct Opt {
 
 fn main() {
     let opt = Opt::from_args();
+    let silence: HashSet<_> = opt.silence.iter().collect();
 
     let client = if opt.check {
         let mut builder = Client::builder();
@@ -127,7 +131,8 @@ fn main() {
                 })
                 .err()
         });
-        if let Some(tag) = LookupTag(status).display() {
+        let tag = LookupTag(status).display();
+        if !silence.contains(&tag) {
             println!("{}:{}: {} {}", path, linenum, tag, raw);
         }
     }

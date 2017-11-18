@@ -523,11 +523,11 @@ impl<'a, T> BorrowedOrOwned<'a, T> {
 pub struct LookupTag<'a>(pub Option<Option<BorrowedOrOwned<'a, LookupError>>>);
 
 impl<'a> LookupTag<'a> {
-    pub fn display(&self) -> Option<String> {
+    pub fn display(&self) -> String {
         match self.0 {
-            Some(Some(ref err)) => Some(format!("{}", err.as_ref().get_tag())),
-            Some(None) => None,
-            None => Some("".to_string()),
+            Some(Some(ref err)) => format!("{}", err.as_ref().get_tag()),
+            Some(None) => "OK".to_string(),
+            None => "".to_string(),
         }
     }
 }
