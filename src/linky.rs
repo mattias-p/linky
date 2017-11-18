@@ -475,12 +475,28 @@ pub fn md_file_links<'a>(
     Ok(())
 }
 
-pub struct LookupTag<'a>(pub Option<Option<&'a LookupError>>);
+pub enum BorrowedOrOwned<'a, T: 'a> {
+    Borrowed(&'a T),
+    Owned(T)
+}
+
+impl<'a, T> BorrowedOrOwned<'a, T> {
+    fn as_ref(&self) -> &T {
+        use self::BorrowedOrOwned::*;
+
+        match self {
+            &Borrowed(b) => b,
+            &Owned(ref o) => o,
+        }
+    }
+}
+
+pub struct LookupTag<'a>(pub Option<Option<BorrowedOrOwned<'a, LookupError>>>);
 
 impl<'a> LookupTag<'a> {
     pub fn display(&self) -> Option<&fmt::Display> {
         match self.0 {
-            Some(Some(ref err)) => Some(err as &fmt::Display),
+            Some(Some(ref err)) => Some(err.as_ref() as &fmt::Display),
             Some(None) => None,
             None => Some(&"" as &fmt::Display),
         }

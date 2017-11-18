@@ -19,6 +19,7 @@ use std::io::BufRead;
 use std::io;
 use std::path::Path;
 
+use linky::BorrowedOrOwned;
 use linky::Link;
 use linky::LookupTag;
 use linky::LookupError;
@@ -110,14 +111,15 @@ fn main() {
                 .or_insert_with(|| client.fetch_targets(&base));
             targets
                 .as_ref()
+                .map_err(|err| BorrowedOrOwned::Borrowed(err))
                 .and_then(|ids| {
                     if let &Some(ref fragment) = &fragment {
                         if ids.contains(&fragment) {
                             Ok(())
                         } else if opt.prefixes.iter().any(|p| ids.contains(&format!("{}{}", p, fragment))) {
-                            Err(&LookupError::Prefix)
+                            Err(BorrowedOrOwned::Owned(LookupError::Prefix))
                         } else {
-                            Err(&LookupError::NoAnchor)
+                            Err(BorrowedOrOwned::Owned(LookupError::NoAnchor))
                         }
                     } else {
                         Ok(())
