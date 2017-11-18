@@ -119,7 +119,7 @@ fn main() {
                         } else if opt.prefixes.iter().any(|p| ids.contains(&format!("{}{}", p, fragment))) {
                             Err(BorrowedOrOwned::Owned(LookupError::Prefix))
                         } else {
-                            Err(BorrowedOrOwned::Owned(LookupError::NoAnchor))
+                            Err(BorrowedOrOwned::Owned(LookupError::NoFragment))
                         }
                     } else {
                         Ok(())
