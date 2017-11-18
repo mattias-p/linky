@@ -116,8 +116,8 @@ fn main() {
                     if let &Some(ref fragment) = &fragment {
                         if ids.contains(&fragment) {
                             Ok(())
-                        } else if opt.prefixes.iter().any(|p| ids.contains(&format!("{}{}", p, fragment))) {
-                            Err(BorrowedOrOwned::Owned(LookupError::Prefix))
+                        } else if let Some(prefix) = opt.prefixes.iter().filter_map(|p| if ids.contains(&format!("{}{}", p, fragment)) { Some(p.to_string()) } else { None }).next() {
+                            Err(BorrowedOrOwned::Owned(LookupError::Prefix(prefix)))
                         } else {
                             Err(BorrowedOrOwned::Owned(LookupError::NoFragment))
                         }
