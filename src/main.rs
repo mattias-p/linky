@@ -35,19 +35,24 @@ use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
-    #[structopt(long = "check", short = "c", help = "Check links")] check: bool,
+    #[structopt(long = "check", short = "c", help = "Check links")]
+    check: bool,
 
-    #[structopt(long = "follow", short = "f", help = "Follow HTTP redirects")] redirect: bool,
+    #[structopt(long = "follow", short = "f", help = "Follow HTTP redirects")]
+    redirect: bool,
 
-    #[structopt(long = "silence", short = "s", help = "Silence tags")] silence: Vec<String>,
+    #[structopt(long = "silence", short = "s", help = "Silence tags")]
+    silence: Vec<String>,
 
-    #[structopt(long = "prefix", short = "p", help = "Fragment prefixes")] prefixes: Vec<String>,
+    #[structopt(long = "prefix", short = "p", help = "Fragment prefixes")]
+    prefixes: Vec<String>,
 
     #[structopt(long = "root", short = "r", name = "path",
                 help = "Join absolute local links to a document root", default_value = "/")]
     root: String,
 
-    #[structopt(help = "Files to parse")] file: Vec<String>,
+    #[structopt(help = "Files to parse")]
+    file: Vec<String>,
 }
 
 fn main() {
@@ -76,20 +81,14 @@ fn main() {
             let lineno = cap.get(2).unwrap().as_str();
             let link = cap.get(3).unwrap().as_str();
 
-            links.push((
-                path.to_string(),
-                lineno.parse().unwrap(),
-                link.to_string(),
-            ));
+            links.push((path.to_string(), lineno.parse().unwrap(), link.to_string()));
         }
     } else {
         for path in &opt.file {
             if let Err(err) = md_file_links(path, &mut links) {
-                eprintln!(
-                    "error: reading file {}: {}",
-                    escape(Cow::Borrowed(path)),
-                    err
-                );
+                eprintln!("error: reading file {}: {}",
+                          escape(Cow::Borrowed(path)),
+                          err);
             }
         }
     }
@@ -110,26 +109,35 @@ fn main() {
     let mut all_targets = HashMap::new();
     for (path, linenum, raw, base, fragment) in links {
         let status = client.as_ref().map(|client| {
-            let targets = all_targets
-                .entry(base.clone())
-                .or_insert_with(|| client.fetch_targets(&base));
-            targets
-                .as_ref()
-                .map_err(|err| BorrowedOrOwned::Borrowed(err))
-                .and_then(|ids| {
-                    if let &Some(ref fragment) = &fragment {
-                        if ids.contains(&fragment) {
-                            Ok(())
-                        } else if let Some(prefix) = opt.prefixes.iter().filter_map(|p| if ids.contains(&format!("{}{}", p, fragment)) { Some(p.to_string()) } else { None }).next() {
-                            Err(BorrowedOrOwned::Owned(LookupError::Prefix(prefix)))
-                        } else {
-                            Err(BorrowedOrOwned::Owned(LookupError::NoFragment))
-                        }
-                    } else {
-                        Ok(())
-                    }
-                })
-                .err()
+            let targets = all_targets.entry(base.clone())
+                                     .or_insert_with(|| client.fetch_targets(&base));
+            targets.as_ref()
+                   .map_err(|err| BorrowedOrOwned::Borrowed(err))
+                   .and_then(|ids| {
+                       if let &Some(ref fragment) = &fragment {
+                           if ids.contains(&fragment) {
+                               Ok(())
+                           } else if let Some(prefix) = opt.prefixes
+                                                    .iter()
+                                                    .filter_map(|p| {
+                                                        if ids.contains(&format!("{}{}",
+                                                                                 p,
+                                                                                 fragment)) {
+                                                            Some(p.to_string())
+                                                        } else {
+                                                            None
+                                                        }
+                                                    })
+                                                    .next() {
+                               Err(BorrowedOrOwned::Owned(LookupError::Prefix(prefix)))
+                           } else {
+                               Err(BorrowedOrOwned::Owned(LookupError::NoFragment))
+                           }
+                       } else {
+                           Ok(())
+                       }
+                   })
+                   .err()
         });
         let tag = LookupTag(status).display();
         if !silence.contains(&tag) {
