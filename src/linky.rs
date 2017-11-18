@@ -494,11 +494,11 @@ impl<'a, T> BorrowedOrOwned<'a, T> {
 pub struct LookupTag<'a>(pub Option<Option<BorrowedOrOwned<'a, LookupError>>>);
 
 impl<'a> LookupTag<'a> {
-    pub fn display(&self) -> Option<&fmt::Display> {
+    pub fn display(&self) -> Option<String> {
         match self.0 {
-            Some(Some(ref err)) => Some(err.as_ref() as &fmt::Display),
+            Some(Some(ref err)) => Some(format!("{}", err.as_ref())),
             Some(None) => None,
-            None => Some(&"" as &fmt::Display),
+            None => Some("".to_string()),
         }
     }
 }
