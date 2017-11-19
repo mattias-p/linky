@@ -15,6 +15,7 @@ use std::str::FromStr;
 use bytecount::count;
 use errors::ErrorKind;
 use errors::LookupError;
+use errors::ParseError;
 use htmlstream;
 use pulldown_cmark;
 use pulldown_cmark::Event;
@@ -70,24 +71,6 @@ impl fmt::Display for Tag {
             &Ok(()) => write!(f, "OK"),
             &Err(ref kind) => write!(f, "{}", kind),
         }
-    }
-}
-
-#[derive(Debug)]
-pub struct ParseError;
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "invalid tag")
-    }
-}
-
-impl error::Error for ParseError {
-    fn description(&self) -> &str {
-        &"invalid tag"
-    }
-    fn cause(&self) -> Option<&error::Error> {
-        None
     }
 }
 

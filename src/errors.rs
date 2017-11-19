@@ -49,6 +49,26 @@ impl Into<LookupError> for ErrorKind {
     }
 }
 
+
+#[derive(Debug)]
+pub struct ParseError;
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "invalid tag")
+    }
+}
+
+impl error::Error for ParseError {
+    fn description(&self) -> &str {
+        &"invalid tag"
+    }
+    fn cause(&self) -> Option<&error::Error> {
+        None
+    }
+}
+
+
 #[derive(Debug)]
 pub struct LookupError {
     pub kind: ErrorKind,
