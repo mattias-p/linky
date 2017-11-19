@@ -25,10 +25,7 @@ use pulldown_cmark::Parser;
 use regex::Regex;
 use reqwest::Client;
 use reqwest::header::ContentType;
-use reqwest::Method;
 use reqwest::mime;
-use reqwest::Response;
-use reqwest::header::Allow;
 use url::Url;
 use url;
 
@@ -107,18 +104,6 @@ fn get_html_ids(buffer: &str) -> Vec<String> {
         }
     }
     result
-}
-
-trait AllowsMethod {
-    fn allows_method(&self, method: Method) -> bool;
-}
-
-impl AllowsMethod for Response {
-    fn allows_method(&self, method: Method) -> bool {
-        self.headers()
-            .get::<Allow>()
-            .map_or(false, |allow| allow.0.iter().any(|m| *m == method))
-    }
 }
 
 fn as_relative<'a, P: AsRef<Path>>(path: &'a P) -> &'a Path {
