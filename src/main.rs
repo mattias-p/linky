@@ -21,6 +21,7 @@ use std::io;
 use std::path::Path;
 
 use linky::BorrowedOrOwned;
+use linky::ErrorKind;
 use linky::Link;
 use linky::LookupTag;
 use linky::LookupError;
@@ -129,9 +130,9 @@ fn main() {
                                                         }
                                                     })
                                                     .next() {
-                               Err(BorrowedOrOwned::Owned(LookupError::Prefix(prefix)))
+                               Err(BorrowedOrOwned::Owned(LookupError::from_prefix(prefix)))
                            } else {
-                               Err(BorrowedOrOwned::Owned(LookupError::NoFragment))
+                               Err(BorrowedOrOwned::Owned(ErrorKind::NoFragment.into()))
                            }
                        } else {
                            Ok(())

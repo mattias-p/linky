@@ -31,46 +31,110 @@ use url::ParseError;
 use url::Url;
 use url;
 
-#[derive(Debug)]
-pub enum LookupError {
-    Http(reqwest::Error),
-    Io(io::Error),
+#[derive(Clone, Debug)]
+pub enum ErrorKind {
+    HttpError,
+    IoError,
     HttpStatus(StatusCode),
     NoDocument,
     NoFragment,
     Protocol,
     Absolute,
-    Url(url::ParseError),
+    InvalidUrl,
     NoMime,
-    Mime(Mime),
-    Prefix(String),
+    UnrecognizedMime,
+    Prefixed,
+}
+
+impl fmt::Display for ErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ErrorKind::HttpError => write!(f, "HTTP_OTH"),
+            ErrorKind::IoError => write!(f, "IO_ERR"),
+            ErrorKind::InvalidUrl => write!(f, "URL_ERR"),
+            ErrorKind::HttpStatus(status) => write!(f, "HTTP_{}", status.as_u16()),
+            ErrorKind::NoDocument => write!(f, "NO_DOC"),
+            ErrorKind::NoFragment => write!(f, "NO_FRAG"),
+            ErrorKind::Protocol => write!(f, "PROTOCOL"),
+            ErrorKind::Absolute => write!(f, "ABSOLUTE"),
+            ErrorKind::NoMime => write!(f, "NO_MIME"),
+            ErrorKind::UnrecognizedMime => write!(f, "MIME"),
+            ErrorKind::Prefixed => write!(f, "PREFIXED"),
+        }
+    }
+}
+
+impl Into<LookupError> for ErrorKind {
+    fn into(self) -> LookupError {
+        LookupError {
+            kind: self,
+            cause: None,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct LookupError {
+    kind: ErrorKind,
+    cause: Option<Box<Error>>,
 }
 
 impl LookupError {
-    fn get_tag(&self) -> String {
-        match *self {
-            LookupError::Http(_) => "HTTP_OTH".to_string(),
-            LookupError::Io(_) => "IO_ERR".to_string(),
-            LookupError::Url(_) => "URL_ERR".to_string(),
-            LookupError::HttpStatus(status) => format!("HTTP_{}", status.as_u16()),
-            LookupError::NoDocument => "NO_DOC".to_string(),
-            LookupError::NoFragment => "NO_FRAG".to_string(),
-            LookupError::Protocol => "PROTOCOL".to_string(),
-            LookupError::Absolute => "ABSOLUTE".to_string(),
-            LookupError::NoMime => "NO_MIME".to_string(),
-            LookupError::Mime(_) => "MIME".to_string(),
-            LookupError::Prefix(_) => "PREFIXED".to_string(),
+    pub fn kind(&self) -> ErrorKind {
+        self.kind.clone()
+    }
+
+    pub fn from_prefix(prefix: String) -> Self {
+        LookupError {
+            kind: ErrorKind::Prefixed,
+            cause: Some(Box::new(FragmentPrefix(prefix))),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct UnrecognizedMime(Mime);
+
+impl fmt::Display for UnrecognizedMime {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "unrecognized mime type {}", self.0)
+    }
+}
+
+impl Error for UnrecognizedMime {
+    fn description(&self) -> &str {
+        "unrecognied mime type"
+    }
+    fn cause(&self) -> Option<&Error> {
+        None
+    }
+}
+
+#[derive(Debug)]
+pub struct FragmentPrefix(String);
+
+impl fmt::Display for FragmentPrefix {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "fragment prefixed with {}", self.0)
+    }
+}
+
+impl Error for FragmentPrefix {
+    fn description(&self) -> &str {
+        "prefixed fragment"
+    }
+    fn cause(&self) -> Option<&Error> {
+        None
     }
 }
 
 impl fmt::Display for LookupError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &LookupError::Http(ref e) => write!(f, "{}", e),
-            &LookupError::Io(ref e) => write!(f, "{}", e),
-            &LookupError::Url(ref e) => write!(f, "{}", e),
-            &LookupError::HttpStatus(status) => {
+        match self.kind {
+            ErrorKind::InvalidUrl => write!(f, "invalid url"),
+            ErrorKind::HttpError => write!(f, "http error"),
+            ErrorKind::IoError => write!(f, "io error"),
+            ErrorKind::HttpStatus(status) => {
                 write!(f,
                        "unexpected http status {}{}",
                        status.as_u16(),
@@ -78,63 +142,67 @@ impl fmt::Display for LookupError {
                              .map(|s| format!(" {}", s))
                              .unwrap_or("".to_string()))
             }
-            &LookupError::NoDocument => write!(f, "document not found"),
-            &LookupError::NoFragment => write!(f, "fragment not found"),
-            &LookupError::Protocol => write!(f, "unhandled protocol"),
-            &LookupError::Absolute => write!(f, "unhandled absolute path"),
-            &LookupError::NoMime => write!(f, "no mime type"),
-            &LookupError::Mime(ref mime) => write!(f, "unrecognized mime type {}", mime),
-            &LookupError::Prefix(ref prefix) => write!(f, "fragment prefixed with {}", prefix),
+            ErrorKind::NoDocument => write!(f, "document not found"),
+            ErrorKind::NoFragment => write!(f, "fragment not found"),
+            ErrorKind::Protocol => write!(f, "unhandled protocol"),
+            ErrorKind::Absolute => write!(f, "unhandled absolute path"),
+            ErrorKind::NoMime => write!(f, "no mime type"),
+            ErrorKind::UnrecognizedMime => write!(f, "unrecognized mime type"),
+            ErrorKind::Prefixed => write!(f, "prefixed fragment"),
         }
     }
 }
 
 impl Error for LookupError {
     fn description(&self) -> &str {
-        match *self {
-            LookupError::Http(ref err) => err.description(),
-            LookupError::Io(ref err) => err.description(),
-            LookupError::Url(_) => "invalid url",
-            LookupError::HttpStatus(_) => "unexpected http status",
-            LookupError::NoDocument => "document not found",
-            LookupError::NoFragment => "fragment not found",
-            LookupError::Protocol => "unrecognized protocol",
-            LookupError::Absolute => "unhandled absolute path",
-            LookupError::NoMime => "no mime type",
-            LookupError::Mime(_) => "unrecognized mime type",
-            LookupError::Prefix(_) => "prefixed fragmendt",
+        match self.kind {
+            ErrorKind::HttpError => "http error",
+            ErrorKind::IoError => "io error",
+            ErrorKind::InvalidUrl => "invalid url",
+            ErrorKind::HttpStatus(_) => "unexpected http status",
+            ErrorKind::NoDocument => "document not found",
+            ErrorKind::NoFragment => "fragment not found",
+            ErrorKind::Protocol => "unrecognized protocol",
+            ErrorKind::Absolute => "unhandled absolute path",
+            ErrorKind::NoMime => "no mime type",
+            ErrorKind::UnrecognizedMime => "unrecognized mime type",
+            ErrorKind::Prefixed => "prefixed fragmendt",
         }
     }
 
     fn cause(&self) -> Option<&Error> {
-        match *self {
-            LookupError::Http(ref err) => Some(err),
-            LookupError::Io(ref err) => Some(err),
-            LookupError::Url(ref err) => Some(err),
-            _ => None,
-        }
+        self.cause.as_ref().map(|c| c.as_ref())
     }
 }
 
 impl From<io::Error> for LookupError {
     fn from(err: io::Error) -> Self {
         if err.kind() == io::ErrorKind::NotFound {
-            LookupError::NoDocument
+            ErrorKind::NoDocument.into()
         } else {
-            LookupError::Io(err)
+            LookupError {
+                kind: ErrorKind::IoError,
+                cause: Some(Box::new(err)),
+            }
         }
     }
 }
 
 impl From<reqwest::Error> for LookupError {
     fn from(err: reqwest::Error) -> Self {
-        LookupError::Http(err)
+        LookupError {
+            kind: ErrorKind::HttpError,
+            cause: Some(Box::new(err)),
+        }
     }
 }
 
 impl From<url::ParseError> for LookupError {
     fn from(err: url::ParseError) -> Self {
-        LookupError::Url(err)
+        LookupError {
+            kind: ErrorKind::InvalidUrl,
+            cause: Some(Box::new(err)),
+        }
     }
 }
 
@@ -152,16 +220,19 @@ pub fn get_url_ids(url: &Url, client: &Client) -> result::Result<Vec<String>, Lo
         let mut response = client.get(url.clone()).send()?;
         if !response.status().is_success() {
             if response.status() == StatusCode::NotFound {
-                return Err(LookupError::NoDocument);
+                return Err(ErrorKind::NoDocument.into());
             } else {
-                return Err(LookupError::HttpStatus(response.status()));
+                return Err(ErrorKind::HttpStatus(response.status()).into());
             }
         }
         match response.headers().get::<ContentType>() {
-            None => return Err(LookupError::NoMime),
+            None => return Err(ErrorKind::NoMime.into()),
             Some(&ContentType(ref mime_type)) if mime_type.type_() != mime::TEXT ||
                                                  mime_type.subtype() != mime::HTML => {
-                return Err(LookupError::Mime(mime_type.clone()))
+                return Err(LookupError {
+                    kind: ErrorKind::UnrecognizedMime,
+                    cause: Some(Box::new(UnrecognizedMime(mime_type.clone()))),
+                })
             }
             _ => {}
         };
@@ -169,7 +240,7 @@ pub fn get_url_ids(url: &Url, client: &Client) -> result::Result<Vec<String>, Lo
         response.read_to_string(&mut buffer)?;
         Ok(get_html_ids(&buffer))
     } else {
-        Err(LookupError::Protocol)
+        Err(ErrorKind::Protocol.into())
     }
 }
 
@@ -343,7 +414,7 @@ impl Targets for Client {
                 if Path::new(path).is_relative() {
                     get_path_ids(path.as_ref(), &GithubId)
                 } else {
-                    Err(LookupError::Absolute)
+                    Err(ErrorKind::Absolute.into())
                 }
             }
             &Link::Url(ref url) => get_url_ids(url, self),
@@ -527,7 +598,7 @@ pub struct LookupTag<'a>(pub Option<Option<BorrowedOrOwned<'a, LookupError>>>);
 impl<'a> LookupTag<'a> {
     pub fn display(&self) -> String {
         match self.0 {
-            Some(Some(ref err)) => format!("{}", err.as_ref().get_tag()),
+            Some(Some(ref err)) => format!("{}", err.as_ref().kind()),
             Some(None) => "OK".to_string(),
             None => "".to_string(),
         }
