@@ -2,7 +2,7 @@ use std::ascii::AsciiExt;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
-use std::error::Error;
+use std::error;
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
@@ -14,6 +14,7 @@ use std::str::FromStr;
 
 use bytecount::count;
 use errors::ErrorKind;
+use errors::LookupError;
 use htmlstream;
 use pulldown_cmark;
 use pulldown_cmark::Event;
@@ -27,7 +28,6 @@ use reqwest::mime::Mime;
 use reqwest::Response;
 use reqwest::StatusCode;
 use reqwest::header::Allow;
-use reqwest;
 use url::Url;
 use url;
 
@@ -82,35 +82,12 @@ impl fmt::Display for ParseError {
     }
 }
 
-impl Error for ParseError {
+impl error::Error for ParseError {
     fn description(&self) -> &str {
         &"invalid tag"
     }
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&error::Error> {
         None
-    }
-}
-
-#[derive(Debug)]
-pub struct LookupError {
-    pub kind: ErrorKind,
-    pub cause: Option<Box<Error>>,
-}
-
-impl LookupError {
-    pub fn kind(&self) -> ErrorKind {
-        self.kind.clone()
-    }
-
-    pub fn from_prefix(prefix: String) -> Self {
-        LookupError {
-            kind: ErrorKind::Prefixed,
-            cause: Some(Box::new(FragmentPrefix(prefix))),
-        }
-    }
-
-    pub fn cause(&self) -> Option<&Error> {
-        self.cause.as_ref().map(|e| e.as_ref())
     }
 }
 
@@ -123,17 +100,17 @@ impl fmt::Display for UnrecognizedMime {
     }
 }
 
-impl Error for UnrecognizedMime {
+impl error::Error for UnrecognizedMime {
     fn description(&self) -> &str {
         "unrecognied mime type"
     }
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&error::Error> {
         None
     }
 }
 
 #[derive(Debug)]
-pub struct FragmentPrefix(String);
+pub struct FragmentPrefix(pub String);
 
 impl fmt::Display for FragmentPrefix {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -141,93 +118,12 @@ impl fmt::Display for FragmentPrefix {
     }
 }
 
-impl Error for FragmentPrefix {
+impl error::Error for FragmentPrefix {
     fn description(&self) -> &str {
         "prefixed fragment"
     }
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&error::Error> {
         None
-    }
-}
-
-impl fmt::Display for LookupError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.kind {
-            ErrorKind::InvalidUrl => write!(f, "invalid url"),
-            ErrorKind::HttpError => write!(f, "http error"),
-            ErrorKind::IoError => write!(f, "io error"),
-            ErrorKind::HttpStatus(status) => {
-                write!(f,
-                       "unexpected http status {}{}",
-                       status.as_u16(),
-                       status.canonical_reason()
-                             .map(|s| format!(" {}", s))
-                             .unwrap_or("".to_string()))
-            }
-            ErrorKind::NoDocument => write!(f, "document not found"),
-            ErrorKind::NoFragment => write!(f, "fragment not found"),
-            ErrorKind::Protocol => write!(f, "unhandled protocol"),
-            ErrorKind::Absolute => write!(f, "unhandled absolute path"),
-            ErrorKind::NoMime => write!(f, "no mime type"),
-            ErrorKind::UnrecognizedMime => write!(f, "unrecognized mime type"),
-            ErrorKind::Prefixed => write!(f, "prefixed fragment"),
-        }
-    }
-}
-
-impl Error for LookupError {
-    fn description(&self) -> &str {
-        match self.kind {
-            ErrorKind::HttpError => "http error",
-            ErrorKind::IoError => "io error",
-            ErrorKind::InvalidUrl => "invalid url",
-            ErrorKind::HttpStatus(_) => "unexpected http status",
-            ErrorKind::NoDocument => "document not found",
-            ErrorKind::NoFragment => "fragment not found",
-            ErrorKind::Protocol => "unrecognized protocol",
-            ErrorKind::Absolute => "unhandled absolute path",
-            ErrorKind::NoMime => "no mime type",
-            ErrorKind::UnrecognizedMime => "unrecognized mime type",
-            ErrorKind::Prefixed => "prefixed fragmendt",
-        }
-    }
-
-    fn cause(&self) -> Option<&Error> {
-        self.cause.as_ref().map(|c| c.as_ref())
-    }
-}
-
-impl From<io::Error> for LookupError {
-    fn from(err: io::Error) -> Self {
-        if err.kind() == io::ErrorKind::NotFound {
-            LookupError {
-                kind: ErrorKind::NoDocument,
-                cause: Some(Box::new(err)),
-            }
-        } else {
-            LookupError {
-                kind: ErrorKind::IoError,
-                cause: Some(Box::new(err)),
-            }
-        }
-    }
-}
-
-impl From<reqwest::Error> for LookupError {
-    fn from(err: reqwest::Error) -> Self {
-        LookupError {
-            kind: ErrorKind::HttpError,
-            cause: Some(Box::new(err)),
-        }
-    }
-}
-
-impl From<url::ParseError> for LookupError {
-    fn from(err: url::ParseError) -> Self {
-        LookupError {
-            kind: ErrorKind::InvalidUrl,
-            cause: Some(Box::new(err)),
-        }
     }
 }
 
@@ -451,7 +347,7 @@ impl fmt::Display for Link {
         }
     }
 }
-impl Error for BaseLinkError {
+impl error::Error for BaseLinkError {
     fn description(&self) -> &str {
         match *self {
             BaseLinkError::ParseError(ref err) => err.description(),
@@ -459,7 +355,7 @@ impl Error for BaseLinkError {
         }
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&error::Error> {
         match *self {
             BaseLinkError::ParseError(ref err) => Some(err),
             BaseLinkError::CannotBeABase => None,
