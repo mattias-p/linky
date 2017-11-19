@@ -25,10 +25,8 @@ use std::io;
 use std::path::Path;
 
 use linky::BorrowedOrOwned;
-use linky::ErrorKind;
 use linky::lookup_fragment;
 use linky::Link;
-use linky::LookupError;
 use linky::md_file_links;
 use linky::Tag;
 use linky::Targets;
@@ -121,7 +119,7 @@ fn main() {
             let prefixes = &opt.prefixes;
             targets.as_ref()
                    .map_err(|err| BorrowedOrOwned::Borrowed(err))
-                   .and_then(|ids| lookup_fragment(ids, &fragment, &prefixes))
+                   .and_then(|ids| lookup_fragment(ids, &fragment, &prefixes).map_err(|err| BorrowedOrOwned::Owned(err)))
                    .err()
         });
         let (tag, err) = match status {

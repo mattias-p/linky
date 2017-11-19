@@ -669,14 +669,14 @@ pub fn find_prefixed_fragment(ids: &Vec<String>, fragment: &String, prefixes: &V
 }
 
 
-pub fn lookup_fragment<'a>(ids: &Vec<String>, fragment: &Option<String>, prefixes: &'a Vec<String>) -> Result<(), BorrowedOrOwned<'a, LookupError>> {
+pub fn lookup_fragment<'a>(ids: &Vec<String>, fragment: &Option<String>, prefixes: &'a Vec<String>) -> Result<(), LookupError> {
     if let &Some(ref fragment) = fragment {
         if ids.contains(&fragment) {
             Ok(())
         } else if let Some(prefix) = find_prefixed_fragment(ids, &fragment, &prefixes) {
-            Err(BorrowedOrOwned::Owned(LookupError::from_prefix(prefix)))
+            Err(LookupError::from_prefix(prefix))
         } else {
-            Err(BorrowedOrOwned::Owned(ErrorKind::NoFragment.into()))
+            Err(ErrorKind::NoFragment.into())
         }
     } else {
         Ok(())
