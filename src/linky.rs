@@ -27,13 +27,21 @@ use reqwest::Method;
 use reqwest::mime;
 use reqwest::mime::Mime;
 use reqwest::Response;
-use reqwest::StatusCode;
 use reqwest::header::Allow;
 use url::Url;
 use url;
 
 #[derive(Debug, Eq, Hash, PartialEq)]
 pub struct Tag(pub Result<(), ErrorKind>);
+
+impl Tag {
+    pub fn ok() -> Self {
+        Tag(Ok(()))
+    }
+    pub fn from_error_kind(kind: ErrorKind) -> Self {
+        Tag(Err(kind))
+    }
+}
 
 impl FromStr for Tag {
     type Err = ParseError;

@@ -124,8 +124,8 @@ fn main() {
                    .err()
         });
         let (tag, err) = match status {
-            Some(Some(err)) => (Some(Tag(Err(err.as_ref().kind()))), Some(err)),
-            Some(None) => (Some(Tag(Ok(()))), None),
+            Some(Some(err)) => (Some(Tag::from_error_kind(err.as_ref().kind())), Some(err)),
+            Some(None) => (Some(Tag::ok()), None),
             None => (None, None),
         };
         if !tag.as_ref().map_or(true, |tag| silence.contains(&tag)) {
