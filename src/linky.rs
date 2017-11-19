@@ -14,9 +14,9 @@ use std::str::FromStr;
 
 use bytecount::count;
 use htmlstream;
+use pulldown_cmark;
 use pulldown_cmark::Event;
 use pulldown_cmark::Parser;
-use pulldown_cmark::Tag;
 use regex::Regex;
 use reqwest::Client;
 use reqwest::header::ContentType;
@@ -27,11 +27,10 @@ use reqwest::Response;
 use reqwest::StatusCode;
 use reqwest::header::Allow;
 use reqwest;
-use url::ParseError;
 use url::Url;
 use url;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum ErrorKind {
     HttpError,
     IoError,
@@ -70,6 +69,70 @@ impl Into<LookupError> for ErrorKind {
             kind: self,
             cause: None,
         }
+    }
+}
+
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub struct Tag(Result<(), ErrorKind>);
+
+impl FromStr for Tag {
+    type Err = ParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_uppercase().as_str() {
+            "OK" => Ok(Tag(Ok(()))),
+            "HTTP_OTH" => Ok(Tag(Err(ErrorKind::HttpError))),
+            "IO_ERR" => Ok(Tag(Err(ErrorKind::IoError))),
+            "URL_ERR" => Ok(Tag(Err(ErrorKind::InvalidUrl))),
+            "NO_DOC" => Ok(Tag(Err(ErrorKind::NoDocument))),
+            "NO_FRAG" => Ok(Tag(Err(ErrorKind::NoFragment))),
+            "PROTOCOL" => Ok(Tag(Err(ErrorKind::Protocol))),
+            "ABSOLUTE" => Ok(Tag(Err(ErrorKind::Absolute))),
+            "NO_MIME" => Ok(Tag(Err(ErrorKind::NoMime))),
+            "MIME" => Ok(Tag(Err(ErrorKind::UnrecognizedMime))),
+            "PREFIXED" => Ok(Tag(Err(ErrorKind::Prefixed))),
+            s => {
+                if s.starts_with("HTTP_") {
+                    if let Ok(status) = u16::from_str(&s[5..]) {
+                        if let Ok(status) = StatusCode::try_from(status) {
+                            Ok(Tag(Err(ErrorKind::HttpStatus(status))))
+                        } else {
+                            Err(ParseError)
+                        }
+                    } else {
+                        Err(ParseError)
+                    }
+                } else {
+                    Err(ParseError)
+                }
+            }
+        }
+    }
+}
+
+impl fmt::Display for Tag {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self.0 {
+            &Ok(()) => write!(f, "OK"),
+            &Err(ref kind) => write!(f, "{}", kind),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ParseError;
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "invalid tag")
+    }
+}
+
+impl Error for ParseError {
+    fn description(&self) -> &str {
+        &"invalid tag"
+    }
+    fn cause(&self) -> Option<&Error> {
+        None
     }
 }
 
@@ -323,7 +386,7 @@ impl<'a> Iterator for MdAnchorParser<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(event) = self.parser.next() {
             match event {
-                Event::Start(Tag::Header(_)) => {
+                Event::Start(pulldown_cmark::Tag::Header(_)) => {
                     self.is_header = true;
                 }
                 Event::Text(text) => {
@@ -347,10 +410,10 @@ pub enum Link {
 }
 
 impl Link {
-    fn parse(s: &str) -> result::Result<Self, ParseError> {
+    fn parse(s: &str) -> result::Result<Self, url::ParseError> {
         match Url::parse(s) {
             Ok(url) => Ok(Link::Url(url)),
-            Err(ParseError::RelativeUrlWithoutBase) => Ok(Link::Path(s.to_string())),
+            Err(url::ParseError::RelativeUrlWithoutBase) => Ok(Link::Path(s.to_string())),
             Err(err) => Err(err),
         }
     }
@@ -377,7 +440,7 @@ impl Link {
                                                              -> result::Result<Self, BaseLinkError> {
         match Url::parse(link) {
             Ok(url) => Ok(Link::Url(url)),
-            Err(ParseError::RelativeUrlWithoutBase) => {
+            Err(url::ParseError::RelativeUrlWithoutBase) => {
                 if Path::new(link).is_relative() {
                     let link = if link.starts_with('#') {
                         let file_name = origin.as_ref()
@@ -449,7 +512,7 @@ impl Error for BaseLinkError {
 #[derive(Debug)]
 pub enum BaseLinkError {
     CannotBeABase,
-    ParseError(ParseError),
+    ParseError(url::ParseError),
 }
 
 impl fmt::Display for BaseLinkError {
@@ -461,8 +524,8 @@ impl fmt::Display for BaseLinkError {
     }
 }
 
-impl From<ParseError> for BaseLinkError {
-    fn from(err: ParseError) -> Self {
+impl From<url::ParseError> for BaseLinkError {
+    fn from(err: url::ParseError) -> Self {
         BaseLinkError::ParseError(err)
     }
 }
@@ -553,7 +616,7 @@ impl<'a> Iterator for MdLinkParser<'a> {
     type Item = (usize, Cow<'a, str>);
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(event) = self.parser.next() {
-            if let Event::Start(Tag::Link(url, _)) = event {
+            if let Event::Start(pulldown_cmark::Tag::Link(url, _)) = event {
                 self.linenum += count(&self.buffer.as_bytes()[self.oldoffs..self.parser
                                                                                 .get_offset()],
                                       b'\n');
@@ -596,11 +659,11 @@ impl<'a, T> BorrowedOrOwned<'a, T> {
 pub struct LookupTag<'a>(pub Option<Option<BorrowedOrOwned<'a, LookupError>>>);
 
 impl<'a> LookupTag<'a> {
-    pub fn display(&self) -> String {
+    pub fn tag(&self) -> Option<Tag> {
         match self.0 {
-            Some(Some(ref err)) => format!("{}", err.as_ref().kind()),
-            Some(None) => "OK".to_string(),
-            None => "".to_string(),
+            Some(Some(ref err)) => Some(Tag(Err(err.as_ref().kind()))),
+            Some(None) => Some(Tag(Ok(()))),
+            None => None,
         }
     }
 }

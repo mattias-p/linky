@@ -16,6 +16,7 @@ mod linky;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt;
 use std::io::BufRead;
 use std::io;
 use std::path::Path;
@@ -26,6 +27,7 @@ use linky::Link;
 use linky::LookupTag;
 use linky::LookupError;
 use linky::md_file_links;
+use linky::Tag;
 use linky::Targets;
 use regex::Regex;
 use reqwest::Client;
@@ -43,7 +45,7 @@ struct Opt {
     redirect: bool,
 
     #[structopt(long = "silence", short = "s", help = "Silence tags")]
-    silence: Vec<String>,
+    silence: Vec<Tag>,
 
     #[structopt(long = "prefix", short = "p", help = "Fragment prefixes")]
     prefixes: Vec<String>,
@@ -140,9 +142,9 @@ fn main() {
                    })
                    .err()
         });
-        let tag = LookupTag(status).display();
-        if !silence.contains(&tag) {
-            println!("{}:{}: {} {}", path, linenum, tag, raw);
+        let tag = LookupTag(status).tag();
+        if !tag.as_ref().map_or(true, |tag| silence.contains(&tag)) {
+            println!("{}:{}: {} {}", path, linenum, tag.as_ref().map(|tag| tag as &fmt::Display).unwrap_or(&"" as &fmt::Display), raw);
         }
     }
 }
