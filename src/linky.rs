@@ -285,11 +285,7 @@ pub fn get_url_ids(url: &Url, client: &Client) -> result::Result<Vec<String>, Lo
     if url.scheme() == "http" || url.scheme() == "https" {
         let mut response = client.get(url.clone()).send()?;
         if !response.status().is_success() {
-            if response.status() == StatusCode::NotFound {
-                return Err(ErrorKind::NoDocument.into());
-            } else {
-                return Err(ErrorKind::HttpStatus(response.status()).into());
-            }
+            return Err(ErrorKind::HttpStatus(response.status()).into());
         }
         match response.headers().get::<ContentType>() {
             None => return Err(ErrorKind::NoMime.into()),
