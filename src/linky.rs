@@ -2,7 +2,6 @@ use std::ascii::AsciiExt;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
-use std::error;
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
@@ -185,14 +184,6 @@ pub enum Link {
 }
 
 impl Link {
-    fn parse(s: &str) -> result::Result<Self, url::ParseError> {
-        match Url::parse(s) {
-            Ok(url) => Ok(Link::Url(url)),
-            Err(url::ParseError::RelativeUrlWithoutBase) => Ok(Link::Path(s.to_string())),
-            Err(err) => Err(err),
-        }
-    }
-
     pub fn split_fragment(&self) -> (Link, Option<String>) {
         match self {
             &Link::Path(ref path) => {
@@ -212,7 +203,7 @@ impl Link {
     pub fn parse_with_root<P1: AsRef<Path>, P2: AsRef<Path>>(link: &str,
                                                              origin: &P1,
                                                              root: &P2)
-                                                             -> result::Result<Self, BaseLinkError> {
+                                                             -> result::Result<Self, url::ParseError> {
         match Url::parse(link) {
             Ok(url) => Ok(Link::Url(url)),
             Err(url::ParseError::RelativeUrlWithoutBase) => {
@@ -236,7 +227,16 @@ impl Link {
                                       .to_string()))
                 }
             }
-            Err(err) => Err(BaseLinkError::from(err)),
+            Err(err) => Err(err),
+        }
+    }
+}
+
+impl fmt::Display for Link {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Link::Url(ref url) => write!(f, "{}", url),
+            Link::Path(ref path) => write!(f, "{}", path),
         }
     }
 }
@@ -256,65 +256,6 @@ impl Targets for Client {
                 }
             }
             &Link::Url(ref url) => get_url_ids(url, self),
-        }
-    }
-}
-
-impl fmt::Display for Link {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Link::Url(ref url) => write!(f, "{}", url),
-            Link::Path(ref path) => write!(f, "{}", path),
-        }
-    }
-}
-impl error::Error for BaseLinkError {
-    fn description(&self) -> &str {
-        match *self {
-            BaseLinkError::ParseError(ref err) => err.description(),
-            BaseLinkError::CannotBeABase => "cannot be a base",
-        }
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            BaseLinkError::ParseError(ref err) => Some(err),
-            BaseLinkError::CannotBeABase => None,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum BaseLinkError {
-    CannotBeABase,
-    ParseError(url::ParseError),
-}
-
-impl fmt::Display for BaseLinkError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            BaseLinkError::ParseError(ref err) => err.fmt(f),
-            BaseLinkError::CannotBeABase => write!(f, "cannot be a base"),
-        }
-    }
-}
-
-impl From<url::ParseError> for BaseLinkError {
-    fn from(err: url::ParseError) -> Self {
-        BaseLinkError::ParseError(err)
-    }
-}
-
-#[derive(Debug)]
-pub struct BaseLink(Link);
-
-impl FromStr for BaseLink {
-    type Err = BaseLinkError;
-    fn from_str(s: &str) -> result::Result<Self, Self::Err> {
-        match Link::parse(s) {
-            Ok(Link::Url(ref base)) if base.cannot_be_a_base() => Err(BaseLinkError::CannotBeABase),
-            Ok(link) => Ok(BaseLink(link)),
-            Err(err) => Err(BaseLinkError::ParseError(err)),
         }
     }
 }
