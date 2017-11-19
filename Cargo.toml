@@ -11,8 +11,10 @@ license = "Apache-2.0"
 
 [dependencies]
 bytecount = "0.2.0"
+pretty_env_logger = "0.1.1"
 htmlstream = "0.1.3"
 lazy_static = "0.2.9"
+log = "0.3"
 pulldown-cmark = { version = "0.0.11", default-features = false }
 regex = "0.2.2"
 reqwest = "0.8.0"

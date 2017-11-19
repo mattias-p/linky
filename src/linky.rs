@@ -153,6 +153,10 @@ impl LookupError {
             cause: Some(Box::new(FragmentPrefix(prefix))),
         }
     }
+
+    pub fn cause(&self) -> Option<&Error> {
+        self.cause.as_ref().map(|e| e.as_ref())
+    }
 }
 
 #[derive(Debug)]
@@ -178,7 +182,7 @@ pub struct FragmentPrefix(String);
 
 impl fmt::Display for FragmentPrefix {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "fragment prefixed with {}", self.0)
+        write!(f, "fragment prefix: {}", self.0)
     }
 }
 
@@ -241,7 +245,10 @@ impl Error for LookupError {
 impl From<io::Error> for LookupError {
     fn from(err: io::Error) -> Self {
         if err.kind() == io::ErrorKind::NotFound {
-            ErrorKind::NoDocument.into()
+            LookupError {
+                kind: ErrorKind::NoDocument,
+                cause: Some(Box::new(err)),
+            }
         } else {
             LookupError {
                 kind: ErrorKind::IoError,

@@ -1,7 +1,10 @@
 extern crate bytecount;
+extern crate pretty_env_logger;
 extern crate htmlstream;
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate log;
 extern crate pulldown_cmark;
 extern crate regex;
 extern crate reqwest;
@@ -58,6 +61,7 @@ struct Opt {
 }
 
 fn main() {
+    pretty_env_logger::init().unwrap();
     let opt = Opt::from_args();
     let silence: HashSet<_> = opt.silence.iter().collect();
 
@@ -88,7 +92,7 @@ fn main() {
     } else {
         for path in &opt.file {
             if let Err(err) = md_file_links(path, &mut links) {
-                eprintln!("error: reading file {}: {}",
+                error!("reading file {}: {}",
                           escape(Cow::Borrowed(path)),
                           err);
             }
@@ -102,7 +106,7 @@ fn main() {
                 Some((path, linenum, link, base, fragment))
             }
             Err(err) => {
-                eprintln!("{}:{}: error: {}: {}", path, linenum, err, link);
+                error!("{}:{}: {}: {}", path, linenum, err, link);
                 None
             }
         }
@@ -142,7 +146,15 @@ fn main() {
                    .err()
         });
         let tag = match status {
-            Some(Some(err)) => Some(Tag(Err(err.as_ref().kind()))),
+            Some(Some(err)) => {
+                warn!("{}", &err.as_ref());
+                let mut e = err.as_ref().cause();
+                while let Some(err) = e {
+                    warn!("  caused by: {}", &err);
+                    e = err.cause();
+                }
+                Some(Tag(Err(err.as_ref().kind())))
+            }
             Some(None) => Some(Tag(Ok(()))),
             None => None,
         };
