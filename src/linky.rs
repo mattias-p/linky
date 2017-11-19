@@ -656,13 +656,13 @@ impl<'a, T> BorrowedOrOwned<'a, T> {
     }
 }
 
-pub struct LookupTag<'a>(pub Option<Option<BorrowedOrOwned<'a, LookupError>>>);
+pub struct LookupTag<'a>(pub Option<BorrowedOrOwned<'a, LookupError>>);
 
 impl<'a> LookupTag<'a> {
-    pub fn tag(&self) -> Option<Tag> {
-        self.0.as_ref().map(|inner| match inner {
-            &Some(ref err) => Tag(Err(err.as_ref().kind())),
-            &None => Tag(Ok(())),
-        })
+    pub fn tag(&self) -> Tag {
+        match self.0 {
+            Some(ref err) => Tag(Err(err.as_ref().kind())),
+            None => Tag(Ok(())),
+        }
     }
 }

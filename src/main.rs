@@ -142,7 +142,7 @@ fn main() {
                    })
                    .err()
         });
-        let tag = LookupTag(status).tag();
+        let tag = status.map(|status| LookupTag(status).tag());
         if !tag.as_ref().map_or(true, |tag| silence.contains(&tag)) {
             println!("{}:{}: {} {}", path, linenum, tag.as_ref().map(|tag| tag as &fmt::Display).unwrap_or(&"" as &fmt::Display), raw);
         }
