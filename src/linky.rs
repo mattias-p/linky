@@ -660,10 +660,9 @@ pub struct LookupTag<'a>(pub Option<Option<BorrowedOrOwned<'a, LookupError>>>);
 
 impl<'a> LookupTag<'a> {
     pub fn tag(&self) -> Option<Tag> {
-        match self.0 {
-            Some(Some(ref err)) => Some(Tag(Err(err.as_ref().kind()))),
-            Some(None) => Some(Tag(Ok(()))),
-            None => None,
-        }
+        self.0.as_ref().map(|inner| match inner {
+            &Some(ref err) => Tag(Err(err.as_ref().kind())),
+            &None => Tag(Ok(())),
+        })
     }
 }
