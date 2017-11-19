@@ -75,9 +75,14 @@ impl Into<LookupError> for ErrorKind {
 #[derive(Debug, Eq, Hash, PartialEq)]
 pub struct Tag(pub Result<(), ErrorKind>);
 
-fn parse_status(s: &str) -> Option<StatusCode> {
-    u16::from_str(&s).ok()
+fn parse_status(s: &str) -> Result<Tag, ParseError> {
+    if !s.starts_with("HTTP_") {
+        return Err(ParseError);
+    }
+    u16::from_str(&s[5..]).ok()
         .and_then(|s| StatusCode::try_from(s).ok())
+        .ok_or(ParseError)
+        .map(|s| Tag(Err(ErrorKind::HttpStatus(s))))
 }
 
 impl FromStr for Tag {
@@ -95,17 +100,7 @@ impl FromStr for Tag {
             "NO_MIME" => Ok(Tag(Err(ErrorKind::NoMime))),
             "MIME" => Ok(Tag(Err(ErrorKind::UnrecognizedMime))),
             "PREFIXED" => Ok(Tag(Err(ErrorKind::Prefixed))),
-            s => {
-                if s.starts_with("HTTP_") {
-                    if let Some(status) = parse_status(&s[5..]) {
-                        Ok(Tag(Err(ErrorKind::HttpStatus(status))))
-                    } else {
-                        Err(ParseError)
-                    }
-                } else {
-                    Err(ParseError)
-                }
-            }
+            s => parse_status(&s),
         }
     }
 }
