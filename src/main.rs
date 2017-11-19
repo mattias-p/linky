@@ -14,6 +14,7 @@ extern crate structopt;
 extern crate structopt_derive;
 extern crate url;
 
+mod errors;
 mod linky;
 
 use std::borrow::Cow;
