@@ -73,7 +73,7 @@ impl Into<LookupError> for ErrorKind {
 }
 
 #[derive(Debug, Eq, Hash, PartialEq)]
-pub struct Tag(Result<(), ErrorKind>);
+pub struct Tag(pub Result<(), ErrorKind>);
 
 impl FromStr for Tag {
     type Err = ParseError;
@@ -646,23 +646,12 @@ pub enum BorrowedOrOwned<'a, T: 'a> {
 }
 
 impl<'a, T> BorrowedOrOwned<'a, T> {
-    fn as_ref(&self) -> &T {
+    pub fn as_ref(&self) -> &T {
         use self::BorrowedOrOwned::*;
 
         match self {
             &Borrowed(b) => b,
             &Owned(ref o) => o,
-        }
-    }
-}
-
-pub struct LookupTag<'a>(pub Option<BorrowedOrOwned<'a, LookupError>>);
-
-impl<'a> LookupTag<'a> {
-    pub fn tag(&self) -> Tag {
-        match self.0 {
-            Some(ref err) => Tag(Err(err.as_ref().kind())),
-            None => Tag(Ok(())),
         }
     }
 }

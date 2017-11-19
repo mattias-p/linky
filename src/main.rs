@@ -24,7 +24,6 @@ use std::path::Path;
 use linky::BorrowedOrOwned;
 use linky::ErrorKind;
 use linky::Link;
-use linky::LookupTag;
 use linky::LookupError;
 use linky::md_file_links;
 use linky::Tag;
@@ -142,7 +141,11 @@ fn main() {
                    })
                    .err()
         });
-        let tag = status.map(|status| LookupTag(status).tag());
+        let tag = match status {
+            Some(Some(err)) => Some(Tag(Err(err.as_ref().kind()))),
+            Some(None) => Some(Tag(Ok(()))),
+            None => None,
+        };
         if !tag.as_ref().map_or(true, |tag| silence.contains(&tag)) {
             println!("{}:{}: {} {}", path, linenum, tag.as_ref().map(|tag| tag as &fmt::Display).unwrap_or(&"" as &fmt::Display), raw);
         }
