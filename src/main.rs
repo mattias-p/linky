@@ -26,7 +26,7 @@ use std::path::Path;
 
 use linky::BorrowedOrOwned;
 use linky::ErrorKind;
-use linky::find_prefixed_fragment;
+use linky::lookup_fragment;
 use linky::Link;
 use linky::LookupError;
 use linky::md_file_links;
@@ -118,21 +118,10 @@ fn main() {
         let status = client.as_ref().map(|client| {
             let targets = all_targets.entry(base.clone())
                                      .or_insert_with(|| client.fetch_targets(&base));
+            let prefixes = &opt.prefixes;
             targets.as_ref()
                    .map_err(|err| BorrowedOrOwned::Borrowed(err))
-                   .and_then(|ids| {
-                       if let &Some(ref fragment) = &fragment {
-                           if ids.contains(&fragment) {
-                               Ok(())
-                           } else if let Some(prefix) = find_prefixed_fragment(ids, &fragment, &opt.prefixes) {
-                               Err(BorrowedOrOwned::Owned(LookupError::from_prefix(prefix)))
-                           } else {
-                               Err(BorrowedOrOwned::Owned(ErrorKind::NoFragment.into()))
-                           }
-                       } else {
-                           Ok(())
-                       }
-                   })
+                   .and_then(|ids| lookup_fragment(ids, &fragment, &prefixes))
                    .err()
         });
         let (tag, err) = match status {
