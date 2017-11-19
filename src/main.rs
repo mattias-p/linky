@@ -145,20 +145,20 @@ fn main() {
                    })
                    .err()
         });
-        let tag = match status {
-            Some(Some(err)) => {
+        let (tag, err) = match status {
+            Some(Some(err)) => (Some(Tag(Err(err.as_ref().kind()))), Some(err)),
+            Some(None) => (Some(Tag(Ok(()))), None),
+            None => (None, None),
+        };
+        if !tag.as_ref().map_or(true, |tag| silence.contains(&tag)) {
+            if let Some(err) = err {
                 warn!("{}", &err.as_ref());
                 let mut e = err.as_ref().cause();
                 while let Some(err) = e {
                     warn!("  caused by: {}", &err);
                     e = err.cause();
                 }
-                Some(Tag(Err(err.as_ref().kind())))
             }
-            Some(None) => Some(Tag(Ok(()))),
-            None => None,
-        };
-        if !tag.as_ref().map_or(true, |tag| silence.contains(&tag)) {
             println!("{}:{}: {} {}", path, linenum, tag.as_ref().map(|tag| tag as &fmt::Display).unwrap_or(&"" as &fmt::Display), raw);
         }
     }
