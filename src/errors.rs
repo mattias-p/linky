@@ -1,7 +1,8 @@
 use std::error;
 use std::fmt;
-
 use std::io;
+use std::str::FromStr;
+
 use linky::FragmentPrefix;
 use reqwest;
 use reqwest::StatusCode;
@@ -20,6 +21,19 @@ pub enum ErrorKind {
     NoMime,
     UnrecognizedMime,
     Prefixed,
+}
+
+impl ErrorKind {
+    fn from_http_status_str(s: &str) -> Result<ErrorKind, ParseError> {
+        if !s.starts_with("HTTP_") {
+            return Err(ParseError);
+        }
+        u16::from_str(&s[5..])
+            .ok()
+            .and_then(|s| StatusCode::try_from(s).ok())
+            .map(|s| ErrorKind::HttpStatus(s))
+            .ok_or(ParseError)
+    }
 }
 
 impl fmt::Display for ErrorKind {
@@ -45,6 +59,25 @@ impl Into<LookupError> for ErrorKind {
         LookupError {
             kind: self,
             cause: None,
+        }
+    }
+}
+
+impl FromStr for ErrorKind {
+    type Err = ParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_uppercase().as_str() {
+            "HTTP_OTH" => Ok(ErrorKind::HttpError),
+            "IO_ERR" => Ok(ErrorKind::IoError),
+            "URL_ERR" => Ok(ErrorKind::InvalidUrl),
+            "NO_DOC" => Ok(ErrorKind::NoDocument),
+            "NO_FRAG" => Ok(ErrorKind::NoFragment),
+            "PROTOCOL" => Ok(ErrorKind::Protocol),
+            "ABSOLUTE" => Ok(ErrorKind::Absolute),
+            "NO_MIME" => Ok(ErrorKind::NoMime),
+            "MIME" => Ok(ErrorKind::UnrecognizedMime),
+            "PREFIXED" => Ok(ErrorKind::Prefixed),
+            s => ErrorKind::from_http_status_str(&s),
         }
     }
 }

@@ -35,32 +35,12 @@ use url;
 #[derive(Debug, Eq, Hash, PartialEq)]
 pub struct Tag(pub Result<(), ErrorKind>);
 
-fn parse_status(s: &str) -> Result<Tag, ParseError> {
-    if !s.starts_with("HTTP_") {
-        return Err(ParseError);
-    }
-    u16::from_str(&s[5..]).ok()
-        .and_then(|s| StatusCode::try_from(s).ok())
-        .ok_or(ParseError)
-        .map(|s| Tag(Err(ErrorKind::HttpStatus(s))))
-}
-
 impl FromStr for Tag {
     type Err = ParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
             "OK" => Ok(Tag(Ok(()))),
-            "HTTP_OTH" => Ok(Tag(Err(ErrorKind::HttpError))),
-            "IO_ERR" => Ok(Tag(Err(ErrorKind::IoError))),
-            "URL_ERR" => Ok(Tag(Err(ErrorKind::InvalidUrl))),
-            "NO_DOC" => Ok(Tag(Err(ErrorKind::NoDocument))),
-            "NO_FRAG" => Ok(Tag(Err(ErrorKind::NoFragment))),
-            "PROTOCOL" => Ok(Tag(Err(ErrorKind::Protocol))),
-            "ABSOLUTE" => Ok(Tag(Err(ErrorKind::Absolute))),
-            "NO_MIME" => Ok(Tag(Err(ErrorKind::NoMime))),
-            "MIME" => Ok(Tag(Err(ErrorKind::UnrecognizedMime))),
-            "PREFIXED" => Ok(Tag(Err(ErrorKind::Prefixed))),
-            s => parse_status(&s),
+            s => Ok(Tag(Err(ErrorKind::from_str(s)?))),
         }
     }
 }
