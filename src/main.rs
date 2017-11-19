@@ -44,7 +44,7 @@ struct Opt {
     #[structopt(long = "follow", short = "f", help = "Follow HTTP redirects")]
     redirect: bool,
 
-    #[structopt(long = "silence", short = "s", help = "Silence tags")]
+    #[structopt(long = "mute", short = "m", help = "Tags to mute")]
     silence: Vec<Tag>,
 
     #[structopt(long = "prefix", short = "p", help = "Fragment prefixes")]
