@@ -26,6 +26,7 @@ use std::path::Path;
 
 use linky::BorrowedOrOwned;
 use linky::ErrorKind;
+use linky::find_prefixed_fragment;
 use linky::Link;
 use linky::LookupError;
 use linky::md_file_links;
@@ -123,18 +124,7 @@ fn main() {
                        if let &Some(ref fragment) = &fragment {
                            if ids.contains(&fragment) {
                                Ok(())
-                           } else if let Some(prefix) = opt.prefixes
-                                                    .iter()
-                                                    .filter_map(|p| {
-                                                        if ids.contains(&format!("{}{}",
-                                                                                 p,
-                                                                                 fragment)) {
-                                                            Some(p.to_string())
-                                                        } else {
-                                                            None
-                                                        }
-                                                    })
-                                                    .next() {
+                           } else if let Some(prefix) = find_prefixed_fragment(ids, &fragment, &opt.prefixes) {
                                Err(BorrowedOrOwned::Owned(LookupError::from_prefix(prefix)))
                            } else {
                                Err(BorrowedOrOwned::Owned(ErrorKind::NoFragment.into()))

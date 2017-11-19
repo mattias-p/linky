@@ -654,3 +654,17 @@ impl<'a, T> BorrowedOrOwned<'a, T> {
         }
     }
 }
+
+pub fn find_prefixed_fragment(ids: &Vec<String>, fragment: &String, prefixes: &Vec<String>) -> Option<String> {
+    prefixes
+        .iter()
+        .filter_map(|p| {
+            if ids.contains(&format!("{}{}", p, fragment)) {
+                Some(p.to_string())
+            } else {
+                None
+            }
+        })
+        .next()
+}
+
