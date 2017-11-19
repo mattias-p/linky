@@ -29,7 +29,7 @@ use url::Url;
 use url;
 
 #[derive(Debug, Eq, Hash, PartialEq)]
-pub struct Tag(pub Result<(), ErrorKind>);
+pub struct Tag(Result<(), ErrorKind>);
 
 impl Tag {
     pub fn ok() -> Self {
@@ -59,7 +59,7 @@ impl fmt::Display for Tag {
     }
 }
 
-pub fn get_path_ids(path: &str, id_transform: &ToId) -> result::Result<Vec<String>, LookupError> {
+fn get_path_ids(path: &str, id_transform: &ToId) -> result::Result<Vec<String>, LookupError> {
     let mut headers = Headers::new();
     let mut buffer = String::new();
     slurp(&path, &mut buffer)?;
@@ -68,7 +68,7 @@ pub fn get_path_ids(path: &str, id_transform: &ToId) -> result::Result<Vec<Strin
            .collect())
 }
 
-pub fn get_url_ids(url: &Url, client: &Client) -> result::Result<Vec<String>, LookupError> {
+fn get_url_ids(url: &Url, client: &Client) -> result::Result<Vec<String>, LookupError> {
     if url.scheme() == "http" || url.scheme() == "https" {
         let mut response = client.get(url.clone()).send()?;
         if !response.status().is_success() {
@@ -113,7 +113,7 @@ fn as_relative<'a, P: AsRef<Path>>(path: &'a P) -> &'a Path {
     components.as_path()
 }
 
-pub fn split_fragment(path: &str) -> Option<(&str, &str)> {
+fn split_fragment(path: &str) -> Option<(&str, &str)> {
     if let Some(pos) = path.find('#') {
         Some((&path[0..pos], &path[pos + 1..]))
     } else {
@@ -269,11 +269,11 @@ lazy_static! {
     static ref GITHUB_PUNCTUATION: Regex = Regex::new(r"[^\w -]").unwrap();
 }
 
-pub trait ToId {
+trait ToId {
     fn to_id(&self, text: &str, repetition: usize) -> String;
 }
 
-pub struct GithubId;
+struct GithubId;
 
 impl ToId for GithubId {
     fn to_id(&self, text: &str, repetition: usize) -> String {
@@ -288,14 +288,14 @@ impl ToId for GithubId {
     }
 }
 
-pub struct Headers(HashMap<String, usize>);
+struct Headers(HashMap<String, usize>);
 
 impl Headers {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Headers(HashMap::new())
     }
 
-    pub fn register(&mut self, text: String) -> usize {
+    fn register(&mut self, text: String) -> usize {
         match self.0.entry(text.to_string()) {
             Entry::Occupied(ref mut occupied) => {
                 let count = *occupied.get();
@@ -372,7 +372,7 @@ impl<'a, T> BorrowedOrOwned<'a, T> {
     }
 }
 
-pub fn find_prefixed_fragment(ids: &Vec<String>, fragment: &String, prefixes: &Vec<String>) -> Option<String> {
+fn find_prefixed_fragment(ids: &Vec<String>, fragment: &String, prefixes: &Vec<String>) -> Option<String> {
     prefixes
         .iter()
         .filter_map(|p| {
