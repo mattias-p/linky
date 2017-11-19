@@ -14,8 +14,10 @@ use std::str::FromStr;
 
 use bytecount::count;
 use errors::ErrorKind;
+use errors::FragmentPrefix;
 use errors::LookupError;
 use errors::ParseError;
+use errors::UnrecognizedMime;
 use htmlstream;
 use pulldown_cmark;
 use pulldown_cmark::Event;
@@ -25,7 +27,6 @@ use reqwest::Client;
 use reqwest::header::ContentType;
 use reqwest::Method;
 use reqwest::mime;
-use reqwest::mime::Mime;
 use reqwest::Response;
 use reqwest::header::Allow;
 use url::Url;
@@ -62,42 +63,6 @@ impl fmt::Display for Tag {
     }
 }
 
-#[derive(Debug)]
-pub struct UnrecognizedMime(Mime);
-
-impl fmt::Display for UnrecognizedMime {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "unrecognized mime type {}", self.0)
-    }
-}
-
-impl error::Error for UnrecognizedMime {
-    fn description(&self) -> &str {
-        "unrecognied mime type"
-    }
-    fn cause(&self) -> Option<&error::Error> {
-        None
-    }
-}
-
-#[derive(Debug)]
-pub struct FragmentPrefix(pub String);
-
-impl fmt::Display for FragmentPrefix {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "fragment prefix: {}", self.0)
-    }
-}
-
-impl error::Error for FragmentPrefix {
-    fn description(&self) -> &str {
-        "prefixed fragment"
-    }
-    fn cause(&self) -> Option<&error::Error> {
-        None
-    }
-}
-
 pub fn get_path_ids(path: &str, id_transform: &ToId) -> result::Result<Vec<String>, LookupError> {
     let mut headers = Headers::new();
     let mut buffer = String::new();
@@ -119,7 +84,7 @@ pub fn get_url_ids(url: &Url, client: &Client) -> result::Result<Vec<String>, Lo
                                                  mime_type.subtype() != mime::HTML => {
                 return Err(LookupError {
                     kind: ErrorKind::UnrecognizedMime,
-                    cause: Some(Box::new(UnrecognizedMime(mime_type.clone()))),
+                    cause: Some(Box::new(UnrecognizedMime::new(mime_type.clone()))),
                 })
             }
             _ => {}
@@ -500,7 +465,7 @@ pub fn lookup_fragment<'a>(ids: &Vec<String>, fragment: &Option<String>, prefixe
         if ids.contains(&fragment) {
             Ok(())
         } else if let Some(prefix) = find_prefixed_fragment(ids, &fragment, &prefixes) {
-            Err(LookupError::from_prefix(prefix))
+            Err(FragmentPrefix::new(prefix).into())
         } else {
             Err(ErrorKind::NoFragment.into())
         }

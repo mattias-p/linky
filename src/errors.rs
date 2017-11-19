@@ -3,8 +3,8 @@ use std::fmt;
 use std::io;
 use std::str::FromStr;
 
-use linky::FragmentPrefix;
 use reqwest;
+use reqwest::mime::Mime;
 use reqwest::StatusCode;
 use url;
 
@@ -113,13 +113,6 @@ impl LookupError {
         self.kind.clone()
     }
 
-    pub fn from_prefix(prefix: String) -> Self {
-        LookupError {
-            kind: ErrorKind::Prefixed,
-            cause: Some(Box::new(FragmentPrefix(prefix))),
-        }
-    }
-
     pub fn cause(&self) -> Option<&error::Error> {
         self.cause.as_ref().map(|e| e.as_ref())
     }
@@ -202,6 +195,67 @@ impl From<url::ParseError> for LookupError {
         LookupError {
             kind: ErrorKind::InvalidUrl,
             cause: Some(Box::new(err)),
+        }
+    }
+}
+
+
+#[derive(Debug)]
+pub struct UnrecognizedMime(Mime);
+
+impl UnrecognizedMime {
+    pub fn new(mime: Mime) -> Self {
+        UnrecognizedMime(mime)
+    }
+}
+
+impl fmt::Display for UnrecognizedMime {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "unrecognized mime type {}", self.0)
+    }
+}
+
+impl error::Error for UnrecognizedMime {
+    fn description(&self) -> &str {
+        "unrecognied mime type"
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        None
+    }
+}
+
+
+#[derive(Debug)]
+pub struct FragmentPrefix(String);
+
+impl FragmentPrefix {
+    pub fn new(prefix: String) -> Self {
+        FragmentPrefix(prefix)
+    }
+}
+
+impl fmt::Display for FragmentPrefix {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "fragment prefix: {}", self.0)
+    }
+}
+
+impl error::Error for FragmentPrefix {
+    fn description(&self) -> &str {
+        "prefixed fragment"
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        None
+    }
+}
+
+impl Into<LookupError> for FragmentPrefix {
+    fn into(self) -> LookupError {
+        LookupError {
+            kind: ErrorKind::Prefixed,
+            cause: Some(Box::new(self)),
         }
     }
 }
