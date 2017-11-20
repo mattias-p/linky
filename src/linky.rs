@@ -28,7 +28,7 @@ use reqwest::mime;
 use url::Url;
 use url;
 
-#[derive(Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Tag(Result<(), ErrorKind>);
 
 impl Tag {
@@ -247,19 +247,23 @@ impl fmt::Display for Link {
 }
 
 pub trait Targets {
-    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, LookupError>;
+    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, LookupError)>;
 }
 
 impl Targets for Client {
-    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, LookupError> {
-        match *link {
+    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, LookupError)> {
+        let result = match *link {
             Link::Path(ref path) => if Path::new(path).is_relative() {
                 get_path_ids(path.as_ref(), &GithubId)
             } else {
                 Err(ErrorKind::Absolute.into())
             },
             Link::Url(ref url) => get_url_ids(url, self),
-        }
+        };
+        result.map_err(|err| {
+            let tag = Tag::from_error_kind(err.kind());
+            (tag, err)
+        })
     }
 }
 

@@ -119,11 +119,11 @@ fn main() {
                     .entry(base.clone())
                     .or_insert_with(|| client.fetch_targets(&base))
                     .as_ref()
-                    .map_err(|err| {
-                        (Some(Tag::from_error_kind(err.kind())), Some(BorrowedOrOwned::Borrowed(err)))
+                    .map_err(|&(ref tag, ref err)| {
+                        (Some(tag.clone()), Some(BorrowedOrOwned::Borrowed(err)))
                     })
                     .and_then(|ids| {
-                        lookup_fragment(ids, &fragment, prefixes).map_err(|(tag, err)| (Some(tag), Some(BorrowedOrOwned::Owned(err))))
+                        lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| (Some(tag.clone()), Some(BorrowedOrOwned::Owned(err))))
                     })
                     .err()
                     .or_else(|| Some((Some(Tag::ok()), None)))
