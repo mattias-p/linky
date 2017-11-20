@@ -2,6 +2,7 @@ use std::ascii::AsciiExt;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::error;
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
@@ -13,9 +14,11 @@ use std::str::FromStr;
 
 use bytecount::count;
 use errors::ErrorKind;
-use errors::FragmentPrefix;
+use errors::FragmentError;
+use errors::LinkError;
 use errors::LookupError;
 use errors::ParseError;
+use errors::PrefixError;
 use errors::UnrecognizedMime;
 use htmlstream;
 use pulldown_cmark;
@@ -247,11 +250,11 @@ impl fmt::Display for Link {
 }
 
 pub trait Targets {
-    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, LookupError)>;
+    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, LinkError)>;
 }
 
 impl Targets for Client {
-    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, LookupError)> {
+    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, LinkError)> {
         let result = match *link {
             Link::Path(ref path) => if Path::new(path).is_relative() {
                 get_path_ids(path.as_ref(), &GithubId)
@@ -262,7 +265,7 @@ impl Targets for Client {
         };
         result.map_err(|err| {
             let tag = Tag::from_error_kind(err.kind());
-            (tag, err)
+            (tag, LinkError::new(link.clone(), Box::new(err)))
         })
     }
 }
@@ -368,7 +371,7 @@ pub fn md_file_links<'a>(
 
 pub enum BorrowedOrOwned<'a, T: 'a> {
     Borrowed(&'a T),
-    Owned(T),
+    Owned(Box<T>),
 }
 
 impl<'a, T> AsRef<T> for BorrowedOrOwned<'a, T> {
@@ -377,7 +380,7 @@ impl<'a, T> AsRef<T> for BorrowedOrOwned<'a, T> {
 
         match *self {
             Borrowed(b) => b,
-            Owned(ref o) => o,
+            Owned(ref o) => &*o,
         }
     }
 }
@@ -393,26 +396,22 @@ fn find_prefixed_fragment(ids: &[String], fragment: &str, prefixes: &[String]) -
         .next()
 }
 
-
 pub fn lookup_fragment<'a>(
     ids: &[String],
     fragment: &Option<String>,
     prefixes: &'a [String],
-) -> Result<(), (Tag, LookupError)> {
-    let err: Option<LookupError> = if let Some(ref fragment) = *fragment {
-        if ids.contains(fragment) {
-            None
+) -> Result<(), (Tag, FragmentError)> {
+    if let Some(ref fragment) = *fragment {
+        let err: Result<(), (Tag, Box<error::Error>)> = if ids.contains(fragment) {
+            Ok(())
         } else if let Some(prefix) = find_prefixed_fragment(ids, fragment, prefixes) {
-            Some(FragmentPrefix::new(prefix).into())
+            let err: LookupError = ErrorKind::Prefixed.into();
+            Err((Tag::from_error_kind(err.kind()), Box::new(PrefixError::new(prefix, Box::new(err)))))
         } else {
-            Some(ErrorKind::NoFragment.into())
-        }
-    } else {
-        None
-    };
-    if let Some(err) = err {
-        let tag = Tag::from_error_kind(err.kind());
-        Err((tag, err))
+            let err: LookupError = ErrorKind::NoFragment.into();
+            Err((Tag::from_error_kind(err.kind()), Box::new(err)))
+        };
+        err.map_err(|(tag, err)| (tag, FragmentError::new(fragment.clone(), err)))
     } else {
         Ok(())
     }

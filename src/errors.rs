@@ -3,6 +3,7 @@ use std::fmt;
 use std::io;
 use std::str::FromStr;
 
+use linky::Link;
 use reqwest;
 use reqwest::mime::Mime;
 use reqwest::StatusCode;
@@ -88,7 +89,7 @@ pub struct ParseError;
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "invalid tag")
+        write!(f, "Invalid tag")
     }
 }
 
@@ -121,25 +122,25 @@ impl LookupError {
 impl fmt::Display for LookupError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.kind {
-            ErrorKind::InvalidUrl => write!(f, "invalid url"),
-            ErrorKind::HttpError => write!(f, "http error"),
-            ErrorKind::IoError => write!(f, "io error"),
+            ErrorKind::InvalidUrl => write!(f, "Invalid url"),
+            ErrorKind::HttpError => write!(f, "HTTP error"),
+            ErrorKind::IoError => write!(f, "IO error"),
             ErrorKind::HttpStatus(status) => write!(
                 f,
-                "unexpected http status {}{}",
+                "Unexpected HTTP status {}{}",
                 status.as_u16(),
                 status
                     .canonical_reason()
                     .map(|s| format!(" {}", s))
                     .unwrap_or_else(String::new)
             ),
-            ErrorKind::NoDocument => write!(f, "document not found"),
-            ErrorKind::NoFragment => write!(f, "fragment not found"),
-            ErrorKind::Protocol => write!(f, "unhandled protocol"),
-            ErrorKind::Absolute => write!(f, "unhandled absolute path"),
-            ErrorKind::NoMime => write!(f, "no mime type"),
-            ErrorKind::UnrecognizedMime => write!(f, "unrecognized mime type"),
-            ErrorKind::Prefixed => write!(f, "prefixed fragment"),
+            ErrorKind::NoDocument => write!(f, "Document not found"),
+            ErrorKind::NoFragment => write!(f, "Fragment not found"),
+            ErrorKind::Protocol => write!(f, "Unhandled protocol"),
+            ErrorKind::Absolute => write!(f, "Unable to handle absolute path"),
+            ErrorKind::NoMime => write!(f, "No mime type"),
+            ErrorKind::UnrecognizedMime => write!(f, "Unrecognized mime type"),
+            ErrorKind::Prefixed => write!(f, "Fragment not found without prefix"),
         }
     }
 }
@@ -212,7 +213,7 @@ impl UnrecognizedMime {
 
 impl fmt::Display for UnrecognizedMime {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "unrecognized mime type {}", self.0)
+        write!(f, "Unrecognized mime type {}", self.0)
     }
 }
 
@@ -228,35 +229,96 @@ impl error::Error for UnrecognizedMime {
 
 
 #[derive(Debug)]
-pub struct FragmentPrefix(String);
+pub struct PrefixError {
+    prefix: String,
+    cause: Box<error::Error>,
+}
 
-impl FragmentPrefix {
-    pub fn new(prefix: String) -> Self {
-        FragmentPrefix(prefix)
+impl PrefixError {
+    pub fn new(prefix: String, cause: Box<error::Error>) -> Self {
+        PrefixError {
+            prefix: prefix,
+            cause: cause,
+        }
     }
 }
 
-impl fmt::Display for FragmentPrefix {
+impl fmt::Display for PrefixError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "fragment prefix: {}", self.0)
+        write!(f, "Prefix: {}", self.prefix)
     }
 }
 
-impl error::Error for FragmentPrefix {
+impl error::Error for PrefixError {
     fn description(&self) -> &str {
         "prefixed fragment"
     }
 
     fn cause(&self) -> Option<&error::Error> {
-        None
+        Some(&*self.cause)
     }
 }
 
-impl Into<LookupError> for FragmentPrefix {
-    fn into(self) -> LookupError {
-        LookupError {
-            kind: ErrorKind::Prefixed,
-            cause: Some(Box::new(self)),
+
+#[derive(Debug)]
+pub struct LinkError {
+    link: Link,
+    cause: Box<error::Error>,
+}
+
+impl LinkError {
+    pub fn new(link: Link, cause: Box<error::Error>) -> Self {
+        LinkError {
+            link: link,
+            cause: cause,
         }
+    }
+}
+
+impl fmt::Display for LinkError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Link: {}", self.link)
+    }
+}
+
+impl error::Error for LinkError {
+    fn description(&self) -> &str {
+        "link error"
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        Some(&*self.cause)
+    }
+}
+
+
+#[derive(Debug)]
+pub struct FragmentError {
+    fragment: String,
+    cause: Box<error::Error>,
+}
+
+impl FragmentError {
+    pub fn new(fragment: String, cause: Box<error::Error>) -> Self {
+        FragmentError {
+            fragment: fragment,
+            cause: cause,
+        }
+    }
+}
+
+impl fmt::Display for FragmentError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Fragment: {}", self.fragment)
+    }
+}
+
+impl error::Error for FragmentError {
+    fn description(&self) -> &str {
+        "fragment error"
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        Some(&*self.cause)
     }
 }

@@ -20,11 +20,13 @@ mod linky;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::error::Error;
 use std::fmt;
 use std::io::BufRead;
 use std::io;
 use std::path::Path;
 
+use errors::LinkError;
 use linky::BorrowedOrOwned;
 use linky::lookup_fragment;
 use linky::Link;
@@ -123,7 +125,7 @@ fn main() {
                         (Some(tag.clone()), Some(BorrowedOrOwned::Borrowed(err)))
                     })
                     .and_then(|ids| {
-                        lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| (Some(tag.clone()), Some(BorrowedOrOwned::Owned(err))))
+                        lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| (Some(tag.clone()), Some(BorrowedOrOwned::Owned(Box::new(LinkError::new(base, Box::new(err)))))))
                     })
                     .err()
                     .or_else(|| Some((Some(Tag::ok()), None)))
@@ -132,7 +134,7 @@ fn main() {
 
         if !tag.as_ref().map_or(false, |tag| silence.contains(&tag)) {
             if let Some(err) = err {
-                warn!("{}", &err.as_ref());
+                warn!("error: {}", &err.as_ref());
                 let mut e = err.as_ref().cause();
                 while let Some(err) = e {
                     warn!("  caused by: {}", &err);
