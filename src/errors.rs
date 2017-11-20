@@ -31,7 +31,7 @@ impl ErrorKind {
         u16::from_str(&s[5..])
             .ok()
             .and_then(|s| StatusCode::try_from(s).ok())
-            .map(|s| ErrorKind::HttpStatus(s))
+            .map(ErrorKind::HttpStatus)
             .ok_or(ParseError)
     }
 }
@@ -77,7 +77,7 @@ impl FromStr for ErrorKind {
             "NO_MIME" => Ok(ErrorKind::NoMime),
             "MIME" => Ok(ErrorKind::UnrecognizedMime),
             "PREFIXED" => Ok(ErrorKind::Prefixed),
-            s => ErrorKind::from_http_status_str(&s),
+            s => ErrorKind::from_http_status_str(s),
         }
     }
 }
@@ -94,7 +94,7 @@ impl fmt::Display for ParseError {
 
 impl error::Error for ParseError {
     fn description(&self) -> &str {
-        &"invalid tag"
+        "invalid tag"
     }
     fn cause(&self) -> Option<&error::Error> {
         None
@@ -131,7 +131,7 @@ impl fmt::Display for LookupError {
                 status
                     .canonical_reason()
                     .map(|s| format!(" {}", s))
-                    .unwrap_or("".to_string())
+                    .unwrap_or_else(String::new)
             ),
             ErrorKind::NoDocument => write!(f, "document not found"),
             ErrorKind::NoFragment => write!(f, "fragment not found"),

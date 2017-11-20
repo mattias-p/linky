@@ -121,14 +121,13 @@ fn main() {
                     .as_ref()
                     .map_err(|err| BorrowedOrOwned::Borrowed(err))
                     .and_then(|ids| {
-                        lookup_fragment(ids, &fragment, &prefixes)
-                            .map_err(|err| BorrowedOrOwned::Owned(err))
+                        lookup_fragment(ids, &fragment, prefixes).map_err(BorrowedOrOwned::Owned)
                     })
                     .map_err(|err| {
                         (Some(Tag::from_error_kind(err.as_ref().kind())), Some(err))
                     })
                     .err()
-                    .or(Some((Some(Tag::ok()), None)))
+                    .or_else(|| Some((Some(Tag::ok()), None)))
             })
             .unwrap_or((None, None));
 

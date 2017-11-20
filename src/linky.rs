@@ -52,9 +52,9 @@ impl FromStr for Tag {
 
 impl fmt::Display for Tag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.0 {
-            &Ok(()) => write!(f, "OK"),
-            &Err(ref kind) => write!(f, "{}", kind),
+        match self.0 {
+            Ok(()) => write!(f, "OK"),
+            Err(ref kind) => write!(f, "{}", kind),
         }
     }
 }
@@ -108,7 +108,7 @@ fn get_html_ids(buffer: &str) -> Vec<String> {
     result
 }
 
-fn as_relative<'a, P: AsRef<Path>>(path: &'a P) -> &'a Path {
+fn as_relative<P: AsRef<Path>>(path: &P) -> &Path {
     let mut components = path.as_ref().components();
     while components.as_path().has_root() {
         components.next();
@@ -186,15 +186,15 @@ pub enum Link {
 
 impl Link {
     pub fn split_fragment(&self) -> (Link, Option<String>) {
-        match self {
-            &Link::Path(ref path) => {
+        match *self {
+            Link::Path(ref path) => {
                 let (path, fragment) = split_path_fragment(path);
                 (
                     Link::Path(path.to_string()),
                     fragment.map(|f| f.to_string()),
                 )
             }
-            &Link::Url(ref url) => {
+            Link::Url(ref url) => {
                 let (url, fragment) = split_url_fragment(url);
                 let mut url = url.clone();
                 url.set_fragment(None);
@@ -252,13 +252,13 @@ pub trait Targets {
 
 impl Targets for Client {
     fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, LookupError> {
-        match link {
-            &Link::Path(ref path) => if Path::new(path).is_relative() {
+        match *link {
+            Link::Path(ref path) => if Path::new(path).is_relative() {
                 get_path_ids(path.as_ref(), &GithubId)
             } else {
                 Err(ErrorKind::Absolute.into())
             },
-            &Link::Url(ref url) => get_url_ids(url, self),
+            Link::Url(ref url) => get_url_ids(url, self),
         }
     }
 }
@@ -367,22 +367,18 @@ pub enum BorrowedOrOwned<'a, T: 'a> {
     Owned(T),
 }
 
-impl<'a, T> BorrowedOrOwned<'a, T> {
-    pub fn as_ref(&self) -> &T {
+impl<'a, T> AsRef<T> for BorrowedOrOwned<'a, T> {
+    fn as_ref(&self) -> &T {
         use self::BorrowedOrOwned::*;
 
-        match self {
-            &Borrowed(b) => b,
-            &Owned(ref o) => o,
+        match *self {
+            Borrowed(b) => b,
+            Owned(ref o) => o,
         }
     }
 }
 
-fn find_prefixed_fragment(
-    ids: &Vec<String>,
-    fragment: &String,
-    prefixes: &Vec<String>,
-) -> Option<String> {
+fn find_prefixed_fragment(ids: &[String], fragment: &str, prefixes: &[String]) -> Option<String> {
     prefixes
         .iter()
         .filter_map(|p| if ids.contains(&format!("{}{}", p, fragment)) {
@@ -395,14 +391,14 @@ fn find_prefixed_fragment(
 
 
 pub fn lookup_fragment<'a>(
-    ids: &Vec<String>,
+    ids: &[String],
     fragment: &Option<String>,
-    prefixes: &'a Vec<String>,
+    prefixes: &'a [String],
 ) -> Result<(), LookupError> {
-    if let &Some(ref fragment) = fragment {
-        if ids.contains(&fragment) {
+    if let Some(ref fragment) = *fragment {
+        if ids.contains(fragment) {
             Ok(())
-        } else if let Some(prefix) = find_prefixed_fragment(ids, &fragment, &prefixes) {
+        } else if let Some(prefix) = find_prefixed_fragment(ids, fragment, prefixes) {
             Err(FragmentPrefix::new(prefix).into())
         } else {
             Err(ErrorKind::NoFragment.into())
