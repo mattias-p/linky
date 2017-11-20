@@ -128,7 +128,7 @@ fn main() {
             Some(None) => (Some(Tag::ok()), None),
             None => (None, None),
         };
-        if !tag.as_ref().map_or(true, |tag| silence.contains(&tag)) {
+        if !tag.as_ref().map_or(false, |tag| silence.contains(&tag)) {
             if let Some(err) = err {
                 warn!("{}", &err.as_ref());
                 let mut e = err.as_ref().cause();
