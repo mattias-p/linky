@@ -114,20 +114,19 @@ fn main() {
 
     let mut all_targets = HashMap::new();
     for (path, linenum, raw, base, fragment) in links {
-        let status = client.as_ref().map(|client| {
-            let targets = all_targets.entry(base.clone())
-                                     .or_insert_with(|| client.fetch_targets(&base));
+        let (tag, err) = client.as_ref().and_then(|client| {
             let prefixes = &opt.prefixes;
-            targets.as_ref()
+            all_targets.entry(base.clone())
+                   .or_insert_with(|| client.fetch_targets(&base))
+                   .as_ref()
                    .map_err(|err| BorrowedOrOwned::Borrowed(err))
                    .and_then(|ids| lookup_fragment(ids, &fragment, &prefixes).map_err(|err| BorrowedOrOwned::Owned(err)))
+                   .map_err(|err| (Some(Tag::from_error_kind(err.as_ref().kind())), Some(err)))
                    .err()
-        });
-        let (tag, err) = match status {
-            Some(Some(err)) => (Some(Tag::from_error_kind(err.as_ref().kind())), Some(err)),
-            Some(None) => (Some(Tag::ok()), None),
-            None => (None, None),
-        };
+                   .or(Some((Some(Tag::ok()), None)))
+        })
+        .unwrap_or((None, None));
+
         if !tag.as_ref().map_or(false, |tag| silence.contains(&tag)) {
             if let Some(err) = err {
                 warn!("{}", &err.as_ref());
