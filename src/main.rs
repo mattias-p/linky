@@ -111,7 +111,7 @@ fn main() {
 
     let mut all_targets = HashMap::new();
     for (path, linenum, raw, base, fragment) in links {
-        let (tag, err) = client
+        let (tag, err): (Option<Tag>, Option<BorrowedOrOwned<_>>) = client
             .as_ref()
             .and_then(|client| {
                 let prefixes = &opt.prefixes;
@@ -119,12 +119,11 @@ fn main() {
                     .entry(base.clone())
                     .or_insert_with(|| client.fetch_targets(&base))
                     .as_ref()
-                    .map_err(|err| BorrowedOrOwned::Borrowed(err))
-                    .and_then(|ids| {
-                        lookup_fragment(ids, &fragment, prefixes).map_err(BorrowedOrOwned::Owned)
-                    })
                     .map_err(|err| {
-                        (Some(Tag::from_error_kind(err.as_ref().kind())), Some(err))
+                        (Some(Tag::from_error_kind(err.kind())), Some(BorrowedOrOwned::Borrowed(err)))
+                    })
+                    .and_then(|ids| {
+                        lookup_fragment(ids, &fragment, prefixes).map_err(|(tag, err)| (Some(tag), Some(BorrowedOrOwned::Owned(err))))
                     })
                     .err()
                     .or_else(|| Some((Some(Tag::ok()), None)))

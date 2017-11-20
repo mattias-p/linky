@@ -394,15 +394,21 @@ pub fn lookup_fragment<'a>(
     ids: &[String],
     fragment: &Option<String>,
     prefixes: &'a [String],
-) -> Result<(), LookupError> {
-    if let Some(ref fragment) = *fragment {
+) -> Result<(), (Tag, LookupError)> {
+    let err: Option<LookupError> = if let Some(ref fragment) = *fragment {
         if ids.contains(fragment) {
-            Ok(())
+            None
         } else if let Some(prefix) = find_prefixed_fragment(ids, fragment, prefixes) {
-            Err(FragmentPrefix::new(prefix).into())
+            Some(FragmentPrefix::new(prefix).into())
         } else {
-            Err(ErrorKind::NoFragment.into())
+            Some(ErrorKind::NoFragment.into())
         }
+    } else {
+        None
+    };
+    if let Some(err) = err {
+        let tag = Tag::from_error_kind(err.kind());
+        Err((tag, err))
     } else {
         Ok(())
     }
