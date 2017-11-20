@@ -124,14 +124,15 @@ impl fmt::Display for LookupError {
             ErrorKind::InvalidUrl => write!(f, "invalid url"),
             ErrorKind::HttpError => write!(f, "http error"),
             ErrorKind::IoError => write!(f, "io error"),
-            ErrorKind::HttpStatus(status) => {
-                write!(f,
-                       "unexpected http status {}{}",
-                       status.as_u16(),
-                       status.canonical_reason()
-                             .map(|s| format!(" {}", s))
-                             .unwrap_or("".to_string()))
-            }
+            ErrorKind::HttpStatus(status) => write!(
+                f,
+                "unexpected http status {}{}",
+                status.as_u16(),
+                status
+                    .canonical_reason()
+                    .map(|s| format!(" {}", s))
+                    .unwrap_or("".to_string())
+            ),
             ErrorKind::NoDocument => write!(f, "document not found"),
             ErrorKind::NoFragment => write!(f, "fragment not found"),
             ErrorKind::Protocol => write!(f, "unhandled protocol"),

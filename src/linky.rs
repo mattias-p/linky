@@ -63,9 +63,11 @@ fn get_path_ids(path: &str, id_transform: &ToId) -> result::Result<Vec<String>, 
     let mut headers = Headers::new();
     let mut buffer = String::new();
     slurp(&path, &mut buffer)?;
-    Ok(MdAnchorParser::from_buffer(buffer.as_str(), id_transform, &mut headers)
-           .map(|id| id.to_string())
-           .collect())
+    Ok(
+        MdAnchorParser::from_buffer(buffer.as_str(), id_transform, &mut headers)
+            .map(|id| id.to_string())
+            .collect(),
+    )
 }
 
 fn get_url_ids(url: &Url, client: &Client) -> result::Result<Vec<String>, LookupError> {
@@ -76,8 +78,9 @@ fn get_url_ids(url: &Url, client: &Client) -> result::Result<Vec<String>, Lookup
         }
         match response.headers().get::<ContentType>() {
             None => return Err(ErrorKind::NoMime.into()),
-            Some(&ContentType(ref mime_type)) if mime_type.type_() != mime::TEXT ||
-                                                 mime_type.subtype() != mime::HTML => {
+            Some(&ContentType(ref mime_type))
+                if mime_type.type_() != mime::TEXT || mime_type.subtype() != mime::HTML =>
+            {
                 return Err(LookupError {
                     kind: ErrorKind::UnrecognizedMime,
                     cause: Some(Box::new(UnrecognizedMime::new(mime_type.clone()))),
@@ -163,13 +166,11 @@ impl<'a> Iterator for MdAnchorParser<'a> {
                 Event::Start(pulldown_cmark::Tag::Header(_)) => {
                     self.is_header = true;
                 }
-                Event::Text(text) => {
-                    if self.is_header {
-                        self.is_header = false;
-                        let count = self.headers.register(text.to_string());
-                        return Some(self.id_transform.to_id(text.as_ref(), count));
-                    }
-                }
+                Event::Text(text) => if self.is_header {
+                    self.is_header = false;
+                    let count = self.headers.register(text.to_string());
+                    return Some(self.id_transform.to_id(text.as_ref(), count));
+                },
                 _ => (),
             }
         }
@@ -188,8 +189,10 @@ impl Link {
         match self {
             &Link::Path(ref path) => {
                 let (path, fragment) = split_path_fragment(path);
-                (Link::Path(path.to_string()),
-                 fragment.map(|f| f.to_string()))
+                (
+                    Link::Path(path.to_string()),
+                    fragment.map(|f| f.to_string()),
+                )
             }
             &Link::Url(ref url) => {
                 let (url, fragment) = split_url_fragment(url);
@@ -200,33 +203,35 @@ impl Link {
         }
     }
 
-    pub fn parse_with_root<P1: AsRef<Path>, P2: AsRef<Path>>(link: &str,
-                                                             origin: &P1,
-                                                             root: &P2)
-                                                             -> result::Result<Self, url::ParseError> {
+    pub fn parse_with_root<P1: AsRef<Path>, P2: AsRef<Path>>(
+        link: &str,
+        origin: &P1,
+        root: &P2,
+    ) -> result::Result<Self, url::ParseError> {
         match Url::parse(link) {
             Ok(url) => Ok(Link::Url(url)),
-            Err(url::ParseError::RelativeUrlWithoutBase) => {
-                if Path::new(link).is_relative() {
-                    let link = if link.starts_with('#') {
-                        let file_name = origin.as_ref()
-                                              .file_name()
-                                              .unwrap()
-                                              .to_string_lossy()
-                                              .to_string()
-                                              .add(link);
-                        origin.as_ref().with_file_name(file_name)
-                    } else {
-                        origin.as_ref().with_file_name(link)
-                    };
-                    Ok(Link::Path(link.to_string_lossy().to_string()))
+            Err(url::ParseError::RelativeUrlWithoutBase) => if Path::new(link).is_relative() {
+                let link = if link.starts_with('#') {
+                    let file_name = origin
+                        .as_ref()
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .to_string()
+                        .add(link);
+                    origin.as_ref().with_file_name(file_name)
                 } else {
-                    Ok(Link::Path(root.as_ref()
-                                      .join(as_relative(&link))
-                                      .to_string_lossy()
-                                      .to_string()))
-                }
-            }
+                    origin.as_ref().with_file_name(link)
+                };
+                Ok(Link::Path(link.to_string_lossy().to_string()))
+            } else {
+                Ok(Link::Path(
+                    root.as_ref()
+                        .join(as_relative(&link))
+                        .to_string_lossy()
+                        .to_string(),
+                ))
+            },
             Err(err) => Err(err),
         }
     }
@@ -248,13 +253,11 @@ pub trait Targets {
 impl Targets for Client {
     fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, LookupError> {
         match link {
-            &Link::Path(ref path) => {
-                if Path::new(path).is_relative() {
-                    get_path_ids(path.as_ref(), &GithubId)
-                } else {
-                    Err(ErrorKind::Absolute.into())
-                }
-            }
+            &Link::Path(ref path) => if Path::new(path).is_relative() {
+                get_path_ids(path.as_ref(), &GithubId)
+            } else {
+                Err(ErrorKind::Absolute.into())
+            },
             &Link::Url(ref url) => get_url_ids(url, self),
         }
     }
@@ -333,9 +336,10 @@ impl<'a> Iterator for MdLinkParser<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(event) = self.parser.next() {
             if let Event::Start(pulldown_cmark::Tag::Link(url, _)) = event {
-                self.linenum += count(&self.buffer.as_bytes()[self.oldoffs..self.parser
-                                                                                .get_offset()],
-                                      b'\n');
+                self.linenum += count(
+                    &self.buffer.as_bytes()[self.oldoffs..self.parser.get_offset()],
+                    b'\n',
+                );
                 self.oldoffs = self.parser.get_offset();
                 return Some((self.linenum, url));
             }
@@ -344,13 +348,15 @@ impl<'a> Iterator for MdLinkParser<'a> {
     }
 }
 
-pub fn md_file_links<'a>(path: &'a str,
-                         links: &mut Vec<(String, usize, String)>)
-                         -> io::Result<()> {
+pub fn md_file_links<'a>(
+    path: &'a str,
+    links: &mut Vec<(String, usize, String)>,
+) -> io::Result<()> {
     let mut buffer = String::new();
     slurp(&path, &mut buffer)?;
-    let parser = MdLinkParser::new(buffer.as_str())
-                     .map(|(lineno, url)| (path.to_string(), lineno, url.as_ref().to_string()));
+    let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| {
+        (path.to_string(), lineno, url.as_ref().to_string())
+    });
 
     links.extend(parser);
     Ok(())
@@ -372,21 +378,27 @@ impl<'a, T> BorrowedOrOwned<'a, T> {
     }
 }
 
-fn find_prefixed_fragment(ids: &Vec<String>, fragment: &String, prefixes: &Vec<String>) -> Option<String> {
+fn find_prefixed_fragment(
+    ids: &Vec<String>,
+    fragment: &String,
+    prefixes: &Vec<String>,
+) -> Option<String> {
     prefixes
         .iter()
-        .filter_map(|p| {
-            if ids.contains(&format!("{}{}", p, fragment)) {
-                Some(p.to_string())
-            } else {
-                None
-            }
+        .filter_map(|p| if ids.contains(&format!("{}{}", p, fragment)) {
+            Some(p.to_string())
+        } else {
+            None
         })
         .next()
 }
 
 
-pub fn lookup_fragment<'a>(ids: &Vec<String>, fragment: &Option<String>, prefixes: &'a Vec<String>) -> Result<(), LookupError> {
+pub fn lookup_fragment<'a>(
+    ids: &Vec<String>,
+    fragment: &Option<String>,
+    prefixes: &'a Vec<String>,
+) -> Result<(), LookupError> {
     if let &Some(ref fragment) = fragment {
         if ids.contains(&fragment) {
             Ok(())
@@ -399,4 +411,3 @@ pub fn lookup_fragment<'a>(ids: &Vec<String>, fragment: &Option<String>, prefixe
         Ok(())
     }
 }
-

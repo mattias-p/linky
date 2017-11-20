@@ -1,10 +1,10 @@
 extern crate bytecount;
-extern crate pretty_env_logger;
 extern crate htmlstream;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
+extern crate pretty_env_logger;
 extern crate pulldown_cmark;
 extern crate regex;
 extern crate reqwest;
@@ -40,24 +40,19 @@ use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
-    #[structopt(long = "check", short = "c", help = "Check links")]
-    check: bool,
+    #[structopt(long = "check", short = "c", help = "Check links")] check: bool,
 
-    #[structopt(long = "follow", short = "f", help = "Follow HTTP redirects")]
-    redirect: bool,
+    #[structopt(long = "follow", short = "f", help = "Follow HTTP redirects")] redirect: bool,
 
-    #[structopt(long = "mute", short = "m", help = "Tags to mute")]
-    silence: Vec<Tag>,
+    #[structopt(long = "mute", short = "m", help = "Tags to mute")] silence: Vec<Tag>,
 
-    #[structopt(long = "prefix", short = "p", help = "Fragment prefixes")]
-    prefixes: Vec<String>,
+    #[structopt(long = "prefix", short = "p", help = "Fragment prefixes")] prefixes: Vec<String>,
 
     #[structopt(long = "root", short = "r", name = "path",
                 help = "Join absolute local links to a document root", default_value = "/")]
     root: String,
 
-    #[structopt(help = "Files to parse")]
-    file: Vec<String>,
+    #[structopt(help = "Files to parse")] file: Vec<String>,
 }
 
 fn main() {
@@ -87,14 +82,16 @@ fn main() {
             let lineno = cap.get(2).unwrap().as_str();
             let link = cap.get(3).unwrap().as_str();
 
-            links.push((path.to_string(), lineno.parse().unwrap(), link.to_string()));
+            links.push((
+                path.to_string(),
+                lineno.parse().unwrap(),
+                link.to_string(),
+            ));
         }
     } else {
         for path in &opt.file {
             if let Err(err) = md_file_links(path, &mut links) {
-                error!("reading file {}: {}",
-                          escape(Cow::Borrowed(path)),
-                          err);
+                error!("reading file {}: {}", escape(Cow::Borrowed(path)), err);
             }
         }
     }
@@ -114,18 +111,26 @@ fn main() {
 
     let mut all_targets = HashMap::new();
     for (path, linenum, raw, base, fragment) in links {
-        let (tag, err) = client.as_ref().and_then(|client| {
-            let prefixes = &opt.prefixes;
-            all_targets.entry(base.clone())
-                   .or_insert_with(|| client.fetch_targets(&base))
-                   .as_ref()
-                   .map_err(|err| BorrowedOrOwned::Borrowed(err))
-                   .and_then(|ids| lookup_fragment(ids, &fragment, &prefixes).map_err(|err| BorrowedOrOwned::Owned(err)))
-                   .map_err(|err| (Some(Tag::from_error_kind(err.as_ref().kind())), Some(err)))
-                   .err()
-                   .or(Some((Some(Tag::ok()), None)))
-        })
-        .unwrap_or((None, None));
+        let (tag, err) = client
+            .as_ref()
+            .and_then(|client| {
+                let prefixes = &opt.prefixes;
+                all_targets
+                    .entry(base.clone())
+                    .or_insert_with(|| client.fetch_targets(&base))
+                    .as_ref()
+                    .map_err(|err| BorrowedOrOwned::Borrowed(err))
+                    .and_then(|ids| {
+                        lookup_fragment(ids, &fragment, &prefixes)
+                            .map_err(|err| BorrowedOrOwned::Owned(err))
+                    })
+                    .map_err(|err| {
+                        (Some(Tag::from_error_kind(err.as_ref().kind())), Some(err))
+                    })
+                    .err()
+                    .or(Some((Some(Tag::ok()), None)))
+            })
+            .unwrap_or((None, None));
 
         if !tag.as_ref().map_or(false, |tag| silence.contains(&tag)) {
             if let Some(err) = err {
@@ -136,7 +141,15 @@ fn main() {
                     e = err.cause();
                 }
             }
-            println!("{}:{}: {} {}", path, linenum, tag.as_ref().map(|tag| tag as &fmt::Display).unwrap_or(&"" as &fmt::Display), raw);
+            println!(
+                "{}:{}: {} {}",
+                path,
+                linenum,
+                tag.as_ref()
+                    .map(|tag| tag as &fmt::Display)
+                    .unwrap_or(&"" as &fmt::Display),
+                raw
+            );
         }
     }
 }
