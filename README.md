@@ -63,18 +63,20 @@ To check which links are broken and in what way, just add the --check option:
 
 ```sh
 $ linky --check example_site/path/to/example.md
-example_site/path/to/example.md:3: NO_ANCHOR https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
-example_site/path/to/example.md:5: NO_DOCUMENT non-existing.md
-example_site/path/to/example.md:7: NO_ANCHOR other.md#non-existing
-example_site/path/to/example.md:9: NO_ANCHOR #non-existing
+example_site/path/to/example.md:2: OK https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
+example_site/path/to/example.md:3: NO_FRAG https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
+example_site/path/to/example.md:4: OK other.md
+example_site/path/to/example.md:5: NO_DOC non-existing.md
+example_site/path/to/example.md:6: OK other.md#existing
+example_site/path/to/example.md:7: NO_FRAG other.md#non-existing
+example_site/path/to/example.md:8: OK #heading
+example_site/path/to/example.md:9: NO_FRAG #non-existing
 ```
 
-Notice that fewer lines are printed.
-The links that could be successfully resolved were filtered out of the output.
-For details on how links are checked see the [link resolution section].
-
-Also notice that an error token has been added to each one of the remaining lines.
-This error token indicates how the link resolution failed.
+Also notice that an status token has been added to each one of the remaining lines.
+A status token of `OK` means that the resolution succeeded.
+Other tokens represent different kinds of failure.
+For details on how links are resolved see the [link resolution section].
 
 
 ### Recursive directory traversal
@@ -98,6 +100,8 @@ example_site/path/to/example.md:8:  #heading
 example_site/path/to/example.md:9:  #non-existing
 example_site/path/to/follow.md:2:  http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
 example_site/path/to/follow.md:3:  http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#non-existing
+example_site/path/to/fragment.md:2:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
+example_site/path/to/fragment.md:3:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#non-existing
 example_site/path/to/other.md:2:  example.md
 example_site/path/to/transform.md:2:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/non-existing.md
 example_site/path/to/transform.md:3:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/only-on-example-branch.md
@@ -125,8 +129,10 @@ Specify the document root directory to let the resolution to continue:
 
 ```sh
 $ linky --check --root=example_site example_site/path/to/absolute.md
-example_site/path/to/absolute.md:3: NO_DOCUMENT /path/to/non-existing.md
-example_site/path/to/absolute.md:5: NO_ANCHOR /path/to/other.md#non-existing
+example_site/path/to/absolute.md:2: OK /path/to/other.md
+example_site/path/to/absolute.md:3: NO_DOC /path/to/non-existing.md
+example_site/path/to/absolute.md:4: OK /path/to/other.md#existing
+example_site/path/to/absolute.md:5: NO_FRAG /path/to/other.md#non-existing
 ```
 
 
@@ -148,10 +154,33 @@ Specify --follow to make linky follow HTTP redirects in the resolution:
 
 ```sh
 $ linky --check --follow example_site/path/to/follow.md
-example_site/path/to/follow.md:3: NO_ANCHOR http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#non-existing
+example_site/path/to/follow.md:2: OK http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
+example_site/path/to/follow.md:3: NO_FRAG http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#non-existing
 ```
 
-Notice that the links that previously had HTTP\_301 error tokens now have disappeared or have contracted other resolution problems.
+Notice that the links that previously had HTTP\_301 status tokens now have disappeared or have contracted other resolution problems.
+
+
+### Dealing with HTTP fragments
+
+Sometimes the transformation from headings into HTML id attributes involves adding a prefix to the resulting id attribute.
+E.g. Github adds a "user-content-" prefix.
+
+First, let's just try out the example file without specifying a prefix:
+
+```sh
+$ linky --check example_site/path/to/fragment.md
+example_site/path/to/fragment.md:2: NO_FRAG https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
+example_site/path/to/fragment.md:3: NO_FRAG https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#non-existing
+```
+
+Now, let's try adding that prefix:
+
+```sh
+$ linky --check --prefix='user-content-' example_site/path/to/fragment.md
+example_site/path/to/fragment.md:2: PREFIXED https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
+example_site/path/to/fragment.md:3: NO_FRAG https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#non-existing
+```
 
 
 ### Custom link transformation prior to resolution
@@ -180,7 +209,8 @@ Finally, pipe the edited linky output into another linky process that actually c
 
 ```sh
 $ linky example_site/path/to/transform.md | sed 's,/master/,/example/,' | linky --check
-example_site/path/to/transform.md:2: HTTP_404 https://github.com/mattias-p/linky/blob/master/example_site/path/to/non-existing.md
+example_site/path/to/transform.md:2: HTTP_404 https://github.com/mattias-p/linky/blob/example/example_site/path/to/non-existing.md
+example_site/path/to/transform.md:3: OK https://github.com/mattias-p/linky/blob/example/example_site/path/to/only-on-example-branch.md
 ```
 
 
@@ -188,14 +218,14 @@ Link resolution
 ---------------
 
 Local links are resolved to readable ordinary files and directories in the local filesystem.
-HTTP(S) links are resolved to 200-responses, optionally following redirects.
+HTTP(S) links are resolved using GET requests to 200-responses, optionally following redirects.
 
 For links with fragments the target documents are read, as opposed to just being checked for existence.
 For HTTP(S) links fragments are resolved to HTML anchors.
 For local links fragments are resolved to Markdown headings.
 
-HTTP(S) links with fragments are always resolved using GET requests.
-HTTP(S) links without fragments are resolved using HEAD requests, possibly followed up by a GET request for 405 responses allowing it.
+When one or more prefixes are provided and an HTTP(S) link fragment cannot be resolved,
+resolution is attempted using the frgment prefixed by each of the provided prefixes.
 
 
 License
