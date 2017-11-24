@@ -8,6 +8,10 @@ readme = "README.md"
 keywords = ["commonmark","extract","validate","links","documentation"]
 categories = ["command-line-utilities"]
 license = "Apache-2.0"
+include = [
+    "Cargo.toml",
+    "**/*.rs",
+]
 
 [dependencies]
 bytecount = "0.2.0"
