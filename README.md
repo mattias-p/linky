@@ -17,24 +17,17 @@ Specifically, linky was created to ease maintenance of Markdown documentation on
 
 Installation
 ------------
+
 [Install stable Rust and Cargo]:
 
 ```sh
-$ curl -sSf https://static.rust-lang.org/rustup.sh | sh
+$ curl https://sh.rustup.rs -sSf | sh
 ```
 
-Download and unpack source code from the current master branch:
+Compile and install linky using Cargo:
 
 ```sh
-$ curl https://github.com/mattias-p/linky/archive/master.zip
-$ unzip master.zip
-$ cd linky-master
-```
-
-Compile and install the binary:
-
-```sh
-$ cargo install
+$ cargo install linky
 ```
 
 
