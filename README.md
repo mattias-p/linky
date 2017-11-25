@@ -1,5 +1,6 @@
 Linky
 =====
+[![Crates.io](https://img.shields.io/crates/v/linky.svg)](https://crates.io/crates/linky)
 
 Extract and check links from Markdown files.
 
