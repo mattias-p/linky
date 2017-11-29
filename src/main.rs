@@ -111,6 +111,13 @@ fn main() {
         }
     });
 
+    struct Record {
+        path: String,
+        linenum: usize,
+        tag: Option<Tag>,
+        link: String,
+    }
+
     let mut all_targets = HashMap::new();
     for (path, linenum, raw, base, fragment) in links {
         let (tag, err): (Option<Tag>, Option<BorrowedOrOwned<_>>) = client
@@ -132,7 +139,14 @@ fn main() {
             })
             .unwrap_or((None, None));
 
-        if !tag.as_ref().map_or(false, |tag| silence.contains(&tag)) {
+        let record = Record {
+            path: path,
+            linenum: linenum,
+            tag: tag,
+            link: raw,
+        };
+
+        if !record.tag.as_ref().map_or(false, |tag| silence.contains(&tag)) {
             if let Some(err) = err {
                 warn!("error: {}", &err.as_ref());
                 let mut e = err.as_ref().cause();
@@ -143,12 +157,12 @@ fn main() {
             }
             println!(
                 "{}:{}: {} {}",
-                path,
-                linenum,
-                tag.as_ref()
+                record.path,
+                record.linenum,
+                record.tag.as_ref()
                     .map(|tag| tag as &fmt::Display)
                     .unwrap_or(&"" as &fmt::Display),
-                raw
+                record.link
             );
         }
     }
