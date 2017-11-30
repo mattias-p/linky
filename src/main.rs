@@ -122,9 +122,7 @@ fn main() {
         }
     });
 
-    let mut all_targets = HashMap::new();
-    for (record, base, fragment) in links {
-
+    let records = links.scan(HashMap::new(), |all_targets, (record, base, fragment)| {
         let tag_and_err: Option<(Tag, Option<Rc<_>>)> = client
             .as_ref()
             .and_then(|client| {
@@ -140,7 +138,10 @@ fn main() {
                     .err()
                     .or_else(|| Some((Tag::ok(), None)))
             });
+        Some((record, tag_and_err))
+    });
 
+    for (record, tag_and_err) in records {
         if !tag_and_err.as_ref().map_or(false, |&(ref tag, _)| silence.contains(&tag)) {
             if let &Some((_, Some(ref err))) = &tag_and_err {
                 warn!("error: {}", &err.as_ref());
