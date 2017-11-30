@@ -138,6 +138,7 @@ fn main() {
                         lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| (tag.clone(), Some(Rc::new(LinkError::new(base, Box::new(err))))))
                     })
                     .err()
+                    .or_else(|| Some((Tag::ok(), None)))
             });
 
         if !tag_and_err.as_ref().map_or(false, |&(ref tag, _)| silence.contains(&tag)) {
