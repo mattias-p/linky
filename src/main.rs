@@ -69,23 +69,23 @@ fn main() {
         None
     };
 
-    let mut links = vec![];
+    let mut raw_links = vec![];
 
     if opt.file.is_empty() {
         let stdin = io::stdin();
         for line in stdin.lock().lines() {
             let line = line.unwrap();
-            links.push(Record::from_str(line.as_str()).unwrap());
+            raw_links.push(Record::from_str(line.as_str()).unwrap());
         }
     } else {
         for path in &opt.file {
-            if let Err(err) = md_file_links(path, &mut links) {
+            if let Err(err) = md_file_links(path, &mut raw_links) {
                 error!("reading file {}: {}", escape(Cow::Borrowed(path)), err);
             }
         }
     }
 
-    let links = links
+    let parsed_links = raw_links
         .into_iter()
         .filter_map(|record| {
             match parse_link(&record, opt.root.as_str()) {
@@ -97,11 +97,11 @@ fn main() {
             }
         });
 
-    let records = links.scan(HashMap::new(), |all_targets, (record, base, fragment)| {
+    let resolved = parsed_links.scan(HashMap::new(), |all_targets, (record, base, fragment)| {
         Some((record, resolve_link(&client, all_targets, base, fragment, &opt.prefixes)))
     });
 
-    for (record, tag_and_err) in records {
+    for (record, tag_and_err) in resolved {
         if !tag_and_err.as_ref().map_or(false, |&(ref tag, _)| silence.contains(&tag)) {
             if let &Some((_, Some(ref err))) = &tag_and_err {
                 warn!("error: {}", &err.as_ref());
