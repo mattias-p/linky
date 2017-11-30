@@ -114,12 +114,17 @@ fn main() {
     struct Record {
         path: String,
         linenum: usize,
-        tag: Option<Tag>,
         link: String,
     }
 
     let mut all_targets = HashMap::new();
     for (path, linenum, raw, base, fragment) in links {
+        let record = Record {
+            path: path,
+            linenum: linenum,
+            link: raw,
+        };
+
         let tag_and_err: Option<(Tag, Option<Rc<_>>)> = client
             .as_ref()
             .and_then(|client| {
@@ -135,15 +140,8 @@ fn main() {
                     .err()
             });
 
-        let record = Record {
-            path: path,
-            linenum: linenum,
-            tag: tag_and_err.as_ref().map(|&(ref tag, _)| tag.clone()),
-            link: raw,
-        };
-
-        if !record.tag.as_ref().map_or(false, |tag| silence.contains(&tag)) {
-            if let Some((_, Some(err))) = tag_and_err {
+        if !tag_and_err.as_ref().map_or(false, |&(ref tag, _)| silence.contains(&tag)) {
+            if let &Some((_, Some(ref err))) = &tag_and_err {
                 warn!("error: {}", &err.as_ref());
                 let mut e = err.as_ref().cause();
                 while let Some(err) = e {
@@ -155,8 +153,9 @@ fn main() {
                 "{}:{}: {} {}",
                 record.path,
                 record.linenum,
-                record.tag.as_ref()
-                    .map(|tag| tag as &fmt::Display)
+                tag_and_err
+                    .as_ref()
+                    .map(|&(ref tag, _)| tag as &fmt::Display)
                     .unwrap_or(&"" as &fmt::Display),
                 record.link
             );
