@@ -26,6 +26,7 @@ use std::io::BufRead;
 use std::io;
 use std::path::Path;
 use std::rc::Rc;
+use std::str::FromStr;
 
 use errors::LinkError;
 use linky::lookup_fragment;
@@ -34,7 +35,6 @@ use linky::md_file_links;
 use linky::Record;
 use linky::Tag;
 use linky::Targets;
-use regex::Regex;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
 use shell_escape::escape;
@@ -76,20 +76,10 @@ fn main() {
     let mut links = vec![];
 
     if opt.file.is_empty() {
-        let re = Regex::new(r"^(.*):(\d+): [^ ]* ([^ ]*)$").unwrap();
         let stdin = io::stdin();
         for line in stdin.lock().lines() {
-            let line = line.unwrap().as_str().to_string();
-            let cap = re.captures(line.as_str()).unwrap();
-            let path = cap.get(1).unwrap().as_str();
-            let lineno = cap.get(2).unwrap().as_str();
-            let link = cap.get(3).unwrap().as_str();
-
-            links.push(Record {
-                path: path.to_string(),
-                linenum: lineno.parse().unwrap(),
-                link: link.to_string(),
-            });
+            let line = line.unwrap();
+            links.push(Record::from_str(line.as_str()).unwrap());
         }
     } else {
         for path in &opt.file {

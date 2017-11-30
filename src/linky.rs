@@ -362,6 +362,22 @@ pub struct Record {
     pub link: String,
 }
 
+lazy_static! {
+    static ref RECORD_REGEX: Regex = Regex::new(r"^(.*):(\d+): [^ ]* ([^ ]*)$").unwrap();
+}
+
+impl FromStr for Record {
+    type Err = ();
+    fn from_str(line: &str) -> Result<Self, Self::Err> {
+        let cap = RECORD_REGEX.captures(line).ok_or(())?;
+        Ok(Record {
+            path: cap.get(1).unwrap().as_str().to_string(),
+            linenum: cap.get(2).unwrap().as_str().parse().unwrap(),
+            link: cap.get(3).unwrap().as_str().to_string(),
+        })
+    }
+}
+
 pub fn md_file_links<'a>(
     path: &'a str,
     links: &mut Vec<Record>,
