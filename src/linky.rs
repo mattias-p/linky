@@ -431,19 +431,15 @@ pub fn parse_link(record: &Record, root: &str) -> Result<(Link, Option<String>),
         .map(|parsed| parsed.split_fragment())
 }
 
-pub fn resolve_link(client: &Option<Client>, targets: &mut HashMap<Link, Result<Vec<String>, (Tag, Rc<LinkError>)>>, base: Link, fragment: Option<String>, prefixes: &[String]) -> Option<(Tag, Option<Rc<LinkError>>)> {
-    client
+pub fn resolve_link(client: &Client, targets: &mut HashMap<Link, Result<Vec<String>, (Tag, Rc<LinkError>)>>, base: Link, fragment: Option<String>, prefixes: &[String]) -> (Tag, Option<Rc<LinkError>>) {
+    targets
+        .entry(base.clone())
+        .or_insert_with(|| client.fetch_targets(&base))
         .as_ref()
-        .and_then(|client| {
-            targets
-                .entry(base.clone())
-                .or_insert_with(|| client.fetch_targets(&base))
-                .as_ref()
-                .map_err(|&(ref tag, ref err)| (tag.clone(), Some(err.clone())))
-                .and_then(|ids| {
-                    lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| (tag.clone(), Some(Rc::new(LinkError::new(base, Box::new(err))))))
-                })
-                .err()
-                .or_else(|| Some((Tag::ok(), None)))
+        .map_err(|&(ref tag, ref err)| (tag.clone(), Some(err.clone())))
+        .and_then(|ids| {
+            lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| (tag.clone(), Some(Rc::new(LinkError::new(base, Box::new(err))))))
         })
+        .err()
+        .unwrap_or_else(|| (Tag::ok(), None))
 }

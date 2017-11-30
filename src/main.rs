@@ -98,7 +98,10 @@ fn main() {
         });
 
     let resolved = parsed_links.scan(HashMap::new(), |all_targets, (record, base, fragment)| {
-        Some((record, resolve_link(&client, all_targets, base, fragment, &opt.prefixes)))
+        let resolution = client
+            .as_ref()
+            .map(|client| resolve_link(&client, all_targets, base, fragment, &opt.prefixes));
+        Some((record, resolution))
     });
 
     for (record, tag_and_err) in resolved {
