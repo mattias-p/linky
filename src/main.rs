@@ -25,9 +25,9 @@ use std::fmt;
 use std::io::BufRead;
 use std::io;
 use std::path::Path;
+use std::rc::Rc;
 
 use errors::LinkError;
-use linky::BorrowedOrOwned;
 use linky::lookup_fragment;
 use linky::Link;
 use linky::md_file_links;
@@ -120,7 +120,7 @@ fn main() {
 
     let mut all_targets = HashMap::new();
     for (path, linenum, raw, base, fragment) in links {
-        let (tag, err): (Option<Tag>, Option<BorrowedOrOwned<_>>) = client
+        let (tag, err): (Option<Tag>, Option<Rc<_>>) = client
             .as_ref()
             .and_then(|client| {
                 let prefixes = &opt.prefixes;
@@ -129,10 +129,10 @@ fn main() {
                     .or_insert_with(|| client.fetch_targets(&base))
                     .as_ref()
                     .map_err(|&(ref tag, ref err)| {
-                        (Some(tag.clone()), Some(BorrowedOrOwned::Borrowed(err)))
+                        (Some(tag.clone()), Some(err.clone()))
                     })
                     .and_then(|ids| {
-                        lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| (Some(tag.clone()), Some(BorrowedOrOwned::Owned(Box::new(LinkError::new(base, Box::new(err)))))))
+                        lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| (Some(tag.clone()), Some(Rc::new(LinkError::new(base, Box::new(err))))))
                     })
                     .err()
                     .or_else(|| Some((Some(Tag::ok()), None)))

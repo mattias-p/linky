@@ -9,6 +9,7 @@ use std::io::Read;
 use std::io;
 use std::ops::Add;
 use std::path::Path;
+use std::rc::Rc;
 use std::result;
 use std::str::FromStr;
 
@@ -250,11 +251,11 @@ impl fmt::Display for Link {
 }
 
 pub trait Targets {
-    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, LinkError)>;
+    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, Rc<LinkError>)>;
 }
 
 impl Targets for Client {
-    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, LinkError)> {
+    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, Rc<LinkError>)> {
         let result = match *link {
             Link::Path(ref path) => if Path::new(path).is_relative() {
                 get_path_ids(path.as_ref(), &GithubId)
@@ -265,7 +266,7 @@ impl Targets for Client {
         };
         result.map_err(|err| {
             let tag = Tag::from_error_kind(err.kind());
-            (tag, LinkError::new(link.clone(), Box::new(err)))
+            (tag, Rc::new(LinkError::new(link.clone(), Box::new(err))))
         })
     }
 }
@@ -367,22 +368,6 @@ pub fn md_file_links<'a>(
 
     links.extend(parser);
     Ok(())
-}
-
-pub enum BorrowedOrOwned<'a, T: 'a> {
-    Borrowed(&'a T),
-    Owned(Box<T>),
-}
-
-impl<'a, T> AsRef<T> for BorrowedOrOwned<'a, T> {
-    fn as_ref(&self) -> &T {
-        use self::BorrowedOrOwned::*;
-
-        match *self {
-            Borrowed(b) => b,
-            Owned(ref o) => &*o,
-        }
-    }
 }
 
 fn find_prefixed_fragment(ids: &[String], fragment: &str, prefixes: &[String]) -> Option<String> {
