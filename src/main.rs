@@ -24,16 +24,13 @@ use std::error::Error;
 use std::fmt;
 use std::io::BufRead;
 use std::io;
-use std::rc::Rc;
 use std::str::FromStr;
 
-use errors::LinkError;
-use linky::lookup_fragment;
 use linky::md_file_links;
 use linky::parse_link;
 use linky::Record;
+use linky::resolve_link;
 use linky::Tag;
-use linky::Targets;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
 use shell_escape::escape;
@@ -101,22 +98,7 @@ fn main() {
         });
 
     let records = links.scan(HashMap::new(), |all_targets, (record, base, fragment)| {
-        let tag_and_err: Option<(Tag, Option<Rc<_>>)> = client
-            .as_ref()
-            .and_then(|client| {
-                let prefixes = &opt.prefixes;
-                all_targets
-                    .entry(base.clone())
-                    .or_insert_with(|| client.fetch_targets(&base))
-                    .as_ref()
-                    .map_err(|&(ref tag, ref err)| (tag.clone(), Some(err.clone())))
-                    .and_then(|ids| {
-                        lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| (tag.clone(), Some(Rc::new(LinkError::new(base, Box::new(err))))))
-                    })
-                    .err()
-                    .or_else(|| Some((Tag::ok(), None)))
-            });
-        Some((record, tag_and_err))
+        Some((record, resolve_link(&client, all_targets, base, fragment, &opt.prefixes)))
     });
 
     for (record, tag_and_err) in records {
