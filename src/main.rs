@@ -128,16 +128,13 @@ fn main() {
                     .entry(base.clone())
                     .or_insert_with(|| client.fetch_targets(&base))
                     .as_ref()
-                    .map_err(|&(ref tag, ref err)| {
-                        (Some(tag.clone()), Some(err.clone()))
-                    })
+                    .map_err(|&(ref tag, ref err)| (Some(tag.clone()), Some(err.clone())))
                     .and_then(|ids| {
                         lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| (Some(tag.clone()), Some(Rc::new(LinkError::new(base, Box::new(err))))))
                     })
                     .err()
-                    .or_else(|| Some((Some(Tag::ok()), None)))
             })
-            .unwrap_or((None, None));
+            .unwrap_or_else(|| (None, None));
 
         let record = Record {
             path: path,
