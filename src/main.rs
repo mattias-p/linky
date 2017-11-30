@@ -120,7 +120,7 @@ fn main() {
 
     let mut all_targets = HashMap::new();
     for (path, linenum, raw, base, fragment) in links {
-        let (tag, err): (Option<Tag>, Option<Rc<_>>) = client
+        let tag_and_err: Option<(Tag, Option<Rc<_>>)> = client
             .as_ref()
             .and_then(|client| {
                 let prefixes = &opt.prefixes;
@@ -128,23 +128,22 @@ fn main() {
                     .entry(base.clone())
                     .or_insert_with(|| client.fetch_targets(&base))
                     .as_ref()
-                    .map_err(|&(ref tag, ref err)| (Some(tag.clone()), Some(err.clone())))
+                    .map_err(|&(ref tag, ref err)| (tag.clone(), Some(err.clone())))
                     .and_then(|ids| {
-                        lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| (Some(tag.clone()), Some(Rc::new(LinkError::new(base, Box::new(err))))))
+                        lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| (tag.clone(), Some(Rc::new(LinkError::new(base, Box::new(err))))))
                     })
                     .err()
-            })
-            .unwrap_or_else(|| (None, None));
+            });
 
         let record = Record {
             path: path,
             linenum: linenum,
-            tag: tag,
+            tag: tag_and_err.as_ref().map(|&(ref tag, _)| tag.clone()),
             link: raw,
         };
 
         if !record.tag.as_ref().map_or(false, |tag| silence.contains(&tag)) {
-            if let Some(err) = err {
+            if let Some((_, Some(err))) = tag_and_err {
                 warn!("error: {}", &err.as_ref());
                 let mut e = err.as_ref().cause();
                 while let Some(err) = e {
