@@ -24,14 +24,13 @@ use std::error::Error;
 use std::fmt;
 use std::io::BufRead;
 use std::io;
-use std::path::Path;
 use std::rc::Rc;
 use std::str::FromStr;
 
 use errors::LinkError;
 use linky::lookup_fragment;
-use linky::Link;
 use linky::md_file_links;
+use linky::parse_link;
 use linky::Record;
 use linky::Tag;
 use linky::Targets;
@@ -89,18 +88,17 @@ fn main() {
         }
     }
 
-    let links = links.into_iter().filter_map(|record| {
-        match Link::parse_with_root(record.link.as_str(), &Path::new(&record.path), &opt.root) {
-            Ok(parsed) => {
-                let (base, fragment) = parsed.split_fragment();
-                Some((record, base, fragment))
+    let links = links
+        .into_iter()
+        .filter_map(|record| {
+            match parse_link(&record, opt.root.as_str()) {
+                Ok((base, fragment)) => Some((record, base, fragment)),
+                Err(err) => {
+                    error!("{}:{}: {}: {}", record.path, record.linenum, err, record.link);
+                    None
+                }
             }
-            Err(err) => {
-                error!("{}:{}: {}: {}", record.path, record.linenum, err, record.link);
-                None
-            }
-        }
-    });
+        });
 
     let records = links.scan(HashMap::new(), |all_targets, (record, base, fragment)| {
         let tag_and_err: Option<(Tag, Option<Rc<_>>)> = client

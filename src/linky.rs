@@ -425,3 +425,8 @@ pub fn lookup_fragment<'a>(
         Ok(())
     }
 }
+
+pub fn parse_link(record: &Record, root: &str) -> Result<(Link, Option<String>), url::ParseError> {
+    Link::parse_with_root(record.link.as_str(), &Path::new(&record.path), &root)
+        .map(|parsed| parsed.split_fragment())
+}
