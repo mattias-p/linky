@@ -98,11 +98,22 @@ fn main() {
         }
     }
 
+    struct Record {
+        path: String,
+        linenum: usize,
+        link: String,
+    }
+
     let links = links.into_iter().filter_map(|(path, linenum, link)| {
         match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
             Ok(parsed) => {
                 let (base, fragment) = parsed.split_fragment();
-                Some((path, linenum, link, base, fragment))
+                let record = Record {
+                    path: path,
+                    linenum: linenum,
+                    link: link,
+                };
+                Some((record, base, fragment))
             }
             Err(err) => {
                 error!("{}:{}: {}: {}", path, linenum, err, link);
@@ -111,19 +122,8 @@ fn main() {
         }
     });
 
-    struct Record {
-        path: String,
-        linenum: usize,
-        link: String,
-    }
-
     let mut all_targets = HashMap::new();
-    for (path, linenum, raw, base, fragment) in links {
-        let record = Record {
-            path: path,
-            linenum: linenum,
-            link: raw,
-        };
+    for (record, base, fragment) in links {
 
         let tag_and_err: Option<(Tag, Option<Rc<_>>)> = client
             .as_ref()
