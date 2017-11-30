@@ -356,14 +356,22 @@ impl<'a> Iterator for MdLinkParser<'a> {
     }
 }
 
+pub struct Record {
+    pub path: String,
+    pub linenum: usize,
+    pub link: String,
+}
+
 pub fn md_file_links<'a>(
     path: &'a str,
-    links: &mut Vec<(String, usize, String)>,
+    links: &mut Vec<Record>,
 ) -> io::Result<()> {
     let mut buffer = String::new();
     slurp(&path, &mut buffer)?;
-    let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| {
-        (path.to_string(), lineno, url.as_ref().to_string())
+    let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
+        path: path.to_string(),
+        linenum: lineno,
+        link: url.as_ref().to_string(),
     });
 
     links.extend(parser);

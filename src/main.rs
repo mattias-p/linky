@@ -31,6 +31,7 @@ use errors::LinkError;
 use linky::lookup_fragment;
 use linky::Link;
 use linky::md_file_links;
+use linky::Record;
 use linky::Tag;
 use linky::Targets;
 use regex::Regex;
@@ -84,11 +85,11 @@ fn main() {
             let lineno = cap.get(2).unwrap().as_str();
             let link = cap.get(3).unwrap().as_str();
 
-            links.push((
-                path.to_string(),
-                lineno.parse().unwrap(),
-                link.to_string(),
-            ));
+            links.push(Record {
+                path: path.to_string(),
+                linenum: lineno.parse().unwrap(),
+                link: link.to_string(),
+            });
         }
     } else {
         for path in &opt.file {
@@ -98,25 +99,14 @@ fn main() {
         }
     }
 
-    struct Record {
-        path: String,
-        linenum: usize,
-        link: String,
-    }
-
-    let links = links.into_iter().filter_map(|(path, linenum, link)| {
-        match Link::parse_with_root(link.as_str(), &Path::new(&path), &opt.root) {
+    let links = links.into_iter().filter_map(|record| {
+        match Link::parse_with_root(record.link.as_str(), &Path::new(&record.path), &opt.root) {
             Ok(parsed) => {
                 let (base, fragment) = parsed.split_fragment();
-                let record = Record {
-                    path: path,
-                    linenum: linenum,
-                    link: link,
-                };
                 Some((record, base, fragment))
             }
             Err(err) => {
-                error!("{}:{}: {}: {}", path, linenum, err, link);
+                error!("{}:{}: {}: {}", record.path, record.linenum, err, record.link);
                 None
             }
         }
