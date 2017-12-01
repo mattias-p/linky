@@ -443,3 +443,12 @@ pub fn resolve_link(client: &Client, targets: &mut HashMap<Link, Result<Vec<Stri
         .err()
         .unwrap_or_else(|| (Tag::ok(), None))
 }
+
+pub fn print_warning(err: &error::Error) {
+    warn!("warn: {}", &err);
+    let mut e = err.cause();
+    while let Some(err) = e {
+        warn!("  caused by: {}", &err);
+        e = err.cause();
+    }
+}

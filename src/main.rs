@@ -20,7 +20,6 @@ mod linky;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::error::Error;
 use std::fmt;
 use std::io::BufRead;
 use std::io;
@@ -31,6 +30,7 @@ use linky::parse_link;
 use linky::Record;
 use linky::resolve_link;
 use linky::Tag;
+use linky::print_warning;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
 use shell_escape::escape;
@@ -107,12 +107,7 @@ fn main() {
     for (record, tag_and_err) in resolved {
         if !tag_and_err.as_ref().map_or(false, |&(ref tag, _)| silence.contains(&tag)) {
             if let &Some((_, Some(ref err))) = &tag_and_err {
-                warn!("error: {}", &err.as_ref());
-                let mut e = err.as_ref().cause();
-                while let Some(err) = e {
-                    warn!("  caused by: {}", &err);
-                    e = err.cause();
-                }
+                print_warning(err.as_ref());
             }
             println!(
                 "{}:{}: {} {}",
