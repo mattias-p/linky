@@ -83,8 +83,7 @@ fn get_url_ids(url: &Url, client: &Client) -> result::Result<Vec<String>, Lookup
         match response.headers().get::<ContentType>() {
             None => return Err(ErrorKind::NoMime.into()),
             Some(&ContentType(ref mime_type))
-                if mime_type.type_() != mime::TEXT || mime_type.subtype() != mime::HTML =>
-            {
+                if mime_type.type_() != mime::TEXT || mime_type.subtype() != mime::HTML => {
                 return Err(LookupError {
                     kind: ErrorKind::UnrecognizedMime,
                     cause: Some(Box::new(UnrecognizedMime::new(mime_type.clone()))),
@@ -170,11 +169,13 @@ impl<'a> Iterator for MdAnchorParser<'a> {
                 Event::Start(pulldown_cmark::Tag::Header(_)) => {
                     self.is_header = true;
                 }
-                Event::Text(text) => if self.is_header {
-                    self.is_header = false;
-                    let count = self.headers.register(text.to_string());
-                    return Some(self.id_transform.to_id(text.as_ref(), count));
-                },
+                Event::Text(text) => {
+                    if self.is_header {
+                        self.is_header = false;
+                        let count = self.headers.register(text.to_string());
+                        return Some(self.id_transform.to_id(text.as_ref(), count));
+                    }
+                }
                 _ => (),
             }
         }
@@ -214,28 +215,30 @@ impl Link {
     ) -> result::Result<Self, url::ParseError> {
         match Url::parse(link) {
             Ok(url) => Ok(Link::Url(url)),
-            Err(url::ParseError::RelativeUrlWithoutBase) => if Path::new(link).is_relative() {
-                let link = if link.starts_with('#') {
-                    let file_name = origin
-                        .as_ref()
-                        .file_name()
-                        .unwrap()
-                        .to_string_lossy()
-                        .to_string()
-                        .add(link);
-                    origin.as_ref().with_file_name(file_name)
+            Err(url::ParseError::RelativeUrlWithoutBase) => {
+                if Path::new(link).is_relative() {
+                    let link = if link.starts_with('#') {
+                        let file_name = origin
+                            .as_ref()
+                            .file_name()
+                            .unwrap()
+                            .to_string_lossy()
+                            .to_string()
+                            .add(link);
+                        origin.as_ref().with_file_name(file_name)
+                    } else {
+                        origin.as_ref().with_file_name(link)
+                    };
+                    Ok(Link::Path(link.to_string_lossy().to_string()))
                 } else {
-                    origin.as_ref().with_file_name(link)
-                };
-                Ok(Link::Path(link.to_string_lossy().to_string()))
-            } else {
-                Ok(Link::Path(
-                    root.as_ref()
-                        .join(as_relative(&link))
-                        .to_string_lossy()
-                        .to_string(),
-                ))
-            },
+                    Ok(Link::Path(
+                        root.as_ref()
+                            .join(as_relative(&link))
+                            .to_string_lossy()
+                            .to_string(),
+                    ))
+                }
+            }
             Err(err) => Err(err),
         }
     }
@@ -257,11 +260,13 @@ pub trait Targets {
 impl Targets for Client {
     fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, Rc<LinkError>)> {
         let result = match *link {
-            Link::Path(ref path) => if Path::new(path).is_relative() {
-                get_path_ids(path.as_ref(), &GithubId)
-            } else {
-                Err(ErrorKind::Absolute.into())
-            },
+            Link::Path(ref path) => {
+                if Path::new(path).is_relative() {
+                    get_path_ids(path.as_ref(), &GithubId)
+                } else {
+                    Err(ErrorKind::Absolute.into())
+                }
+            }
             Link::Url(ref url) => get_url_ids(url, self),
         };
         result.map_err(|err| {
@@ -378,16 +383,15 @@ impl FromStr for Record {
     }
 }
 
-pub fn md_file_links<'a>(
-    path: &'a str,
-    links: &mut Vec<Record>,
-) -> io::Result<()> {
+pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<Record>) -> io::Result<()> {
     let mut buffer = String::new();
     slurp(&path, &mut buffer)?;
-    let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
-        path: path.to_string(),
-        linenum: lineno,
-        link: url.as_ref().to_string(),
+    let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| {
+        Record {
+            path: path.to_string(),
+            linenum: lineno,
+            link: url.as_ref().to_string(),
+        }
     });
 
     links.extend(parser);
@@ -415,12 +419,17 @@ pub fn lookup_fragment<'a>(
             Ok(())
         } else if let Some(prefix) = find_prefixed_fragment(ids, fragment, prefixes) {
             let err: LookupError = ErrorKind::Prefixed.into();
-            Err((Tag::from_error_kind(err.kind()), Box::new(PrefixError::new(prefix, Box::new(err)))))
+            Err((
+                Tag::from_error_kind(err.kind()),
+                Box::new(PrefixError::new(prefix, Box::new(err))),
+            ))
         } else {
             let err: LookupError = ErrorKind::NoFragment.into();
             Err((Tag::from_error_kind(err.kind()), Box::new(err)))
         };
-        err.map_err(|(tag, err)| (tag, FragmentError::new(fragment.clone(), err)))
+        err.map_err(|(tag, err)| {
+            (tag, FragmentError::new(fragment.clone(), err))
+        })
     } else {
         Ok(())
     }
@@ -431,14 +440,25 @@ pub fn parse_link(record: &Record, root: &str) -> Result<(Link, Option<String>),
         .map(|parsed| parsed.split_fragment())
 }
 
-pub fn resolve_link(client: &Client, targets: &mut HashMap<Link, Result<Vec<String>, (Tag, Rc<LinkError>)>>, base: Link, fragment: Option<String>, prefixes: &[String]) -> (Tag, Option<Rc<LinkError>>) {
+pub fn resolve_link(
+    client: &Client,
+    targets: &mut HashMap<Link, Result<Vec<String>, (Tag, Rc<LinkError>)>>,
+    base: Link,
+    fragment: Option<String>,
+    prefixes: &[String],
+) -> (Tag, Option<Rc<LinkError>>) {
     targets
         .entry(base.clone())
         .or_insert_with(|| client.fetch_targets(&base))
         .as_ref()
         .map_err(|&(ref tag, ref err)| (tag.clone(), Some(err.clone())))
         .and_then(|ids| {
-            lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| (tag.clone(), Some(Rc::new(LinkError::new(base, Box::new(err))))))
+            lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| {
+                (
+                    tag.clone(),
+                    Some(Rc::new(LinkError::new(base, Box::new(err)))),
+                )
+            })
         })
         .err()
         .unwrap_or_else(|| (Tag::ok(), None))
