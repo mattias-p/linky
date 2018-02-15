@@ -67,8 +67,8 @@ example_site/path/to/example.md:8: OK #heading
 example_site/path/to/example.md:9: NO_FRAG #non-existing
 ```
 
-Also notice that an status token has been added to each one of the remaining lines.
-A status token of `OK` means that the resolution succeeded.
+With --check a status token is added to each line.
+`OK` means that resolution succeeded.
 Other tokens represent different kinds of failure.
 For details on how links are resolved see the [link resolution section].
 
@@ -106,10 +106,7 @@ example_site/path/to/transform.md:3:  https://github.com/mattias-p/linky/blob/ma
 
 ### Dealing with absolute local links
 
-If absolute local links are used, linky can't resolve those without knowing the document root directory.
-This is specified using the --root option (which defaults to the file system root).
-
-First, let's just examine the links in the example file:
+By default linky doesn't resolve absolute local links:
 
 ```sh
 $ linky --check example_site/path/to/absolute.md
@@ -119,7 +116,8 @@ example_site/path/to/absolute.md:4: ABSOLUTE /path/to/other.md#existing
 example_site/path/to/absolute.md:5: ABSOLUTE /path/to/other.md#non-existing
 ```
 
-Specify the document root directory to let the resolution to continue:
+Specify a document root using --root to resolve absolute local links
+relative to that document root:
 
 ```sh
 $ linky --check --root=example_site example_site/path/to/absolute.md
@@ -129,14 +127,13 @@ example_site/path/to/absolute.md:4: OK /path/to/other.md#existing
 example_site/path/to/absolute.md:5: NO_FRAG /path/to/other.md#non-existing
 ```
 
+With --root the ABSOLUTE status tokens have been replaced with more detailed ones.
+
 
 ### Dealing with HTTP redirects
 
 By default linky doesn't follow HTTP redirects.
-This way you're able to know which of your links redirect.
-Specify the --follow option to make linky follow redirects when resolving links.
-
-First, let's just examine the links in the example file:
+This way you're able to know which links do redirect.
 
 ```sh
 $ linky --check example_site/path/to/follow.md
@@ -144,7 +141,7 @@ example_site/path/to/follow.md:2: HTTP_301 http://github.com/mattias-p/linky/blo
 example_site/path/to/follow.md:3: HTTP_301 http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#non-existing
 ```
 
-Specify --follow to make linky follow HTTP redirects in the resolution:
+Enable the --follow option to follow HTTP redirects when resolving links:
 
 ```sh
 $ linky --check --follow example_site/path/to/follow.md
@@ -152,7 +149,7 @@ example_site/path/to/follow.md:2: OK http://github.com/mattias-p/linky/blob/mast
 example_site/path/to/follow.md:3: NO_FRAG http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#non-existing
 ```
 
-Notice that the links that previously had HTTP\_301 status tokens now have disappeared or have contracted other resolution problems.
+With --follow the HTTP\_301 status tokens have been replaced with more detailed ones.
 
 
 ### Dealing with HTTP fragments
@@ -181,7 +178,7 @@ example_site/path/to/fragment.md:3: NO_FRAG https://github.com/mattias-p/linky/b
 
 If you, for example, want to check links against a development version of a sister site you can pipe your links through sed to transform the base URL.
 
-First, let's just examine the links in the example file:
+First, let's just extract all links from the example file:
 
 ```sh
 $ linky example_site/path/to/transform.md
@@ -189,7 +186,7 @@ example_site/path/to/transform.md:2:  https://github.com/mattias-p/linky/blob/ma
 example_site/path/to/transform.md:3:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/only-on-example-branch.md
 ```
 
-Use sed to edit the links to point to the sister site:
+Use sed to edit the links so they point to the sister site:
 
 ```sh
 $ linky example_site/path/to/transform.md | sed 's,/master/,/example/,'
