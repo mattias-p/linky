@@ -471,3 +471,23 @@ pub fn print_warning(err: &error::Error) {
         e = err.cause();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extract_links() {
+        let buffer = include_str!("../example_site/path/to/example.md");
+        let mut parser = MdLinkParser::new(buffer);
+        assert_eq!(parser.next(), Some((2, Cow::Owned("https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md".to_string()))));
+        assert_eq!(parser.next(), Some((3, Cow::Owned("https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing".to_string()))));
+        assert_eq!(parser.next(), Some((4, Cow::Owned("other.md".to_string()))));
+        assert_eq!(parser.next(), Some((5, Cow::Owned("non-existing.md".to_string()))));
+        assert_eq!(parser.next(), Some((6, Cow::Owned("other.md#existing".to_string()))));
+        assert_eq!(parser.next(), Some((7, Cow::Owned("other.md#non-existing".to_string()))));
+        assert_eq!(parser.next(), Some((8, Cow::Owned("#heading".to_string()))));
+        assert_eq!(parser.next(), Some((9, Cow::Owned("#non-existing".to_string()))));
+        assert_eq!(parser.next(), None);
+    }
+}
