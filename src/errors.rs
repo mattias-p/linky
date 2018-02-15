@@ -114,6 +114,7 @@ impl LookupError {
         self.kind.clone()
     }
 
+    #[allow(dead_code)]
     pub fn cause(&self) -> Option<&error::Error> {
         self.cause.as_ref().map(|e| e.as_ref())
     }
