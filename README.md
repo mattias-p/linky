@@ -214,7 +214,7 @@ In case you ever wonder why a certain link resolved to whatever status token it 
 set the `RUST_LOG` environment variable to `warn`.
 
 ```sh
-$ RUST_LOG=warn linky example_site/path/to/example.md
+$ env RUST_LOG=warn linky --check example_site/path/to/example.md
 example_site/path/to/example.md:2: OK https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
 WARN :linky: error: Link: https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
 WARN :linky:   caused by: Fragment: existing
