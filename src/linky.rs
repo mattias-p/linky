@@ -63,22 +63,42 @@ impl fmt::Display for Tag {
     }
 }
 
-fn get_path_ids(path: &str, id_transform: &ToId) -> result::Result<Vec<String>, LookupError> {
+fn get_markdown_ids(
+    content: &str,
+    id_transform: &ToId,
+) -> result::Result<Vec<String>, LookupError> {
     let mut headers = Headers::new();
-    let mut buffer = String::new();
-    slurp(&path, &mut buffer)?;
     Ok(
-        MdAnchorParser::from_buffer(buffer.as_str(), id_transform, &mut headers)
+        MdAnchorParser::from_buffer(content, id_transform, &mut headers)
             .map(|id| id.to_string())
             .collect(),
     )
 }
 
-fn get_url_response(url: &Url, client: &Client) -> result::Result<Response, LookupError> {
-    if url.scheme() == "http" || url.scheme() == "https" {
-        Ok(client.get(url.clone()).send()?)
+fn get_url_reader(
+    url: &Url,
+    client: &Client,
+) -> result::Result<(ContentType, Box<Read>), LookupError> {
+    if url.scheme() != "http" && url.scheme() != "https" {
+        return Err(ErrorKind::Protocol.into());
+    }
+    let response = client.get(url.clone()).send()?;
+    if !response.status().is_success() {
+        return Err(ErrorKind::HttpStatus(response.status()).into());
+    }
+    let content_type = get_response_content_type(&response)?;
+    Ok((content_type, Box::new(response)))
+}
+
+fn get_path_reader(path: &Path) -> result::Result<(ContentType, Box<Read>), LookupError> {
+    if path.is_relative() {
+        let reader = File::open(&path)?;
+        let markdown = "text/markdown; charset=UTF-8"
+            .parse::<mime::Mime>()
+            .unwrap();
+        Ok((ContentType(markdown), Box::new(reader)))
     } else {
-        Err(ErrorKind::Protocol.into())
+        Err(ErrorKind::Absolute.into())
     }
 }
 
@@ -92,32 +112,9 @@ fn get_response_content_type<'a>(
         .ok_or(ErrorKind::NoMime.into())
 }
 
-fn get_response_html_reader(response: Response) -> result::Result<Response, LookupError> {
-    if !response.status().is_success() {
-        return Err(ErrorKind::HttpStatus(response.status()).into());
-    }
-    let ContentType(mime_type) = get_response_content_type(&response)?;
-    if mime_type.type_() != mime::TEXT || mime_type.subtype() != mime::HTML {
-        Err(LookupError {
-            kind: ErrorKind::UnrecognizedMime,
-            cause: Some(Box::new(UnrecognizedMime::new(mime_type.clone()))),
-        })
-    } else {
-        Ok(response)
-    }
-}
-
-fn get_url_ids(url: &Url, client: &Client) -> result::Result<Vec<String>, LookupError> {
-    let response = get_url_response(&url, &client)?;
-    let mut reader = get_response_html_reader(response)?;
-    let mut buffer = String::new();
-    reader.read_to_string(&mut buffer)?;
-    Ok(get_html_ids(&buffer))
-}
-
-fn get_html_ids(buffer: &str) -> Vec<String> {
+fn get_html_ids(content: &str) -> Vec<String> {
     let mut result = vec![];
-    for (_, tag) in htmlstream::tag_iter(buffer) {
+    for (_, tag) in htmlstream::tag_iter(content) {
         for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
             if attr.name == "id" || (tag.name == "a" && attr.name == "name") {
                 result.push(attr.value.clone());
@@ -271,24 +268,59 @@ impl fmt::Display for Link {
 
 pub trait Targets {
     fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, Rc<LinkError>)>;
+    fn get_reader(&self, link: &Link) -> result::Result<(ContentType, Box<Read>), LookupError>;
 }
 
 impl Targets for Client {
+    fn get_reader(&self, link: &Link) -> result::Result<(ContentType, Box<Read>), LookupError> {
+        match *link {
+            Link::Path(ref path) => get_path_reader(path.as_ref()),
+            Link::Url(ref url) => get_url_reader(url, &self),
+        }
+    }
     fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, Rc<LinkError>)> {
-        let result = match *link {
-            Link::Path(ref path) => {
-                if Path::new(path).is_relative() {
-                    get_path_ids(path.as_ref(), &GithubId)
-                } else {
-                    Err(ErrorKind::Absolute.into())
+        fn aux(
+            content_type: ContentType,
+            reader: &mut Read,
+        ) -> result::Result<Vec<String>, LookupError> {
+            let charset_hint = content_type
+                .get_param(mime::CHARSET)
+                .map(|v| v.as_ref().to_string());
+            debug!("http charset hint: {:?}", &charset_hint);
+            let mut chars = match charset_hint.unwrap_or("utf-8".to_string()).as_str() {
+                "utf-8" => {
+                    let mut buffer = String::new();
+                    reader.read_to_string(&mut buffer)?;
+                    buffer
+                }
+                _ => {
+                    let ContentType(mime_type) = content_type;
+                    return Err(LookupError {
+                        kind: ErrorKind::UnrecognizedMime,
+                        cause: Some(Box::new(UnrecognizedMime::new(mime_type))),
+                    });
+                }
+            };
+
+            match (content_type.type_(), content_type.subtype().as_ref()) {
+                (mime::TEXT, "html") => Ok(get_html_ids(chars.as_mut_str())),
+                (mime::TEXT, "markdown") => get_markdown_ids(chars.as_mut_str(), &GithubId),
+                _ => {
+                    let ContentType(mime_type) = content_type;
+                    return Err(LookupError {
+                        kind: ErrorKind::UnrecognizedMime,
+                        cause: Some(Box::new(UnrecognizedMime::new(mime_type))),
+                    });
                 }
             }
-            Link::Url(ref url) => get_url_ids(url, self),
-        };
-        result.map_err(|err| {
-            let tag = Tag::from_error_kind(err.kind());
-            (tag, Rc::new(LinkError::new(link.clone(), Box::new(err))))
-        })
+        }
+
+        self.get_reader(link)
+            .and_then(|(content_type, mut reader)| aux(content_type, &mut reader))
+            .map_err(|err| {
+                let tag = Tag::from_error_kind(err.kind());
+                (tag, Rc::new(LinkError::new(link.clone(), Box::new(err))))
+            })
     }
 }
 
