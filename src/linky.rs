@@ -28,6 +28,7 @@ use regex::Regex;
 use reqwest::Client;
 use reqwest::header::ContentType;
 use reqwest::mime;
+use reqwest::Response;
 use url::Url;
 use url;
 
@@ -73,30 +74,45 @@ fn get_path_ids(path: &str, id_transform: &ToId) -> result::Result<Vec<String>, 
     )
 }
 
-fn get_url_ids(url: &Url, client: &Client) -> result::Result<Vec<String>, LookupError> {
+fn get_url_response(url: &Url, client: &Client) -> result::Result<Response, LookupError> {
     if url.scheme() == "http" || url.scheme() == "https" {
-        let mut response = client.get(url.clone()).send()?;
-        if !response.status().is_success() {
-            return Err(ErrorKind::HttpStatus(response.status()).into());
-        }
-        match response.headers().get::<ContentType>() {
-            None => return Err(ErrorKind::NoMime.into()),
-            Some(&ContentType(ref mime_type))
-                if mime_type.type_() != mime::TEXT || mime_type.subtype() != mime::HTML =>
-            {
-                return Err(LookupError {
-                    kind: ErrorKind::UnrecognizedMime,
-                    cause: Some(Box::new(UnrecognizedMime::new(mime_type.clone()))),
-                })
-            }
-            _ => {}
-        };
-        let mut buffer = String::new();
-        response.read_to_string(&mut buffer)?;
-        Ok(get_html_ids(&buffer))
+        Ok(client.get(url.clone()).send()?)
     } else {
         Err(ErrorKind::Protocol.into())
     }
+}
+
+fn get_response_content_type<'a>(
+    response: &'a Response,
+) -> result::Result<ContentType, LookupError> {
+    response
+        .headers()
+        .get::<ContentType>()
+        .map(|ct| ct.clone())
+        .ok_or(ErrorKind::NoMime.into())
+}
+
+fn get_response_html_reader(response: Response) -> result::Result<Response, LookupError> {
+    if !response.status().is_success() {
+        return Err(ErrorKind::HttpStatus(response.status()).into());
+    }
+    let ContentType(mime_type) = get_response_content_type(&response)?;
+    if mime_type.type_() != mime::TEXT || mime_type.subtype() != mime::HTML {
+        Err(LookupError {
+            kind: ErrorKind::UnrecognizedMime,
+            cause: Some(Box::new(UnrecognizedMime::new(mime_type.clone()))),
+        })
+    } else {
+        Ok(response)
+    }
+}
+
+fn get_url_ids(url: &Url, client: &Client) -> result::Result<Vec<String>, LookupError> {
+    let response = get_url_response(&url, &client)?;
+    let mut reader = get_response_html_reader(response)?;
+    let mut buffer = String::new();
+    reader.read_to_string(&mut buffer)?;
+    Ok(get_html_ids(&buffer))
 }
 
 fn get_html_ids(buffer: &str) -> Vec<String> {
