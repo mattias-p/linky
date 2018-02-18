@@ -15,7 +15,7 @@ use std::str::FromStr;
 
 use bytecount::count;
 use encoding::label::encoding_from_whatwg_label;
-use encoding::types::DecoderTrap;
+use encoding::DecoderTrap;
 use errors::ErrorKind;
 use errors::FragmentError;
 use errors::LinkError;
@@ -300,11 +300,13 @@ impl Targets for Client {
 
             debug!("detected charsets: {:?}", &charsets);
 
-            let chars: result::Result<_, LookupError> = charsets
+            let charset: result::Result<_, LookupError> = charsets
                 .iter()
                 .flat_map(|v| encoding_from_whatwg_label(v.as_str()))
                 .next()
-                .unwrap()
+                .ok_or_else(|| ErrorKind::DecodingError.into());
+
+            let chars: result::Result<_, LookupError> = charset?
                 .decode(cursor.into_inner().as_ref(), DecoderTrap::Strict)
                 .map_err(|_| ErrorKind::DecodingError.into());
             let mut chars = chars?;
