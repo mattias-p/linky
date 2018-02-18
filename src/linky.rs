@@ -300,13 +300,14 @@ impl Targets for Client {
 
             debug!("detected charsets: {:?}", &charsets);
 
-            let mut chars = charsets
+            let chars: result::Result<_, LookupError> = charsets
                 .iter()
                 .flat_map(|v| encoding_from_whatwg_label(v.as_str()))
                 .next()
                 .unwrap()
                 .decode(cursor.into_inner().as_ref(), DecoderTrap::Strict)
-                .unwrap(); // TODO: handle this
+                .map_err(|_| ErrorKind::DecodingError.into());
+            let mut chars = chars?;
 
             match (content_type.type_(), content_type.subtype().as_ref()) {
                 (mime::TEXT, "html") => Ok(get_html_ids(chars.as_mut_str())),
