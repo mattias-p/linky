@@ -4,6 +4,7 @@ use std::collections::hash_map::Entry;
 use std::error;
 use std::fmt;
 use std::fs::File;
+use std::io::Cursor;
 use std::io::Read;
 use std::io;
 use std::ops::Add;
@@ -31,6 +32,7 @@ use reqwest::mime;
 use reqwest::Response;
 use url::Url;
 use url;
+use xhtmlchardet;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Tag(Result<(), ErrorKind>);
@@ -287,7 +289,20 @@ impl Targets for Client {
                 .get_param(mime::CHARSET)
                 .map(|v| v.as_ref().to_string());
             debug!("http charset hint: {:?}", &charset_hint);
-            let mut chars = match charset_hint.unwrap_or("utf-8".to_string()).as_str() {
+
+            let mut head = vec![0; 500];
+            let size = reader.read(&mut head)?;
+            head.truncate(size);
+
+            let head_cursor = Cursor::new(head);
+            let mut charsets = xhtmlchardet::detect(&mut head_cursor.clone(), charset_hint)?;
+            let mut reader = head_cursor.chain(reader);
+
+            debug!("detected charsets: {:?}", &charsets);
+
+            let charset = charsets.pop().unwrap_or("utf-8".to_string());
+
+            let mut chars = match charset.as_str() {
                 "utf-8" => {
                     let mut buffer = String::new();
                     reader.read_to_string(&mut buffer)?;

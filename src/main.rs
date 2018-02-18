@@ -13,6 +13,7 @@ extern crate structopt;
 #[macro_use]
 extern crate structopt_derive;
 extern crate url;
+extern crate xhtmlchardet;
 
 mod errors;
 mod linky;
