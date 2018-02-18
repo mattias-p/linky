@@ -14,6 +14,8 @@ use std::result;
 use std::str::FromStr;
 
 use bytecount::count;
+use encoding::label::encoding_from_whatwg_label;
+use encoding::types::DecoderTrap;
 use errors::ErrorKind;
 use errors::FragmentError;
 use errors::LinkError;
@@ -290,32 +292,21 @@ impl Targets for Client {
                 .map(|v| v.as_ref().to_string());
             debug!("http charset hint: {:?}", &charset_hint);
 
-            let mut head = vec![0; 500];
-            let size = reader.read(&mut head)?;
-            head.truncate(size);
+            let mut buffer = Vec::new();
+            reader.read_to_end(&mut buffer)?;
+            let mut cursor = Cursor::new(buffer);
 
-            let head_cursor = Cursor::new(head);
-            let mut charsets = xhtmlchardet::detect(&mut head_cursor.clone(), charset_hint)?;
-            let mut reader = head_cursor.chain(reader);
+            let charsets = xhtmlchardet::detect(&mut cursor, charset_hint)?;
 
             debug!("detected charsets: {:?}", &charsets);
 
-            let charset = charsets.pop().unwrap_or("utf-8".to_string());
-
-            let mut chars = match charset.as_str() {
-                "utf-8" => {
-                    let mut buffer = String::new();
-                    reader.read_to_string(&mut buffer)?;
-                    buffer
-                }
-                _ => {
-                    let ContentType(mime_type) = content_type;
-                    return Err(LookupError {
-                        kind: ErrorKind::UnrecognizedMime,
-                        cause: Some(Box::new(UnrecognizedMime::new(mime_type))),
-                    });
-                }
-            };
+            let mut chars = charsets
+                .iter()
+                .flat_map(|v| encoding_from_whatwg_label(v.as_str()))
+                .next()
+                .unwrap()
+                .decode(cursor.into_inner().as_ref(), DecoderTrap::Strict)
+                .unwrap(); // TODO: handle this
 
             match (content_type.type_(), content_type.subtype().as_ref()) {
                 (mime::TEXT, "html") => Ok(get_html_ids(chars.as_mut_str())),

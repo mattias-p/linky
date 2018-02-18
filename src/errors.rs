@@ -21,6 +21,7 @@ pub enum ErrorKind {
     InvalidUrl,
     NoMime,
     UnrecognizedMime,
+    DecodingError,
     Prefixed,
 }
 
@@ -50,6 +51,7 @@ impl fmt::Display for ErrorKind {
             ErrorKind::Absolute => write!(f, "ABSOLUTE"),
             ErrorKind::NoMime => write!(f, "NO_MIME"),
             ErrorKind::UnrecognizedMime => write!(f, "MIME"),
+            ErrorKind::DecodingError => write!(f, "DEC_ERR"),
             ErrorKind::Prefixed => write!(f, "PREFIXED"),
         }
     }
@@ -139,6 +141,7 @@ impl fmt::Display for LookupError {
             ErrorKind::Absolute => write!(f, "Unable to handle absolute path"),
             ErrorKind::NoMime => write!(f, "No mime type"),
             ErrorKind::UnrecognizedMime => write!(f, "Unrecognized mime type"),
+            ErrorKind::DecodingError => write!(f, "Decoding error"),
             ErrorKind::Prefixed => write!(f, "Fragment not found without prefix"),
         }
     }
@@ -157,6 +160,7 @@ impl error::Error for LookupError {
             ErrorKind::Absolute => "unhandled absolute path",
             ErrorKind::NoMime => "no mime type",
             ErrorKind::UnrecognizedMime => "unrecognized mime type",
+            ErrorKind::DecodingError => "decoding error",
             ErrorKind::Prefixed => "prefixed fragmendt",
         }
     }

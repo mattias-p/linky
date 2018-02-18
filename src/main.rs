@@ -1,4 +1,5 @@
 extern crate bytecount;
+extern crate encoding;
 extern crate htmlstream;
 #[macro_use]
 extern crate lazy_static;
