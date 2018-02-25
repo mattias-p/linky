@@ -17,6 +17,7 @@ use bytecount::count;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
 use errors::ErrorKind;
+use errors::DecodingError;
 use errors::FragmentError;
 use errors::LinkError;
 use errors::LookupError;
@@ -304,11 +305,19 @@ impl Targets for Client {
                 .iter()
                 .flat_map(|v| encoding_from_whatwg_label(v.as_str()))
                 .next()
-                .ok_or_else(|| ErrorKind::DecodingError.into());
+                .ok_or_else(|| LookupError {
+                    kind: ErrorKind::DecodingError,
+                    cause: Some(Box::new(DecodingError::new(
+                        "Failed to detect character encoding".to_string(),
+                    ))),
+                });
 
             let chars: result::Result<_, LookupError> = charset?
                 .decode(cursor.into_inner().as_ref(), DecoderTrap::Strict)
-                .map_err(|_| ErrorKind::DecodingError.into());
+                .map_err(|err| LookupError {
+                    kind: ErrorKind::DecodingError,
+                    cause: Some(Box::new(DecodingError::new(err.to_string()))),
+                });
             let mut chars = chars?;
 
             match (content_type.type_(), content_type.subtype().as_ref()) {

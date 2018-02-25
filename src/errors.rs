@@ -230,6 +230,31 @@ impl error::Error for UnrecognizedMime {
 }
 
 #[derive(Debug)]
+pub struct DecodingError(String);
+
+impl DecodingError {
+    pub fn new(message: String) -> Self {
+        DecodingError(message)
+    }
+}
+
+impl fmt::Display for DecodingError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl error::Error for DecodingError {
+    fn description(&self) -> &str {
+        "decoding error"
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        None
+    }
+}
+
+#[derive(Debug)]
 pub struct PrefixError {
     prefix: String,
     cause: Box<error::Error>,
