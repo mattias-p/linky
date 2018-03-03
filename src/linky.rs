@@ -510,4 +510,10 @@ mod tests {
         );
         assert_eq!(parser.next(), None);
     }
+
+    #[test]
+    fn check_fragment() {
+        assert!(lookup_fragment(&[], "abc", &[]).is_err());
+        assert!(lookup_fragment(&["abc"], "abc", &[]).is_ok());
+    }
 }
