@@ -82,7 +82,8 @@ fn get_url_ids(url: &Url, client: &Client) -> result::Result<Vec<String>, Lookup
         match response.headers().get::<ContentType>() {
             None => return Err(ErrorKind::NoMime.into()),
             Some(&ContentType(ref mime_type))
-                if mime_type.type_() != mime::TEXT || mime_type.subtype() != mime::HTML => {
+                if mime_type.type_() != mime::TEXT || mime_type.subtype() != mime::HTML =>
+            {
                 return Err(LookupError {
                     kind: ErrorKind::UnrecognizedMime,
                     cause: Some(Box::new(UnrecognizedMime::new(mime_type.clone()))),
@@ -275,7 +276,6 @@ impl Targets for Client {
     }
 }
 
-
 fn slurp<P: AsRef<Path>>(filename: &P, mut buffer: &mut String) -> io::Result<usize> {
     File::open(filename.as_ref())?.read_to_string(&mut buffer)
 }
@@ -385,12 +385,10 @@ impl FromStr for Record {
 pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<Record>) -> io::Result<()> {
     let mut buffer = String::new();
     slurp(&path, &mut buffer)?;
-    let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| {
-        Record {
-            path: path.to_string(),
-            linenum: lineno,
-            link: url.as_ref().to_string(),
-        }
+    let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
+        path: path.to_string(),
+        linenum: lineno,
+        link: url.as_ref().to_string(),
     });
 
     links.extend(parser);
@@ -400,10 +398,12 @@ pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<Record>) -> io::Result<(
 fn find_prefixed_fragment(ids: &[String], fragment: &str, prefixes: &[String]) -> Option<String> {
     prefixes
         .iter()
-        .filter_map(|p| if ids.contains(&format!("{}{}", p, fragment)) {
-            Some(p.to_string())
-        } else {
-            None
+        .filter_map(|p| {
+            if ids.contains(&format!("{}{}", p, fragment)) {
+                Some(p.to_string())
+            } else {
+                None
+            }
         })
         .next()
 }
@@ -426,9 +426,7 @@ pub fn lookup_fragment<'a>(
             let err: LookupError = ErrorKind::NoFragment.into();
             Err((Tag::from_error_kind(err.kind()), Box::new(err)))
         };
-        err.map_err(|(tag, err)| {
-            (tag, FragmentError::new(fragment.clone(), err))
-        })
+        err.map_err(|(tag, err)| (tag, FragmentError::new(fragment.clone(), err)))
     } else {
         Ok(())
     }
@@ -480,14 +478,35 @@ mod tests {
     fn extract_links() {
         let buffer = include_str!("../example_site/path/to/example.md");
         let mut parser = MdLinkParser::new(buffer);
-        assert_eq!(parser.next(), Some((2, Cow::Owned("https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md".to_string()))));
+        assert_eq!(
+            parser.next(),
+            Some((
+                2,
+                Cow::Owned(
+                    "https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md"
+                        .to_string()
+                )
+            ))
+        );
         assert_eq!(parser.next(), Some((3, Cow::Owned("https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing".to_string()))));
         assert_eq!(parser.next(), Some((4, Cow::Owned("other.md".to_string()))));
-        assert_eq!(parser.next(), Some((5, Cow::Owned("non-existing.md".to_string()))));
-        assert_eq!(parser.next(), Some((6, Cow::Owned("other.md#existing".to_string()))));
-        assert_eq!(parser.next(), Some((7, Cow::Owned("other.md#non-existing".to_string()))));
+        assert_eq!(
+            parser.next(),
+            Some((5, Cow::Owned("non-existing.md".to_string())))
+        );
+        assert_eq!(
+            parser.next(),
+            Some((6, Cow::Owned("other.md#existing".to_string())))
+        );
+        assert_eq!(
+            parser.next(),
+            Some((7, Cow::Owned("other.md#non-existing".to_string())))
+        );
         assert_eq!(parser.next(), Some((8, Cow::Owned("#heading".to_string()))));
-        assert_eq!(parser.next(), Some((9, Cow::Owned("#non-existing".to_string()))));
+        assert_eq!(
+            parser.next(),
+            Some((9, Cow::Owned("#non-existing".to_string())))
+        );
         assert_eq!(parser.next(), None);
     }
 }
