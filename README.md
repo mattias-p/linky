@@ -248,6 +248,35 @@ For local links fragments are resolved to Markdown headings.
 When one or more prefixes are provided and an HTTP(S) link fragment cannot be resolved,
 resolution is attempted using the frgment prefixed by each of the provided prefixes.
 
+Issues
+------
+
+In case you experience an issue using `linky`, it would be most helpful if you provide a test markdown document 
+and the verbose output of running it with `linky`.
+
+For example:
+
+```sh
+$ env RUST_LOG=debug RUST_BACKTRACE=1 linky --check  test.md 2&> linky_err.log
+```
+
+`RUST_LOG` controls the logging verbosity in `linky`.
+
+`RUST_BACKTRACE` unwinds the stacktrace of a Rust program.
+
+Simply drag-and-drop the resulting `linky_err.log` file into the issue editor of Github. Unfortunately, as of the time of this writing (Feb-2018), GH does not allow to dragon drop Markdown files (*.md). You can either:
+
+- rename your `test.md` file to `test.md.txt`
+- use a third party paste service (eg [Hastebin](https://hastebin.com/))
+- if the file is not large, inline it into the issue inside code blocks:
+  
+  ´´´md
+  
+  your test markdown here
+  
+  ...
+  
+  ´´´
 
 License
 -------
