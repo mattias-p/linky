@@ -418,7 +418,7 @@ pub fn lookup_fragment<'a>(
     } else if let Some(prefix) = find_prefixed_fragment(ids, fragment, prefixes) {
         let err: LookupError = ErrorKind::Prefixed.into();
         Err((
-            Tag::from_error_kind(err.kind()),
+            Tag::from_error_kind(ErrorKind::Prefixed),
             FragmentError::new(
                 fragment.to_string(),
                 Box::new(PrefixError::new(prefix, Box::new(err))),
@@ -427,7 +427,7 @@ pub fn lookup_fragment<'a>(
     } else {
         let err: LookupError = ErrorKind::NoFragment.into();
         Err((
-            Tag::from_error_kind(err.kind()),
+            Tag::from_error_kind(ErrorKind::NoFragment),
             FragmentError::new(fragment.to_string(), Box::new(err)),
         ))
     }
