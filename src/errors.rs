@@ -83,7 +83,6 @@ impl FromStr for ErrorKind {
     }
 }
 
-
 #[derive(Debug)]
 pub struct ParseError;
 
@@ -101,7 +100,6 @@ impl error::Error for ParseError {
         None
     }
 }
-
 
 #[derive(Debug)]
 pub struct LookupError {
@@ -126,17 +124,15 @@ impl fmt::Display for LookupError {
             ErrorKind::InvalidUrl => write!(f, "Invalid url"),
             ErrorKind::HttpError => write!(f, "HTTP error"),
             ErrorKind::IoError => write!(f, "IO error"),
-            ErrorKind::HttpStatus(status) => {
-                write!(
-                    f,
-                    "Unexpected HTTP status {}{}",
-                    status.as_u16(),
-                    status
-                        .canonical_reason()
-                        .map(|s| format!(" {}", s))
-                        .unwrap_or_else(String::new)
-                )
-            }
+            ErrorKind::HttpStatus(status) => write!(
+                f,
+                "Unexpected HTTP status {}{}",
+                status.as_u16(),
+                status
+                    .canonical_reason()
+                    .map(|s| format!(" {}", s))
+                    .unwrap_or_else(String::new)
+            ),
             ErrorKind::NoDocument => write!(f, "Document not found"),
             ErrorKind::NoFragment => write!(f, "Fragment not found"),
             ErrorKind::Protocol => write!(f, "Unhandled protocol"),
@@ -204,7 +200,6 @@ impl From<url::ParseError> for LookupError {
     }
 }
 
-
 #[derive(Debug)]
 pub struct UnrecognizedMime(Mime);
 
@@ -229,7 +224,6 @@ impl error::Error for UnrecognizedMime {
         None
     }
 }
-
 
 #[derive(Debug)]
 pub struct PrefixError {
@@ -262,7 +256,6 @@ impl error::Error for PrefixError {
     }
 }
 
-
 #[derive(Debug)]
 pub struct LinkError {
     link: Link,
@@ -293,7 +286,6 @@ impl error::Error for LinkError {
         Some(&*self.cause)
     }
 }
-
 
 #[derive(Debug)]
 pub struct FragmentError {

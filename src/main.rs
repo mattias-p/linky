@@ -39,24 +39,19 @@ use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
-    #[structopt(long = "check", short = "c", help = "Check links")]
-    check: bool,
+    #[structopt(long = "check", short = "c", help = "Check links")] check: bool,
 
-    #[structopt(long = "follow", short = "f", help = "Follow HTTP redirects")]
-    redirect: bool,
+    #[structopt(long = "follow", short = "f", help = "Follow HTTP redirects")] redirect: bool,
 
-    #[structopt(long = "mute", short = "m", help = "Tags to mute")]
-    silence: Vec<Tag>,
+    #[structopt(long = "mute", short = "m", help = "Tags to mute")] silence: Vec<Tag>,
 
-    #[structopt(long = "prefix", short = "p", help = "Fragment prefixes")]
-    prefixes: Vec<String>,
+    #[structopt(long = "prefix", short = "p", help = "Fragment prefixes")] prefixes: Vec<String>,
 
     #[structopt(long = "root", short = "r", name = "path",
                 help = "Join absolute local links to a document root", default_value = "/")]
     root: String,
 
-    #[structopt(help = "Files to parse")]
-    file: Vec<String>,
+    #[structopt(help = "Files to parse")] file: Vec<String>,
 }
 
 fn main() {
@@ -90,34 +85,30 @@ fn main() {
         }
     }
 
-    let parsed_links = raw_links.into_iter().filter_map(|record| match parse_link(
-        &record,
-        opt.root.as_str(),
-    ) {
-        Ok((base, fragment)) => Some((record, base, fragment)),
-        Err(err) => {
-            error!(
-                "{}:{}: {}: {}",
-                record.path,
-                record.linenum,
-                err,
-                record.link
-            );
-            None
+    let parsed_links = raw_links.into_iter().filter_map(|record| {
+        match parse_link(&record, opt.root.as_str()) {
+            Ok((base, fragment)) => Some((record, base, fragment)),
+            Err(err) => {
+                error!(
+                    "{}:{}: {}: {}",
+                    record.path, record.linenum, err, record.link
+                );
+                None
+            }
         }
     });
 
     let resolved = parsed_links.scan(HashMap::new(), |all_targets, (record, base, fragment)| {
-        let resolution = client.as_ref().map(|client| {
-            resolve_link(&client, all_targets, base, fragment, &opt.prefixes)
-        });
+        let resolution = client
+            .as_ref()
+            .map(|client| resolve_link(&client, all_targets, base, fragment, &opt.prefixes));
         Some((record, resolution))
     });
 
     for (record, tag_and_err) in resolved {
-        if !tag_and_err.as_ref().map_or(false, |&(ref tag, _)| {
-            silence.contains(&tag)
-        })
+        if !tag_and_err
+            .as_ref()
+            .map_or(false, |&(ref tag, _)| silence.contains(&tag))
         {
             if let &Some((_, Some(ref err))) = &tag_and_err {
                 print_warning(err.as_ref());
