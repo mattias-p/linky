@@ -395,11 +395,11 @@ pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<Record>) -> io::Result<(
     Ok(())
 }
 
-fn find_prefixed_fragment(ids: &[String], fragment: &str, prefixes: &[String]) -> Option<String> {
+fn find_prefixed_fragment(ids: &[&str], fragment: &str, prefixes: &[&str]) -> Option<String> {
     prefixes
         .iter()
         .filter_map(|p| {
-            if ids.contains(&format!("{}{}", p, fragment)) {
+            if ids.contains(&format!("{}{}", p, fragment).as_str()) {
                 Some(p.to_string())
             } else {
                 None
@@ -409,11 +409,11 @@ fn find_prefixed_fragment(ids: &[String], fragment: &str, prefixes: &[String]) -
 }
 
 pub fn lookup_fragment<'a>(
-    ids: &[String],
-    fragment: &String,
-    prefixes: &'a [String],
+    ids: &[&str],
+    fragment: &str,
+    prefixes: &'a [&str],
 ) -> Result<(), (Tag, FragmentError)> {
-    let err: Result<(), (Tag, Box<error::Error>)> = if ids.contains(fragment) {
+    let err: Result<(), (Tag, Box<error::Error>)> = if ids.contains(&fragment) {
         Ok(())
     } else if let Some(prefix) = find_prefixed_fragment(ids, fragment, prefixes) {
         let err: LookupError = ErrorKind::Prefixed.into();
@@ -425,7 +425,7 @@ pub fn lookup_fragment<'a>(
         let err: LookupError = ErrorKind::NoFragment.into();
         Err((Tag::from_error_kind(err.kind()), Box::new(err)))
     };
-    err.map_err(|(tag, err)| (tag, FragmentError::new(fragment.clone(), err)))
+    err.map_err(|(tag, err)| (tag, FragmentError::new(fragment.to_string(), err)))
 }
 
 pub fn parse_link(record: &Record, root: &str) -> Result<(Link, Option<String>), url::ParseError> {
@@ -438,7 +438,7 @@ pub fn resolve_link(
     targets: &mut HashMap<Link, Result<Vec<String>, (Tag, Rc<LinkError>)>>,
     base: Link,
     fragment: Option<String>,
-    prefixes: &[String],
+    prefixes: &[&str],
 ) -> (Tag, Option<Rc<LinkError>>) {
     targets
         .entry(base.clone())
@@ -447,6 +447,7 @@ pub fn resolve_link(
         .map_err(|&(ref tag, ref err)| (tag.clone(), Some(err.clone())))
         .and_then(|ids| {
             if let Some(ref fragment) = fragment {
+                let ids: Vec<_> = ids.iter().map(AsRef::as_ref).collect();
                 lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| {
                     (
                         tag.clone(),

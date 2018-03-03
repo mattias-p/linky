@@ -99,9 +99,10 @@ fn main() {
     });
 
     let resolved = parsed_links.scan(HashMap::new(), |all_targets, (record, base, fragment)| {
+        let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
         let resolution = client
             .as_ref()
-            .map(|client| resolve_link(&client, all_targets, base, fragment, &opt.prefixes));
+            .map(|client| resolve_link(&client, all_targets, base, fragment, &prefixes));
         Some((record, resolution))
     });
 
