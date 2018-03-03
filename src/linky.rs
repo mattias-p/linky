@@ -293,32 +293,7 @@ impl Targets for Client {
                 .map(|v| v.as_ref().to_string());
             debug!("http charset hint: {:?}", &charset_hint);
 
-            let mut buffer = Vec::new();
-            reader.read_to_end(&mut buffer)?;
-            let mut cursor = Cursor::new(buffer);
-
-            let charsets = xhtmlchardet::detect(&mut cursor, charset_hint)?;
-
-            debug!("detected charsets: {:?}", &charsets);
-
-            let charset: result::Result<_, LookupError> = charsets
-                .iter()
-                .flat_map(|v| encoding_from_whatwg_label(v.as_str()))
-                .next()
-                .ok_or_else(|| LookupError {
-                    kind: ErrorKind::DecodingError,
-                    cause: Some(Box::new(DecodingError::new(
-                        "Failed to detect character encoding".to_string(),
-                    ))),
-                });
-
-            let chars: result::Result<_, LookupError> = charset?
-                .decode(cursor.into_inner().as_ref(), DecoderTrap::Strict)
-                .map_err(|err| LookupError {
-                    kind: ErrorKind::DecodingError,
-                    cause: Some(Box::new(DecodingError::new(err.to_string()))),
-                });
-            let mut chars = chars?;
+            let mut chars = read_chars(reader, charset_hint)?;
 
             match (content_type.type_(), content_type.subtype().as_ref()) {
                 (mime::TEXT, "html") => Ok(get_html_ids(chars.as_mut_str())),
@@ -340,6 +315,37 @@ impl Targets for Client {
                 (tag, Rc::new(LinkError::new(link.clone(), Box::new(err))))
             })
     }
+}
+
+fn read_chars(
+    reader: &mut Read,
+    charset_hint: Option<String>,
+) -> result::Result<String, LookupError> {
+    let mut buffer = Vec::new();
+    reader.read_to_end(&mut buffer)?;
+    let mut cursor = Cursor::new(buffer);
+
+    let charsets = xhtmlchardet::detect(&mut cursor, charset_hint)?;
+
+    debug!("detected charsets: {:?}", &charsets);
+
+    let charset: result::Result<_, LookupError> = charsets
+        .iter()
+        .flat_map(|v| encoding_from_whatwg_label(v.as_str()))
+        .next()
+        .ok_or_else(|| LookupError {
+            kind: ErrorKind::DecodingError,
+            cause: Some(Box::new(DecodingError::new(
+                "Failed to detect character encoding".to_string(),
+            ))),
+        });
+
+    charset?
+        .decode(cursor.into_inner().as_ref(), DecoderTrap::Strict)
+        .map_err(|err| LookupError {
+            kind: ErrorKind::DecodingError,
+            cause: Some(Box::new(DecodingError::new(err.to_string()))),
+        })
 }
 
 fn slurp<P: AsRef<Path>>(filename: &P, mut buffer: &mut String) -> io::Result<usize> {
