@@ -410,26 +410,22 @@ fn find_prefixed_fragment(ids: &[String], fragment: &str, prefixes: &[String]) -
 
 pub fn lookup_fragment<'a>(
     ids: &[String],
-    fragment: &Option<String>,
+    fragment: &String,
     prefixes: &'a [String],
 ) -> Result<(), (Tag, FragmentError)> {
-    if let Some(ref fragment) = *fragment {
-        let err: Result<(), (Tag, Box<error::Error>)> = if ids.contains(fragment) {
-            Ok(())
-        } else if let Some(prefix) = find_prefixed_fragment(ids, fragment, prefixes) {
-            let err: LookupError = ErrorKind::Prefixed.into();
-            Err((
-                Tag::from_error_kind(err.kind()),
-                Box::new(PrefixError::new(prefix, Box::new(err))),
-            ))
-        } else {
-            let err: LookupError = ErrorKind::NoFragment.into();
-            Err((Tag::from_error_kind(err.kind()), Box::new(err)))
-        };
-        err.map_err(|(tag, err)| (tag, FragmentError::new(fragment.clone(), err)))
-    } else {
+    let err: Result<(), (Tag, Box<error::Error>)> = if ids.contains(fragment) {
         Ok(())
-    }
+    } else if let Some(prefix) = find_prefixed_fragment(ids, fragment, prefixes) {
+        let err: LookupError = ErrorKind::Prefixed.into();
+        Err((
+            Tag::from_error_kind(err.kind()),
+            Box::new(PrefixError::new(prefix, Box::new(err))),
+        ))
+    } else {
+        let err: LookupError = ErrorKind::NoFragment.into();
+        Err((Tag::from_error_kind(err.kind()), Box::new(err)))
+    };
+    err.map_err(|(tag, err)| (tag, FragmentError::new(fragment.clone(), err)))
 }
 
 pub fn parse_link(record: &Record, root: &str) -> Result<(Link, Option<String>), url::ParseError> {
@@ -450,12 +446,16 @@ pub fn resolve_link(
         .as_ref()
         .map_err(|&(ref tag, ref err)| (tag.clone(), Some(err.clone())))
         .and_then(|ids| {
-            lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| {
-                (
-                    tag.clone(),
-                    Some(Rc::new(LinkError::new(base, Box::new(err)))),
-                )
-            })
+            if let Some(ref fragment) = fragment {
+                lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| {
+                    (
+                        tag.clone(),
+                        Some(Rc::new(LinkError::new(base, Box::new(err)))),
+                    )
+                })
+            } else {
+                Ok(())
+            }
         })
         .err()
         .unwrap_or_else(|| (Tag::ok(), None))
