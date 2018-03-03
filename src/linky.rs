@@ -479,7 +479,9 @@ pub fn lookup_fragment<'a>(
     fragment: &str,
     prefixes: &'a [&str],
 ) -> Result<(), (Tag, FragmentError)> {
-    if ids.contains(&fragment) {
+    if fragment == "" {
+        Ok(())
+    } else if ids.contains(&fragment) {
         Ok(())
     } else if let Some(prefix) = find_prefixed_fragment(ids, fragment, prefixes) {
         let err: LookupError = ErrorKind::Prefixed.into();
@@ -586,6 +588,11 @@ mod tests {
     fn check_fragment() {
         assert_eq!(
             lookup_fragment(&["abc"], "abc", &[]).map_err(|e| e.0),
+            Ok(())
+        );
+        assert_eq!(lookup_fragment(&[], "", &[]).map_err(|e| e.0), Ok(()));
+        assert_eq!(
+            lookup_fragment(&["prefix"], "", &["prefix"]).map_err(|e| e.0),
             Ok(())
         );
         assert_eq!(
