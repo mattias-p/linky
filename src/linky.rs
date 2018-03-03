@@ -625,4 +625,13 @@ mod tests {
             Some("def-".to_string())
         );
     }
+
+    #[test]
+    fn decoding() {
+        let latin1 = b"\xC4ntligen stod pr\xE4sten i predikstolen.".to_vec();
+        assert_eq!(
+            read_chars(&mut latin1.as_slice(), Some("ISO-8859-1".to_string())).ok(),
+            Some("Äntligen stod prästen i predikstolen.".to_string())
+        );
+    }
 }
