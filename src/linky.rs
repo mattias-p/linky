@@ -516,4 +516,19 @@ mod tests {
         assert!(lookup_fragment(&[], "abc", &[]).is_err());
         assert!(lookup_fragment(&["abc"], "abc", &[]).is_ok());
     }
+
+    #[test]
+    fn find_fragments() {
+        assert_eq!(find_prefixed_fragment(&[], "123", &[]), None);
+        assert_eq!(find_prefixed_fragment(&["abc-123"], "123", &[]), None);
+        assert_eq!(find_prefixed_fragment(&["abc-123"], "123", &["def-"]), None);
+        assert_eq!(
+            find_prefixed_fragment(&["abc-123"], "123", &["abc-"]),
+            Some("abc-".to_string())
+        );
+        assert_eq!(
+            find_prefixed_fragment(&["def-123"], "123", &["abc-", "def-"]),
+            Some("def-".to_string())
+        );
+    }
 }
