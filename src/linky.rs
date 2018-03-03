@@ -518,8 +518,18 @@ mod tests {
 
     #[test]
     fn check_fragment() {
-        assert!(lookup_fragment(&[], "abc", &[]).is_err());
-        assert!(lookup_fragment(&["abc"], "abc", &[]).is_ok());
+        assert_eq!(
+            lookup_fragment(&["abc"], "abc", &[]).map_err(|e| e.0),
+            Ok(())
+        );
+        assert_eq!(
+            lookup_fragment(&[], "abc", &[]).map_err(|e| e.0),
+            Err(Tag::from_error_kind(ErrorKind::NoFragment))
+        );
+        assert_eq!(
+            lookup_fragment(&["abc-123"], "123", &["abc-"]).map_err(|e| e.0),
+            Err(Tag::from_error_kind(ErrorKind::Prefixed))
+        );
     }
 
     #[test]

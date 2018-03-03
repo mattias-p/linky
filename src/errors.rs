@@ -289,7 +289,7 @@ impl error::Error for LinkError {
 
 #[derive(Debug)]
 pub struct FragmentError {
-    fragment: String,
+    pub fragment: String,
     cause: Box<error::Error>,
 }
 
