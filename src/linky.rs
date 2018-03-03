@@ -413,19 +413,24 @@ pub fn lookup_fragment<'a>(
     fragment: &str,
     prefixes: &'a [&str],
 ) -> Result<(), (Tag, FragmentError)> {
-    let err: Result<(), (Tag, Box<error::Error>)> = if ids.contains(&fragment) {
+    if ids.contains(&fragment) {
         Ok(())
     } else if let Some(prefix) = find_prefixed_fragment(ids, fragment, prefixes) {
         let err: LookupError = ErrorKind::Prefixed.into();
         Err((
             Tag::from_error_kind(err.kind()),
-            Box::new(PrefixError::new(prefix, Box::new(err))),
+            FragmentError::new(
+                fragment.to_string(),
+                Box::new(PrefixError::new(prefix, Box::new(err))),
+            ),
         ))
     } else {
         let err: LookupError = ErrorKind::NoFragment.into();
-        Err((Tag::from_error_kind(err.kind()), Box::new(err)))
-    };
-    err.map_err(|(tag, err)| (tag, FragmentError::new(fragment.to_string(), err)))
+        Err((
+            Tag::from_error_kind(err.kind()),
+            FragmentError::new(fragment.to_string(), Box::new(err)),
+        ))
+    }
 }
 
 pub fn parse_link(record: &Record, root: &str) -> Result<(Link, Option<String>), url::ParseError> {
