@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.1.2] - 2018-03-04
 ### Fixed
-- Detect and decode non-UTF-8 encodings (#14)
+- Detect and decode non-UTF-8 encodings [#14](https://github.com/mattias-p/linky/issues/14)
 - Tag empty fragments with OK instead of NO\_FRAG
 
 ## [0.1.1] - 2017-11-25
