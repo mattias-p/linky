@@ -262,7 +262,7 @@ $ env RUST_LOG=debug RUST_BACKTRACE=1 linky --check  test.md 2&> linky_err.log
 ```
 
 > **Note:** `RUST_LOG` controls the logging verbosity.
-> `RUST_BACKTRACE` prints a stack trace in case of panic.
+> `RUST_BACKTRACE` controls the printing of the stack trace on panic.
 
 Simply drag-and-drop the resulting `linky_err.log` file into the issue
 editor of Github.
