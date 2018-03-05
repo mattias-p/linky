@@ -68,8 +68,8 @@ example_site/path/to/example.md:8: OK #heading
 example_site/path/to/example.md:9: NO_FRAG #non-existing
 ```
 
-A status token is added to each line indicating the outcome of the
-resolution.
+A status token is now added to each line indicating the outcome of
+the resolution.
 An `OK` token indicates that the resolution succeeded without remarks.
 For details on how links are resolved see the [link resolution section].
 
@@ -108,7 +108,8 @@ example_site/path/to/transform.md:3:  https://github.com/mattias-p/linky/blob/ma
 ### Absolute local links
 
 By default linky doesn't resolve absolute local links.
-This is because linky doesn't know where to find the document root.
+This way you're able to know which links do redirect.
+Also, linky doesn't know the location of the document root.
 
 ```sh
 $ linky --check example_site/path/to/absolute.md
@@ -118,8 +119,8 @@ example_site/path/to/absolute.md:4: ABSOLUTE /path/to/other.md#existing
 example_site/path/to/absolute.md:5: ABSOLUTE /path/to/other.md#non-existing
 ```
 
-Specify the document root using the --root option to allows linky to
-proceed with the resolution relative to that directory:
+If you specify the document root using the --root option linky proceeds
+with the resolution relative to that directory:
 
 ```sh
 $ linky --check --root=example_site example_site/path/to/absolute.md
@@ -260,7 +261,7 @@ For example:
 $ env RUST_LOG=debug RUST_BACKTRACE=1 linky --check  test.md 2&> linky_err.log
 ```
 
-> Note: `RUST_LOG` controls the logging verbosity.
+> **Note:** `RUST_LOG` controls the logging verbosity.
 > `RUST_BACKTRACE` prints a stack trace in case of panic.
 
 Simply drag-and-drop the resulting `linky_err.log` file into the issue
