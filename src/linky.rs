@@ -547,11 +547,11 @@ pub fn resolve_link(
             match &link {
                 &Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
                 &Link::Url(ref url) => NetworkRemoteResolver(&client).remote(url),
-            }.and_then(|document| Ok(document.ids.iter().map(|s| s.to_string()).collect()))
-                .map_err(|err| {
-                    let tag = Tag::from_error_kind(err.kind());
-                    (tag, Rc::new(LinkError::new(link.clone(), Box::new(err))))
-                })
+            }.map_err(|err| {
+                let tag = Tag::from_error_kind(err.kind());
+                (tag, Rc::new(LinkError::new(link.clone(), Box::new(err))))
+            })
+                .and_then(|document| Ok(document.ids.iter().map(|s| s.to_string()).collect()))
         })
         .as_ref()
         .map_err(|&(ref tag, ref err)| (tag.clone(), Some(err.clone())))
