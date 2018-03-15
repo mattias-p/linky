@@ -33,7 +33,6 @@ use regex::Regex;
 use reqwest::Client;
 use reqwest::header::ContentType;
 use reqwest::mime;
-use reqwest::Response;
 use url::Url;
 use url;
 use xhtmlchardet;
