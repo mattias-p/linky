@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::collections::hash_map::Entry;
 use std::error;
 use std::fmt;
@@ -68,65 +69,132 @@ impl fmt::Display for Tag {
     }
 }
 
-fn get_markdown_ids(
-    content: &str,
-    id_transform: &ToId,
-) -> result::Result<Vec<String>, LookupError> {
-    let mut headers = Headers::new();
-    Ok(
-        MdAnchorParser::from_buffer(content, id_transform, &mut headers)
-            .map(|id| id.to_string())
-            .collect(),
-    )
-}
-
-fn get_url_reader(
-    url: &Url,
-    client: &Client,
-) -> result::Result<(ContentType, Box<Read>), LookupError> {
-    if url.scheme() != "http" && url.scheme() != "https" {
-        return Err(ErrorKind::Protocol.into());
-    }
-    let response = client.get(url.clone()).send()?;
-    if !response.status().is_success() {
-        return Err(ErrorKind::HttpStatus(response.status()).into());
-    }
-    let content_type = get_response_content_type(&response)?;
-    Ok((content_type, Box::new(response)))
-}
-
-fn get_path_reader(path: &Path) -> result::Result<(ContentType, Box<Read>), LookupError> {
-    if path.is_relative() {
-        let reader = File::open(&path)?;
-        let markdown = "text/markdown; charset=UTF-8"
+lazy_static! {
+    static ref MARKDOWN_CONTENT_TYPE: ContentType = ContentType("text/markdown; charset=UTF-8"
             .parse::<mime::Mime>()
-            .unwrap();
-        Ok((ContentType(markdown), Box::new(reader)))
-    } else {
-        Err(ErrorKind::Absolute.into())
-    }
+            .unwrap());
 }
 
-fn get_response_content_type<'a>(
-    response: &'a Response,
-) -> result::Result<ContentType, LookupError> {
-    response
-        .headers()
-        .get::<ContentType>()
-        .map(|ct| ct.clone())
-        .ok_or(ErrorKind::NoMime.into())
+enum Format {
+    Html,
+    Markdown,
 }
 
-fn get_html_ids(content: &str) -> Vec<String> {
-    let mut result = vec![];
-    for (_, tag) in htmlstream::tag_iter(content) {
-        for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
-            if attr.name == "id" || (tag.name == "a" && attr.name == "name") {
-                result.push(attr.value.clone());
+fn parse<'a, R: Read>(
+    mut reader: R,
+    content_type: &ContentType,
+) -> result::Result<Document<'a>, LookupError> {
+    let format = match (content_type.type_(), content_type.subtype().as_str()) {
+        (mime::TEXT, "html") => Format::Html,
+        (mime::TEXT, "markdown") => Format::Markdown,
+        _ => {
+            return Ok(Document {
+                ids: HashSet::new(),
+            });
+        }
+    };
+
+    let charset_hint = content_type
+        .get_param(mime::CHARSET)
+        .map(|v| v.as_ref().to_string());
+    debug!("http charset hint: {:?}", &charset_hint);
+
+    let chars = read_chars(&mut reader, charset_hint)?;
+
+    let ids = match format {
+        Format::Markdown => {
+            let mut headers = Headers::new();
+            MdAnchorParser::from_buffer(&chars, &GithubId, &mut headers)
+                .map(|id| Cow::from(id))
+                .collect()
+        }
+        Format::Html => {
+            let mut result = HashSet::new();
+            for (_, tag) in htmlstream::tag_iter(&chars) {
+                for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
+                    if attr.name == "id" || (tag.name == "a" && attr.name == "name") {
+                        result.insert(Cow::from(attr.value));
+                    }
+                }
+            }
+            result
+        }
+    };
+
+    Ok(Document { ids: ids })
+}
+
+pub struct Document<'a> {
+    pub ids: HashSet<Cow<'a, str>>,
+}
+
+struct FragResolver<'a>(HashSet<&'a str>);
+
+impl<'a> FragResolver<'a> {
+    fn fragment<'d>(&self, fragment: &str, document: &Document<'d>) -> Option<&str> {
+        if document.ids.contains(&Cow::from(fragment)) {
+            return Some("");
+        }
+        for prefix in &self.0 {
+            if document
+                .ids
+                .contains(format!("{}{}", prefix, fragment).as_str())
+            {
+                return Some(prefix);
             }
         }
+        return None;
     }
-    result
+}
+
+trait LocalResolver {
+    fn local(&self, path: &Path) -> Result<Document, LookupError>;
+}
+
+trait RemoteResolver {
+    fn remote<'b>(&self, url: &Url) -> Result<Document<'b>, LookupError>;
+}
+
+struct FilesystemLocalResolver;
+
+impl LocalResolver for FilesystemLocalResolver {
+    fn local(&self, path: &Path) -> Result<Document, LookupError> {
+        if path.is_absolute() {
+            return Err(ErrorKind::Absolute.into());
+        }
+
+        let reader = File::open(&path)?;
+
+        parse(reader, &MARKDOWN_CONTENT_TYPE)
+    }
+}
+
+struct NetworkRemoteResolver<'a>(&'a Client);
+
+impl<'a> RemoteResolver for NetworkRemoteResolver<'a> {
+    fn remote<'b>(&self, url: &Url) -> result::Result<Document<'b>, LookupError> {
+        if url.scheme() != "http" && url.scheme() != "https" {
+            return Err(ErrorKind::Protocol.into());
+        }
+
+        let response = self.0.get(url.clone()).send()?;
+
+        if !response.status().is_success() {
+            return Err(ErrorKind::HttpStatus(response.status()).into());
+        }
+        let result = {
+            let content_type: Result<ContentType, LookupError> = response
+                .headers()
+                .get::<ContentType>()
+                .map(|ct| ct.clone())
+                .ok_or(ErrorKind::NoMime.into());
+            let content_type = content_type?;
+
+            parse(response, &content_type)
+        };
+
+        result
+    }
 }
 
 fn as_relative<P: AsRef<Path>>(path: &P) -> &Path {
@@ -273,43 +341,14 @@ impl fmt::Display for Link {
 
 pub trait Targets {
     fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, Rc<LinkError>)>;
-    fn get_reader(&self, link: &Link) -> result::Result<(ContentType, Box<Read>), LookupError>;
 }
 
 impl Targets for Client {
-    fn get_reader(&self, link: &Link) -> result::Result<(ContentType, Box<Read>), LookupError> {
-        match *link {
-            Link::Path(ref path) => get_path_reader(path.as_ref()),
-            Link::Url(ref url) => get_url_reader(url, &self),
-        }
-    }
     fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, Rc<LinkError>)> {
-        fn aux(
-            content_type: ContentType,
-            reader: &mut Read,
-        ) -> result::Result<Vec<String>, LookupError> {
-            let charset_hint = content_type
-                .get_param(mime::CHARSET)
-                .map(|v| v.as_ref().to_string());
-            debug!("http charset hint: {:?}", &charset_hint);
-
-            let mut chars = read_chars(reader, charset_hint)?;
-
-            match (content_type.type_(), content_type.subtype().as_ref()) {
-                (mime::TEXT, "html") => Ok(get_html_ids(chars.as_mut_str())),
-                (mime::TEXT, "markdown") => get_markdown_ids(chars.as_mut_str(), &GithubId),
-                _ => {
-                    let ContentType(mime_type) = content_type;
-                    return Err(LookupError {
-                        kind: ErrorKind::UnrecognizedMime,
-                        cause: Some(Box::new(UnrecognizedMime::new(mime_type))),
-                    });
-                }
-            }
-        }
-
-        self.get_reader(link)
-            .and_then(|(content_type, mut reader)| aux(content_type, &mut reader))
+        match *link {
+            Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
+            Link::Url(ref url) => NetworkRemoteResolver(&self).remote(url),
+        }.and_then(|document| Ok(document.ids.iter().map(|s| s.to_string()).collect()))
             .map_err(|err| {
                 let tag = Tag::from_error_kind(err.kind());
                 (tag, Rc::new(LinkError::new(link.clone(), Box::new(err))))
