@@ -188,12 +188,13 @@ struct FilesystemLocalResolver;
 impl LocalResolver for FilesystemLocalResolver {
     fn local(&self, path: &Path) -> Result<Document, LookupError> {
         if path.is_absolute() {
-            return Err(ErrorKind::Absolute.into());
+            Err(ErrorKind::Absolute.into())
+        } else if path.is_dir() {
+            Err(ErrorKind::Directory.into())
+        } else {
+            let reader = File::open(&path)?;
+            Document::parse(reader, &MARKDOWN_CONTENT_TYPE)
         }
-
-        let reader = File::open(&path)?;
-
-        Document::parse(reader, &MARKDOWN_CONTENT_TYPE)
     }
 }
 
