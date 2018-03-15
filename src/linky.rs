@@ -556,8 +556,7 @@ pub fn resolve_link(
         .map_err(|&(ref tag, ref err)| (tag.clone(), Some(err.clone())))
         .and_then(|ids| {
             if let Some(ref fragment) = fragment {
-                let ids: Vec<_> = ids.ids.iter().map(|s| s.to_string()).collect();
-                let ids: Vec<_> = ids.iter().map(AsRef::as_ref).collect();
+                let ids: Vec<_> = ids.ids.iter().map(AsRef::as_ref).collect();
                 lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| {
                     (
                         tag.clone(),
