@@ -142,7 +142,7 @@ impl<'a> Document<'a> {
     }
 }
 
-struct FragResolver<'a> {
+pub struct FragResolver<'a> {
     prefixes: HashSet<Cow<'a, str>>,
 }
 
@@ -519,30 +519,27 @@ pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<Record>) -> io::Result<(
 pub fn lookup_fragment<'a>(
     document: &Document,
     fragment: &str,
-    prefixes: &'a [&str],
+    resolver: &FragResolver,
 ) -> Result<(), (Tag, FragmentError)> {
     if fragment == "" {
         Ok(())
     } else if document.ids.contains(&Cow::from(fragment)) {
         Ok(())
+    } else if let Some(prefix) = resolver.fragment(&fragment, &document) {
+        let err: LookupError = ErrorKind::Prefixed.into();
+        Err((
+            Tag::from_error_kind(ErrorKind::Prefixed),
+            FragmentError::new(
+                fragment.to_string(),
+                Box::new(PrefixError::new(prefix.to_string(), Box::new(err))),
+            ),
+        ))
     } else {
-        let resolver = FragResolver::from(&prefixes);
-        if let Some(prefix) = resolver.fragment(&fragment, &document) {
-            let err: LookupError = ErrorKind::Prefixed.into();
-            Err((
-                Tag::from_error_kind(ErrorKind::Prefixed),
-                FragmentError::new(
-                    fragment.to_string(),
-                    Box::new(PrefixError::new(prefix.to_string(), Box::new(err))),
-                ),
-            ))
-        } else {
-            let err: LookupError = ErrorKind::NoFragment.into();
-            Err((
-                Tag::from_error_kind(ErrorKind::NoFragment),
-                FragmentError::new(fragment.to_string(), Box::new(err)),
-            ))
-        }
+        let err: LookupError = ErrorKind::NoFragment.into();
+        Err((
+            Tag::from_error_kind(ErrorKind::NoFragment),
+            FragmentError::new(fragment.to_string(), Box::new(err)),
+        ))
     }
 }
 
@@ -573,7 +570,8 @@ pub fn resolve_link(
         .map_err(|&(ref tag, ref err)| (tag.clone(), Some(err.clone())))
         .and_then(|document| {
             if let Some(ref fragment) = fragment {
-                lookup_fragment(&document, &fragment, prefixes).map_err(|(tag, err)| {
+                let resolver = FragResolver::from(&prefixes);
+                lookup_fragment(&document, &fragment, &resolver).map_err(|(tag, err)| {
                     (
                         tag.clone(),
                         Some(Rc::new(LinkError::new(link, Box::new(err)))),
@@ -639,23 +637,32 @@ mod tests {
     #[test]
     fn check_fragment() {
         assert_eq!(
-            lookup_fragment(&Document::from(&["abc"]), "abc", &[]).map_err(|e| e.0),
+            lookup_fragment(&Document::from(&["abc"]), "abc", &FragResolver::new())
+                .map_err(|e| e.0),
             Ok(())
         );
         assert_eq!(
-            lookup_fragment(&Document::new(), "", &[]).map_err(|e| e.0),
+            lookup_fragment(&Document::new(), "", &FragResolver::new()).map_err(|e| e.0),
             Ok(())
         );
         assert_eq!(
-            lookup_fragment(&Document::from(&["prefix"]), "", &["prefix"]).map_err(|e| e.0),
+            lookup_fragment(
+                &Document::from(&["prefix"]),
+                "",
+                &FragResolver::from(&["prefix"])
+            ).map_err(|e| e.0),
             Ok(())
         );
         assert_eq!(
-            lookup_fragment(&Document::new(), "abc", &[]).map_err(|e| e.0),
+            lookup_fragment(&Document::new(), "abc", &FragResolver::new()).map_err(|e| e.0),
             Err(Tag::from_error_kind(ErrorKind::NoFragment))
         );
         assert_eq!(
-            lookup_fragment(&Document::from(&["abc-123"]), "123", &["abc-"]).map_err(|e| e.0),
+            lookup_fragment(
+                &Document::from(&["abc-123"]),
+                "123",
+                &FragResolver::from(&["abc-"])
+            ).map_err(|e| e.0),
             Err(Tag::from_error_kind(ErrorKind::Prefixed))
         );
     }
