@@ -525,21 +525,26 @@ pub fn lookup_fragment<'a>(
         Ok(())
     } else if document.ids.contains(&Cow::from(fragment)) {
         Ok(())
-    } else if let Some(prefix) = resolver.fragment(&fragment, &document) {
-        let err: LookupError = ErrorKind::Prefixed.into();
-        Err((
-            Tag::from_error_kind(ErrorKind::Prefixed),
-            FragmentError::new(
-                fragment.to_string(),
-                Box::new(PrefixError::new(prefix.to_string(), Box::new(err))),
-            ),
-        ))
     } else {
-        let err: LookupError = ErrorKind::NoFragment.into();
-        Err((
-            Tag::from_error_kind(ErrorKind::NoFragment),
-            FragmentError::new(fragment.to_string(), Box::new(err)),
-        ))
+        resolver
+            .fragment(&fragment, &document)
+            .ok_or_else(|| {
+                let err: LookupError = ErrorKind::NoFragment.into();
+                (
+                    Tag::from_error_kind(ErrorKind::NoFragment),
+                    FragmentError::new(fragment.to_string(), Box::new(err)),
+                )
+            })
+            .and_then(|prefix| {
+                let err: LookupError = ErrorKind::Prefixed.into();
+                Err((
+                    Tag::from_error_kind(ErrorKind::Prefixed),
+                    FragmentError::new(
+                        fragment.to_string(),
+                        Box::new(PrefixError::new(prefix.to_string(), Box::new(err))),
+                    ),
+                ))
+            })
     }
 }
 
