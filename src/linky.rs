@@ -129,15 +129,19 @@ pub struct Document<'a> {
 }
 
 impl<'a> Document<'a> {
-    pub fn new() -> Self {
+    pub fn empty() -> Self {
         Document {
             ids: HashSet::new(),
         }
     }
 
+    pub fn new() -> Self {
+        Self::from(&[])
+    }
+
     pub fn from(ids: &'a [&'a str]) -> Self {
         Document {
-            ids: ids.iter().cloned().map(Cow::from).collect(),
+            ids: [""].iter().chain(ids).cloned().map(Cow::from).collect(),
         }
     }
 }
@@ -521,21 +525,19 @@ pub fn lookup_fragment<'a>(
     fragment: &str,
     resolver: &FragResolver,
 ) -> Result<(), (Tag, FragmentError)> {
-    if fragment == "" {
-        Ok(())
-    } else if document.ids.contains(&Cow::from(fragment)) {
-        Ok(())
-    } else {
-        resolver
-            .fragment(&fragment, &document)
-            .ok_or_else(|| {
-                let err: LookupError = ErrorKind::NoFragment.into();
-                (
-                    Tag::from_error_kind(ErrorKind::NoFragment),
-                    FragmentError::new(fragment.to_string(), Box::new(err)),
-                )
-            })
-            .and_then(|prefix| {
+    resolver
+        .fragment(&fragment, &document)
+        .ok_or_else(|| {
+            let err: LookupError = ErrorKind::NoFragment.into();
+            (
+                Tag::from_error_kind(ErrorKind::NoFragment),
+                FragmentError::new(fragment.to_string(), Box::new(err)),
+            )
+        })
+        .and_then(|prefix| {
+            if prefix == "" {
+                Ok(())
+            } else {
                 let err: LookupError = ErrorKind::Prefixed.into();
                 Err((
                     Tag::from_error_kind(ErrorKind::Prefixed),
@@ -544,8 +546,8 @@ pub fn lookup_fragment<'a>(
                         Box::new(PrefixError::new(prefix.to_string(), Box::new(err))),
                     ),
                 ))
-            })
-    }
+            }
+        })
 }
 
 pub fn parse_link(record: &Record, root: &str) -> Result<(Link, Option<String>), url::ParseError> {
@@ -649,6 +651,10 @@ mod tests {
         assert_eq!(
             lookup_fragment(&Document::new(), "", &FragResolver::new()).map_err(|e| e.0),
             Ok(())
+        );
+        assert_eq!(
+            lookup_fragment(&Document::empty(), "", &FragResolver::new()).map_err(|e| e.0),
+            Err(Tag::from_error_kind(ErrorKind::NoFragment))
         );
         assert_eq!(
             lookup_fragment(
