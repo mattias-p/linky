@@ -24,7 +24,6 @@ use errors::LinkError;
 use errors::LookupError;
 use errors::ParseError;
 use errors::PrefixError;
-use errors::UnrecognizedMime;
 use htmlstream;
 use pulldown_cmark;
 use pulldown_cmark::Event;

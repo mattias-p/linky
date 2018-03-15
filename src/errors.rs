@@ -5,7 +5,6 @@ use std::str::FromStr;
 
 use linky::Link;
 use reqwest;
-use reqwest::mime::Mime;
 use reqwest::StatusCode;
 use url;
 
@@ -206,31 +205,6 @@ impl From<url::ParseError> for LookupError {
             kind: ErrorKind::InvalidUrl,
             cause: Some(Box::new(err)),
         }
-    }
-}
-
-#[derive(Debug)]
-pub struct UnrecognizedMime(Mime);
-
-impl UnrecognizedMime {
-    pub fn new(mime: Mime) -> Self {
-        UnrecognizedMime(mime)
-    }
-}
-
-impl fmt::Display for UnrecognizedMime {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Unrecognized mime type {}", self.0)
-    }
-}
-
-impl error::Error for UnrecognizedMime {
-    fn description(&self) -> &str {
-        "unrecognied mime type"
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        None
     }
 }
 
