@@ -128,6 +128,20 @@ pub struct Document<'a> {
     pub ids: HashSet<Cow<'a, str>>,
 }
 
+impl<'a> Document<'a> {
+    pub fn new() -> Self {
+        Document {
+            ids: HashSet::new(),
+        }
+    }
+
+    pub fn from(ids: &'a [&'a str]) -> Self {
+        Document {
+            ids: ids.iter().cloned().map(Cow::from).collect(),
+        }
+    }
+}
+
 struct FragResolver<'a>(HashSet<&'a str>);
 
 impl<'a> FragResolver<'a> {
@@ -503,29 +517,32 @@ fn find_prefixed_fragment(ids: &[&str], fragment: &str, prefixes: &[&str]) -> Op
 }
 
 pub fn lookup_fragment<'a>(
-    ids: &[&str],
+    document: &Document,
     fragment: &str,
     prefixes: &'a [&str],
 ) -> Result<(), (Tag, FragmentError)> {
     if fragment == "" {
         Ok(())
-    } else if ids.contains(&fragment) {
+    } else if document.ids.contains(&Cow::from(fragment)) {
         Ok(())
-    } else if let Some(prefix) = find_prefixed_fragment(ids, fragment, prefixes) {
-        let err: LookupError = ErrorKind::Prefixed.into();
-        Err((
-            Tag::from_error_kind(ErrorKind::Prefixed),
-            FragmentError::new(
-                fragment.to_string(),
-                Box::new(PrefixError::new(prefix, Box::new(err))),
-            ),
-        ))
     } else {
-        let err: LookupError = ErrorKind::NoFragment.into();
-        Err((
-            Tag::from_error_kind(ErrorKind::NoFragment),
-            FragmentError::new(fragment.to_string(), Box::new(err)),
-        ))
+        let ids: Vec<_> = document.ids.iter().map(AsRef::as_ref).collect();
+        if let Some(prefix) = find_prefixed_fragment(&ids, fragment, prefixes) {
+            let err: LookupError = ErrorKind::Prefixed.into();
+            Err((
+                Tag::from_error_kind(ErrorKind::Prefixed),
+                FragmentError::new(
+                    fragment.to_string(),
+                    Box::new(PrefixError::new(prefix, Box::new(err))),
+                ),
+            ))
+        } else {
+            let err: LookupError = ErrorKind::NoFragment.into();
+            Err((
+                Tag::from_error_kind(ErrorKind::NoFragment),
+                FragmentError::new(fragment.to_string(), Box::new(err)),
+            ))
+        }
     }
 }
 
@@ -554,10 +571,9 @@ pub fn resolve_link(
         })
         .as_ref()
         .map_err(|&(ref tag, ref err)| (tag.clone(), Some(err.clone())))
-        .and_then(|ids| {
+        .and_then(|document| {
             if let Some(ref fragment) = fragment {
-                let ids: Vec<_> = ids.ids.iter().map(AsRef::as_ref).collect();
-                lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| {
+                lookup_fragment(&document, &fragment, prefixes).map_err(|(tag, err)| {
                     (
                         tag.clone(),
                         Some(Rc::new(LinkError::new(link, Box::new(err)))),
@@ -623,20 +639,23 @@ mod tests {
     #[test]
     fn check_fragment() {
         assert_eq!(
-            lookup_fragment(&["abc"], "abc", &[]).map_err(|e| e.0),
-            Ok(())
-        );
-        assert_eq!(lookup_fragment(&[], "", &[]).map_err(|e| e.0), Ok(()));
-        assert_eq!(
-            lookup_fragment(&["prefix"], "", &["prefix"]).map_err(|e| e.0),
+            lookup_fragment(&Document::from(&["abc"]), "abc", &[]).map_err(|e| e.0),
             Ok(())
         );
         assert_eq!(
-            lookup_fragment(&[], "abc", &[]).map_err(|e| e.0),
+            lookup_fragment(&Document::new(), "", &[]).map_err(|e| e.0),
+            Ok(())
+        );
+        assert_eq!(
+            lookup_fragment(&Document::from(&["prefix"]), "", &["prefix"]).map_err(|e| e.0),
+            Ok(())
+        );
+        assert_eq!(
+            lookup_fragment(&Document::new(), "abc", &[]).map_err(|e| e.0),
             Err(Tag::from_error_kind(ErrorKind::NoFragment))
         );
         assert_eq!(
-            lookup_fragment(&["abc-123"], "123", &["abc-"]).map_err(|e| e.0),
+            lookup_fragment(&Document::from(&["abc-123"]), "123", &["abc-"]).map_err(|e| e.0),
             Err(Tag::from_error_kind(ErrorKind::Prefixed))
         );
     }
