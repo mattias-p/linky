@@ -79,50 +79,6 @@ enum Format {
     Markdown,
 }
 
-fn parse<'a, R: Read>(
-    mut reader: R,
-    content_type: &ContentType,
-) -> result::Result<Document<'a>, LookupError> {
-    let format = match (content_type.type_(), content_type.subtype().as_str()) {
-        (mime::TEXT, "html") => Format::Html,
-        (mime::TEXT, "markdown") => Format::Markdown,
-        _ => {
-            return Ok(Document {
-                ids: HashSet::new(),
-            });
-        }
-    };
-
-    let charset_hint = content_type
-        .get_param(mime::CHARSET)
-        .map(|v| v.as_ref().to_string());
-    debug!("http charset hint: {:?}", &charset_hint);
-
-    let chars = read_chars(&mut reader, charset_hint)?;
-
-    let ids = match format {
-        Format::Markdown => {
-            let mut headers = Headers::new();
-            MdAnchorParser::from_buffer(&chars, &GithubId, &mut headers)
-                .map(|id| Cow::from(id))
-                .collect()
-        }
-        Format::Html => {
-            let mut result = HashSet::new();
-            for (_, tag) in htmlstream::tag_iter(&chars) {
-                for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
-                    if attr.name == "id" || (tag.name == "a" && attr.name == "name") {
-                        result.insert(Cow::from(attr.value));
-                    }
-                }
-            }
-            result
-        }
-    };
-
-    Ok(Document { ids: ids })
-}
-
 pub struct Document<'a> {
     pub ids: HashSet<Cow<'a, str>>,
 }
@@ -142,6 +98,48 @@ impl<'a> Document<'a> {
         Document {
             ids: [""].iter().chain(ids).cloned().map(Cow::from).collect(),
         }
+    }
+
+    fn parse<R: Read>(
+        mut reader: R,
+        content_type: &ContentType,
+    ) -> result::Result<Document<'a>, LookupError> {
+        let format = match (content_type.type_(), content_type.subtype().as_str()) {
+            (mime::TEXT, "html") => Format::Html,
+            (mime::TEXT, "markdown") => Format::Markdown,
+            _ => {
+                return Ok(Document::empty());
+            }
+        };
+
+        let charset_hint = content_type
+            .get_param(mime::CHARSET)
+            .map(|v| v.as_ref().to_string());
+        debug!("http charset hint: {:?}", &charset_hint);
+
+        let chars = read_chars(&mut reader, charset_hint)?;
+
+        let ids = match format {
+            Format::Markdown => {
+                let mut headers = Headers::new();
+                MdAnchorParser::from_buffer(&chars, &GithubId, &mut headers)
+                    .map(|id| Cow::from(id))
+                    .collect()
+            }
+            Format::Html => {
+                let mut result = HashSet::new();
+                for (_, tag) in htmlstream::tag_iter(&chars) {
+                    for (_, attr) in htmlstream::attr_iter(&tag.attributes) {
+                        if attr.name == "id" || (tag.name == "a" && attr.name == "name") {
+                            result.insert(Cow::from(attr.value));
+                        }
+                    }
+                }
+                result
+            }
+        };
+
+        Ok(Document { ids: ids })
     }
 }
 
@@ -195,7 +193,7 @@ impl LocalResolver for FilesystemLocalResolver {
 
         let reader = File::open(&path)?;
 
-        parse(reader, &MARKDOWN_CONTENT_TYPE)
+        Document::parse(reader, &MARKDOWN_CONTENT_TYPE)
     }
 }
 
@@ -220,7 +218,7 @@ impl<'a> RemoteResolver for NetworkRemoteResolver<'a> {
                 .ok_or(ErrorKind::NoMime.into());
             let content_type = content_type?;
 
-            parse(response, &content_type)
+            Document::parse(response, &content_type)
         };
 
         result
