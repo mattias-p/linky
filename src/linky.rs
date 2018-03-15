@@ -339,23 +339,6 @@ impl fmt::Display for Link {
     }
 }
 
-pub trait Targets {
-    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, Rc<LinkError>)>;
-}
-
-impl Targets for Client {
-    fn fetch_targets(&self, link: &Link) -> result::Result<Vec<String>, (Tag, Rc<LinkError>)> {
-        match *link {
-            Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
-            Link::Url(ref url) => NetworkRemoteResolver(&self).remote(url),
-        }.and_then(|document| Ok(document.ids.iter().map(|s| s.to_string()).collect()))
-            .map_err(|err| {
-                let tag = Tag::from_error_kind(err.kind());
-                (tag, Rc::new(LinkError::new(link.clone(), Box::new(err))))
-            })
-    }
-}
-
 fn read_chars(
     reader: &mut Read,
     charset_hint: Option<String>,
@@ -554,13 +537,22 @@ pub fn parse_link(record: &Record, root: &str) -> Result<(Link, Option<String>),
 pub fn resolve_link(
     client: &Client,
     targets: &mut HashMap<Link, Result<Vec<String>, (Tag, Rc<LinkError>)>>,
-    base: Link,
+    link: Link,
     fragment: Option<String>,
     prefixes: &[&str],
 ) -> (Tag, Option<Rc<LinkError>>) {
     targets
-        .entry(base.clone())
-        .or_insert_with(|| client.fetch_targets(&base))
+        .entry(link.clone())
+        .or_insert_with(|| {
+            match &link {
+                &Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
+                &Link::Url(ref url) => NetworkRemoteResolver(&client).remote(url),
+            }.and_then(|document| Ok(document.ids.iter().map(|s| s.to_string()).collect()))
+                .map_err(|err| {
+                    let tag = Tag::from_error_kind(err.kind());
+                    (tag, Rc::new(LinkError::new(link.clone(), Box::new(err))))
+                })
+        })
         .as_ref()
         .map_err(|&(ref tag, ref err)| (tag.clone(), Some(err.clone())))
         .and_then(|ids| {
@@ -569,7 +561,7 @@ pub fn resolve_link(
                 lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| {
                     (
                         tag.clone(),
-                        Some(Rc::new(LinkError::new(base, Box::new(err)))),
+                        Some(Rc::new(LinkError::new(link, Box::new(err)))),
                     )
                 })
             } else {
