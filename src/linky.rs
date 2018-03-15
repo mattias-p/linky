@@ -142,14 +142,27 @@ impl<'a> Document<'a> {
     }
 }
 
-struct FragResolver<'a>(HashSet<&'a str>);
+struct FragResolver<'a> {
+    prefixes: HashSet<Cow<'a, str>>,
+}
 
 impl<'a> FragResolver<'a> {
+    pub fn new() -> Self {
+        FragResolver {
+            prefixes: HashSet::new(),
+        }
+    }
+    pub fn from(prefixes: &'a [&'a str]) -> Self {
+        FragResolver {
+            prefixes: prefixes.iter().cloned().map(Cow::from).collect(),
+        }
+    }
+
     fn fragment<'d>(&self, fragment: &str, document: &Document<'d>) -> Option<&str> {
         if document.ids.contains(&Cow::from(fragment)) {
             return Some("");
         }
-        for prefix in &self.0 {
+        for prefix in &self.prefixes {
             if document
                 .ids
                 .contains(format!("{}{}", prefix, fragment).as_str())
@@ -503,19 +516,6 @@ pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<Record>) -> io::Result<(
     Ok(())
 }
 
-fn find_prefixed_fragment(ids: &[&str], fragment: &str, prefixes: &[&str]) -> Option<String> {
-    prefixes
-        .iter()
-        .filter_map(|p| {
-            if ids.contains(&format!("{}{}", p, fragment).as_str()) {
-                Some(p.to_string())
-            } else {
-                None
-            }
-        })
-        .next()
-}
-
 pub fn lookup_fragment<'a>(
     document: &Document,
     fragment: &str,
@@ -526,14 +526,14 @@ pub fn lookup_fragment<'a>(
     } else if document.ids.contains(&Cow::from(fragment)) {
         Ok(())
     } else {
-        let ids: Vec<_> = document.ids.iter().map(AsRef::as_ref).collect();
-        if let Some(prefix) = find_prefixed_fragment(&ids, fragment, prefixes) {
+        let resolver = FragResolver::from(&prefixes);
+        if let Some(prefix) = resolver.fragment(&fragment, &document) {
             let err: LookupError = ErrorKind::Prefixed.into();
             Err((
                 Tag::from_error_kind(ErrorKind::Prefixed),
                 FragmentError::new(
                     fragment.to_string(),
-                    Box::new(PrefixError::new(prefix, Box::new(err))),
+                    Box::new(PrefixError::new(prefix.to_string(), Box::new(err))),
                 ),
             ))
         } else {
@@ -662,16 +662,26 @@ mod tests {
 
     #[test]
     fn find_fragments() {
-        assert_eq!(find_prefixed_fragment(&[], "123", &[]), None);
-        assert_eq!(find_prefixed_fragment(&["abc-123"], "123", &[]), None);
-        assert_eq!(find_prefixed_fragment(&["abc-123"], "123", &["def-"]), None);
+        assert_eq!(FragResolver::new().fragment("123", &Document::new()), None);
+
         assert_eq!(
-            find_prefixed_fragment(&["abc-123"], "123", &["abc-"]),
-            Some("abc-".to_string())
+            FragResolver::new().fragment("123", &Document::from(&["abc-123"])),
+            None
         );
+
         assert_eq!(
-            find_prefixed_fragment(&["def-123"], "123", &["abc-", "def-"]),
-            Some("def-".to_string())
+            FragResolver::from(&["def-"]).fragment("123", &Document::from(&["abc-123"])),
+            None
+        );
+
+        assert_eq!(
+            FragResolver::from(&["abc-"]).fragment("123", &Document::from(&["abc-123"])),
+            Some("abc-")
+        );
+
+        assert_eq!(
+            FragResolver::from(&["abc-", "def-"]).fragment("123", &Document::from(&["def-123"])),
+            Some("def-")
         );
     }
 
