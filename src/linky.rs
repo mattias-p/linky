@@ -536,7 +536,7 @@ pub fn parse_link(record: &Record, root: &str) -> Result<(Link, Option<String>),
 
 pub fn resolve_link(
     client: &Client,
-    targets: &mut HashMap<Link, Result<Vec<String>, (Tag, Rc<LinkError>)>>,
+    targets: &mut HashMap<Link, Result<Document, (Tag, Rc<LinkError>)>>,
     link: Link,
     fragment: Option<String>,
     prefixes: &[&str],
@@ -551,11 +551,11 @@ pub fn resolve_link(
                 let tag = Tag::from_error_kind(err.kind());
                 (tag, Rc::new(LinkError::new(link.clone(), Box::new(err))))
             })
-                .and_then(|document| Ok(document.ids.iter().map(|s| s.to_string()).collect()))
         })
         .as_ref()
         .map_err(|&(ref tag, ref err)| (tag.clone(), Some(err.clone())))
         .and_then(|ids| {
+            let ids: Vec<_> = ids.ids.iter().map(|s| s.to_string()).collect();
             if let Some(ref fragment) = fragment {
                 let ids: Vec<_> = ids.iter().map(AsRef::as_ref).collect();
                 lookup_fragment(ids.as_slice(), &fragment, prefixes).map_err(|(tag, err)| {
