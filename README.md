@@ -194,7 +194,7 @@ example_site/path/to/transform.md:2:  https://github.com/mattias-p/linky/blob/ex
 example_site/path/to/transform.md:3:  https://github.com/mattias-p/linky/blob/example/example_site/path/to/only-on-example-branch.md
 ```
 
-> **Note:** You may need to be careful with your sed expressoins so you don't inadvertently transform the path prefixes.
+> **Note:** You may need to be careful with your sed expressions so you don't inadvertently transform the path prefixes.
 
 Finally, pipe the edited linky output into another linky process that actually checks the links:
 
