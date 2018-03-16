@@ -273,11 +273,9 @@ of Markdown files (*.md). You can either:
 - use a third party paste service (e.g. [Hastebin](https://hastebin.com/))
 - if the file is not large, inline it into the issue inside code blocks:
   
-  ´´´md
+  ´´´Markdown
   
-  your test markdown here
-  
-  ...
+  your test markdown here ...
   
   ´´´
 
