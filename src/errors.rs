@@ -241,10 +241,7 @@ pub struct PrefixError {
 
 impl PrefixError {
     pub fn new(prefix: String, cause: Box<error::Error>) -> Self {
-        PrefixError {
-            prefix: prefix,
-            cause: cause,
-        }
+        PrefixError { prefix, cause }
     }
 }
 
@@ -272,10 +269,7 @@ pub struct LinkError {
 
 impl LinkError {
     pub fn new(link: Link, cause: Box<error::Error>) -> Self {
-        LinkError {
-            link: link,
-            cause: cause,
-        }
+        LinkError { link, cause }
     }
 }
 
@@ -303,10 +297,7 @@ pub struct FragmentError {
 
 impl FragmentError {
     pub fn new(fragment: String, cause: Box<error::Error>) -> Self {
-        FragmentError {
-            fragment: fragment,
-            cause: cause,
-        }
+        FragmentError { fragment, cause }
     }
 }
 

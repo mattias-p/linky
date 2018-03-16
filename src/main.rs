@@ -104,7 +104,7 @@ fn main() {
         let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
         let resolution = client
             .as_ref()
-            .map(|client| resolve_link(&client, all_targets, base, fragment, &prefixes));
+            .map(|client| resolve_link(client, all_targets, base, &fragment, &prefixes));
         Some((record, resolution))
     });
 
@@ -113,7 +113,7 @@ fn main() {
             .as_ref()
             .map_or(false, |&(ref tag, _)| silence.contains(&tag))
         {
-            if let &Some((_, Some(ref err))) = &tag_and_err {
+            if let Some((_, Some(ref err))) = tag_and_err {
                 print_warning(err.as_ref());
             }
             println!(

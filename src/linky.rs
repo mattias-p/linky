@@ -89,10 +89,12 @@ impl<'a> Document<'a> {
         }
     }
 
+    #[cfg(test)]
     pub fn new() -> Self {
         Self::from(&[])
     }
 
+    #[cfg(test)]
     pub fn from(ids: &'a [&'a str]) -> Self {
         Document {
             ids: [""].iter().chain(ids).cloned().map(Cow::from).collect(),
@@ -122,7 +124,7 @@ impl<'a> Document<'a> {
             Format::Markdown => {
                 let mut headers = Headers::new();
                 MdAnchorParser::from_buffer(&chars, &GithubId, &mut headers)
-                    .map(|id| Cow::from(id))
+                    .map(Cow::from)
                     .collect()
             }
             Format::Html => {
@@ -138,7 +140,7 @@ impl<'a> Document<'a> {
             }
         };
 
-        Ok(Document { ids: ids })
+        Ok(Document { ids })
     }
 }
 
@@ -147,11 +149,13 @@ pub struct FragResolver<'a> {
 }
 
 impl<'a> FragResolver<'a> {
+    #[cfg(test)]
     pub fn new() -> Self {
         FragResolver {
             prefixes: HashSet::new(),
         }
     }
+
     pub fn from(prefixes: &'a [&'a str]) -> Self {
         FragResolver {
             prefixes: prefixes.iter().cloned().map(Cow::from).collect(),
@@ -170,7 +174,7 @@ impl<'a> FragResolver<'a> {
                 return Some(prefix);
             }
         }
-        return None;
+        None
     }
 }
 
@@ -210,18 +214,14 @@ impl<'a> RemoteResolver for NetworkRemoteResolver<'a> {
         if !response.status().is_success() {
             return Err(ErrorKind::HttpStatus(response.status()).into());
         }
-        let result = {
-            let content_type: Result<ContentType, LookupError> = response
-                .headers()
-                .get::<ContentType>()
-                .map(|ct| ct.clone())
-                .ok_or(ErrorKind::NoMime.into());
-            let content_type = content_type?;
+        let content_type: Result<ContentType, LookupError> = response
+            .headers()
+            .get::<ContentType>()
+            .cloned()
+            .ok_or_else(|| ErrorKind::NoMime.into());
+        let content_type = content_type?;
 
-            Document::parse(response, &content_type)
-        };
-
-        result
+        Document::parse(response, &content_type)
     }
 }
 
@@ -263,10 +263,10 @@ struct MdAnchorParser<'a> {
 impl<'a> MdAnchorParser<'a> {
     fn new(parser: Parser<'a>, id_transform: &'a ToId, headers: &'a mut Headers) -> Self {
         MdAnchorParser {
-            parser: parser,
+            parser,
             is_header: false,
-            headers: headers,
-            id_transform: id_transform,
+            headers,
+            id_transform,
         }
     }
 
@@ -433,7 +433,7 @@ impl Headers {
     }
 
     fn register(&mut self, text: String) -> usize {
-        match self.0.entry(text.to_string()) {
+        match self.0.entry(text) {
             Entry::Occupied(ref mut occupied) => {
                 let count = *occupied.get();
                 *occupied.get_mut() = count + 1;
@@ -458,7 +458,7 @@ impl<'a> MdLinkParser<'a> {
     fn new(buffer: &'a str) -> Self {
         MdLinkParser {
             parser: Parser::new(buffer),
-            buffer: buffer,
+            buffer,
             linenum: 1,
             oldoffs: 0,
         }
@@ -517,13 +517,13 @@ pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<Record>) -> io::Result<(
     Ok(())
 }
 
-pub fn lookup_fragment<'a>(
+pub fn lookup_fragment(
     document: &Document,
     fragment: &str,
     resolver: &FragResolver,
 ) -> Result<(), (Tag, FragmentError)> {
     resolver
-        .fragment(&fragment, &document)
+        .fragment(fragment, document)
         .ok_or_else(|| {
             let err: LookupError = ErrorKind::NoFragment.into();
             (
@@ -556,15 +556,15 @@ pub fn resolve_link(
     client: &Client,
     targets: &mut HashMap<Link, Result<Document, (Tag, Rc<LinkError>)>>,
     link: Link,
-    fragment: Option<String>,
+    fragment: &Option<String>,
     prefixes: &[&str],
 ) -> (Tag, Option<Rc<LinkError>>) {
     targets
         .entry(link.clone())
         .or_insert_with(|| {
-            match &link {
-                &Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
-                &Link::Url(ref url) => NetworkRemoteResolver(&client).remote(url),
+            match link {
+                Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
+                Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
             }.map_err(|err| {
                 let tag = Tag::from_error_kind(err.kind());
                 (tag, Rc::new(LinkError::new(link.clone(), Box::new(err))))
@@ -573,9 +573,9 @@ pub fn resolve_link(
         .as_ref()
         .map_err(|&(ref tag, ref err)| (tag.clone(), Some(err.clone())))
         .and_then(|document| {
-            if let Some(ref fragment) = fragment {
-                let resolver = FragResolver::from(&prefixes);
-                lookup_fragment(&document, &fragment, &resolver).map_err(|(tag, err)| {
+            if let Some(ref fragment) = *fragment {
+                let resolver = FragResolver::from(prefixes);
+                lookup_fragment(document, fragment, &resolver).map_err(|(tag, err)| {
                     (
                         tag.clone(),
                         Some(Rc::new(LinkError::new(link, Box::new(err)))),
