@@ -69,7 +69,7 @@ impl fmt::Display for Tag {
 
 lazy_static! {
     static ref MARKDOWN_CONTENT_TYPE: ContentType = ContentType("text/markdown; charset=UTF-8"
-            .parse::<mime::Mime>()
+            .parse()
             .unwrap());
 }
 
