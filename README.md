@@ -1,6 +1,7 @@
 Linky
 =====
-[![Crates.io](https://img.shields.io/crates/v/linky.svg)](https://crates.io/crates/linky)
+[![Crates.io]][Crates.io badge]
+[![Changelog]][Changelog badge]
 
 Extract and check links from Markdown files.
 
@@ -299,5 +300,9 @@ limitations under the License.
 
 
 [Apache License, Version 2.0]: LICENSE
+[Changelog badge]: https://github.com/mattias-p/linky/blob/master/CHANGELOG.md
+[Changelog]: https://raw.githubusercontent.com/mattias-p/linky/master/img/changelog.svg?sanitize=true
+[Crates.io badge]: https://crates.io/crates/linky
+[Crates.io]: https://img.shields.io/crates/v/linky.svg
 [Install stable Rust and Cargo]: http://doc.crates.io/
 [Link resolution section]: #link-resolution
