@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - Detect and decode non-UTF-8 encodings [#14](https://github.com/mattias-p/linky/issues/14)
 - Tag empty fragments with OK instead of NO\_FRAG
+- Added issues section to README by [@bugabinga]
+- Updated dependency on bytecount to 0.3.1 by [@llogiq]
 
 ## [0.1.1] - 2017-11-25
 ### Changed
@@ -26,3 +28,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Initial version
 
+
+[@bugabinga]: https://github.com/bugabinga/
+[@llogic]: https://github.com/llogiq/
