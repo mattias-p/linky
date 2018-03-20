@@ -30,4 +30,4 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 [@bugabinga]: https://github.com/bugabinga/
-[@llogic]: https://github.com/llogiq/
+[@llogiq]: https://github.com/llogiq/
