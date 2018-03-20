@@ -10,9 +10,8 @@ extern crate pulldown_cmark;
 extern crate regex;
 extern crate reqwest;
 extern crate shell_escape;
-extern crate structopt;
 #[macro_use]
-extern crate structopt_derive;
+extern crate structopt;
 extern crate url;
 extern crate xhtmlchardet;
 
