@@ -268,7 +268,7 @@ $ env RUST_LOG=debug RUST_BACKTRACE=1 linky --check  test.md 2&> linky_err.log
 Simply drag-and-drop the resulting `linky_err.log` file into the issue
 editor of Github.
 Unfortunately, as of February 2018, Github does not allow to drag-and-drop
-of Markdown files (*.md). You can either:
+of Markdown files (\*.md). You can either:
 
 - rename your `test.md` file to `test.md.txt`
 - use a third party paste service (e.g. [Hastebin](https://hastebin.com/))
