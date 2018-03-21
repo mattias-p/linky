@@ -27,15 +27,15 @@ pub enum Tag {
 }
 
 impl Tag {
-    fn from_http_status_str(s: &str) -> Result<Tag, ParseError> {
+    fn from_http_status_str(s: &str) -> Result<Tag, GenericError> {
         if !s.starts_with("HTTP_") {
-            return Err(ParseError);
+            return Err(GenericError::new(Cow::from("Invalid tag"), None));
         }
         u16::from_str(&s[5..])
             .ok()
             .and_then(|s| StatusCode::try_from(s).ok())
             .map(Tag::HttpStatus)
-            .ok_or(ParseError)
+            .ok_or_else(|| GenericError::new(Cow::from("Invalid tag"), None))
     }
 }
 
@@ -70,7 +70,7 @@ impl Into<LookupError> for Tag {
 }
 
 impl FromStr for Tag {
-    type Err = ParseError;
+    type Err = GenericError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
             "OK" => Ok(Tag::Ok),
@@ -87,24 +87,6 @@ impl FromStr for Tag {
             "PREFIXED" => Ok(Tag::Prefixed),
             s => Tag::from_http_status_str(s),
         }
-    }
-}
-
-#[derive(Debug)]
-pub struct ParseError;
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Invalid tag")
-    }
-}
-
-impl error::Error for ParseError {
-    fn description(&self) -> &str {
-        "invalid tag"
-    }
-    fn cause(&self) -> Option<&error::Error> {
-        None
     }
 }
 

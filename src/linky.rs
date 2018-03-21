@@ -534,9 +534,9 @@ pub fn resolve_link(
     targets
         .entry(link.clone())
         .or_insert_with(|| {
-            match link {
-                &Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
-                &Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
+            match *link {
+                Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
+                Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
             }.map_err(|err| {
                 let tag = err.tag();
                 (
