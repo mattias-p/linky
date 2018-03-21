@@ -1,9 +1,9 @@
+use std::borrow::Cow;
 use std::error;
 use std::fmt;
 use std::io;
 use std::str::FromStr;
 
-use linky::Link;
 use reqwest;
 use reqwest::StatusCode;
 use url;
@@ -209,110 +209,29 @@ impl From<url::ParseError> for LookupError {
 }
 
 #[derive(Debug)]
-pub struct DecodingError(String);
+pub struct GenericError {
+    pub msg: Cow<'static, str>,
+    cause: Option<Box<error::Error>>,
+}
 
-impl DecodingError {
-    pub fn new(message: String) -> Self {
-        DecodingError(message)
+impl GenericError {
+    pub fn new(msg: Cow<'static, str>, cause: Option<Box<error::Error>>) -> Self {
+        GenericError { msg, cause }
     }
 }
 
-impl fmt::Display for DecodingError {
+impl fmt::Display for GenericError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.msg)
     }
 }
 
-impl error::Error for DecodingError {
+impl error::Error for GenericError {
     fn description(&self) -> &str {
-        "decoding error"
+        &*self.msg
     }
 
     fn cause(&self) -> Option<&error::Error> {
-        None
-    }
-}
-
-#[derive(Debug)]
-pub struct PrefixError {
-    prefix: String,
-    cause: Box<error::Error>,
-}
-
-impl PrefixError {
-    pub fn new(prefix: String, cause: Box<error::Error>) -> Self {
-        PrefixError { prefix, cause }
-    }
-}
-
-impl fmt::Display for PrefixError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Prefix: {}", self.prefix)
-    }
-}
-
-impl error::Error for PrefixError {
-    fn description(&self) -> &str {
-        "prefixed fragment"
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        Some(&*self.cause)
-    }
-}
-
-#[derive(Debug)]
-pub struct LinkError {
-    link: Link,
-    cause: Box<error::Error>,
-}
-
-impl LinkError {
-    pub fn new(link: Link, cause: Box<error::Error>) -> Self {
-        LinkError { link, cause }
-    }
-}
-
-impl fmt::Display for LinkError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Link: {}", self.link)
-    }
-}
-
-impl error::Error for LinkError {
-    fn description(&self) -> &str {
-        "link error"
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        Some(&*self.cause)
-    }
-}
-
-#[derive(Debug)]
-pub struct FragmentError {
-    pub fragment: String,
-    cause: Box<error::Error>,
-}
-
-impl FragmentError {
-    pub fn new(fragment: String, cause: Box<error::Error>) -> Self {
-        FragmentError { fragment, cause }
-    }
-}
-
-impl fmt::Display for FragmentError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Fragment: {}", self.fragment)
-    }
-}
-
-impl error::Error for FragmentError {
-    fn description(&self) -> &str {
-        "fragment error"
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        Some(&*self.cause)
+        self.cause.as_ref().map(|boxed| &**boxed)
     }
 }

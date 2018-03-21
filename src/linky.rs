@@ -18,12 +18,9 @@ use bytecount::count;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
 use errors::ErrorKind;
-use errors::DecodingError;
-use errors::FragmentError;
-use errors::LinkError;
+use errors::GenericError;
 use errors::LookupError;
 use errors::ParseError;
-use errors::PrefixError;
 use htmlstream;
 use pulldown_cmark;
 use pulldown_cmark::Event;
@@ -385,8 +382,9 @@ fn read_chars(
         .next()
         .ok_or_else(|| LookupError {
             kind: ErrorKind::DecodingError,
-            cause: Some(Box::new(DecodingError::new(
-                "Failed to detect character encoding".to_string(),
+            cause: Some(Box::new(GenericError::new(
+                Cow::from("Failed to detect character encoding"),
+                None,
             ))),
         });
 
@@ -394,7 +392,7 @@ fn read_chars(
         .decode(cursor.into_inner().as_ref(), DecoderTrap::Strict)
         .map_err(|err| LookupError {
             kind: ErrorKind::DecodingError,
-            cause: Some(Box::new(DecodingError::new(err.to_string()))),
+            cause: Some(Box::new(GenericError::new(err, None))),
         })
 }
 
@@ -521,14 +519,17 @@ pub fn lookup_fragment(
     document: &Document,
     fragment: &str,
     resolver: &FragResolver,
-) -> Result<(), (Tag, FragmentError)> {
+) -> Result<(), (Tag, GenericError)> {
     resolver
         .fragment(fragment, document)
         .ok_or_else(|| {
             let err: LookupError = ErrorKind::NoFragment.into();
             (
                 Tag::from_error_kind(ErrorKind::NoFragment),
-                FragmentError::new(fragment.to_string(), Box::new(err)),
+                GenericError::new(
+                    Cow::from(format!("Fragment: {}", fragment)),
+                    Some(Box::new(err)),
+                ),
             )
         })
         .and_then(|prefix| {
@@ -538,9 +539,12 @@ pub fn lookup_fragment(
                 let err: LookupError = ErrorKind::Prefixed.into();
                 Err((
                     Tag::from_error_kind(ErrorKind::Prefixed),
-                    FragmentError::new(
-                        fragment.to_string(),
-                        Box::new(PrefixError::new(prefix.to_string(), Box::new(err))),
+                    GenericError::new(
+                        Cow::from(format!("Fragment: {}", &fragment)),
+                        Some(Box::new(GenericError::new(
+                            Cow::from(format!("Prefix: {}", prefix)),
+                            Some(Box::new(err)),
+                        ))),
                     ),
                 ))
             }
@@ -554,11 +558,11 @@ pub fn parse_link(record: &Record, root: &str) -> Result<(Link, Option<String>),
 
 pub fn resolve_link(
     client: &Client,
-    targets: &mut HashMap<Link, Result<Document, (Tag, Rc<LinkError>)>>,
+    targets: &mut HashMap<Link, Result<Document, (Tag, Rc<GenericError>)>>,
     link: Link,
     fragment: &Option<String>,
     prefixes: &[&str],
-) -> (Tag, Option<Rc<LinkError>>) {
+) -> (Tag, Option<Rc<GenericError>>) {
     targets
         .entry(link.clone())
         .or_insert_with(|| {
@@ -567,7 +571,13 @@ pub fn resolve_link(
                 Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
             }.map_err(|err| {
                 let tag = Tag::from_error_kind(err.kind());
-                (tag, Rc::new(LinkError::new(link.clone(), Box::new(err))))
+                (
+                    tag,
+                    Rc::new(GenericError::new(
+                        Cow::from(format!("Link: {}", link)),
+                        Some(Box::new(err)),
+                    )),
+                )
             })
         })
         .as_ref()
@@ -578,7 +588,10 @@ pub fn resolve_link(
                 lookup_fragment(document, fragment, &resolver).map_err(|(tag, err)| {
                     (
                         tag.clone(),
-                        Some(Rc::new(LinkError::new(link, Box::new(err)))),
+                        Some(Rc::new(GenericError::new(
+                            Cow::from(format!("Link: {}", link)),
+                            Some(Box::new(err)),
+                        ))),
                     )
                 })
             } else {
