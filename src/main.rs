@@ -26,11 +26,11 @@ use std::io::BufRead;
 use std::io;
 use std::str::FromStr;
 
+use errors::Tag;
 use linky::md_file_links;
 use linky::parse_link;
 use linky::Record;
 use linky::resolve_link;
-use linky::Tag;
 use linky::print_warning;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
@@ -103,7 +103,7 @@ fn main() {
         let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
         let resolution = client
             .as_ref()
-            .map(|client| resolve_link(client, all_targets, base, &fragment, &prefixes));
+            .map(|client| resolve_link(client, all_targets, &base, &fragment, &prefixes));
         Some((record, resolution))
     });
 

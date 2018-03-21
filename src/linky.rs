@@ -17,10 +17,9 @@ use std::str::FromStr;
 use bytecount::count;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
-use errors::ErrorKind;
+use errors::Tag;
 use errors::GenericError;
 use errors::LookupError;
-use errors::ParseError;
 use htmlstream;
 use pulldown_cmark;
 use pulldown_cmark::Event;
@@ -32,37 +31,6 @@ use reqwest::mime;
 use url::Url;
 use url;
 use xhtmlchardet;
-
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Tag(Result<(), ErrorKind>);
-
-impl Tag {
-    pub fn ok() -> Self {
-        Tag(Ok(()))
-    }
-    pub fn from_error_kind(kind: ErrorKind) -> Self {
-        Tag(Err(kind))
-    }
-}
-
-impl FromStr for Tag {
-    type Err = ParseError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            "OK" => Ok(Tag(Ok(()))),
-            s => Ok(Tag(Err(ErrorKind::from_str(s)?))),
-        }
-    }
-}
-
-impl fmt::Display for Tag {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.0 {
-            Ok(()) => write!(f, "OK"),
-            Err(ref kind) => write!(f, "{}", kind),
-        }
-    }
-}
 
 lazy_static! {
     static ref MARKDOWN_CONTENT_TYPE: ContentType = ContentType("text/markdown; charset=UTF-8"
@@ -188,9 +156,9 @@ struct FilesystemLocalResolver;
 impl LocalResolver for FilesystemLocalResolver {
     fn local(&self, path: &Path) -> Result<Document, LookupError> {
         if path.is_absolute() {
-            Err(ErrorKind::Absolute.into())
+            Err(Tag::Absolute.into())
         } else if path.is_dir() {
-            Err(ErrorKind::Directory.into())
+            Err(Tag::Directory.into())
         } else {
             let reader = File::open(&path)?;
             Document::parse(reader, &MARKDOWN_CONTENT_TYPE)
@@ -203,19 +171,19 @@ struct NetworkRemoteResolver<'a>(&'a Client);
 impl<'a> RemoteResolver for NetworkRemoteResolver<'a> {
     fn remote<'b>(&self, url: &Url) -> result::Result<Document<'b>, LookupError> {
         if url.scheme() != "http" && url.scheme() != "https" {
-            return Err(ErrorKind::Protocol.into());
+            return Err(Tag::Protocol.into());
         }
 
         let response = self.0.get(url.clone()).send()?;
 
         if !response.status().is_success() {
-            return Err(ErrorKind::HttpStatus(response.status()).into());
+            return Err(Tag::HttpStatus(response.status()).into());
         }
         let content_type: Result<ContentType, LookupError> = response
             .headers()
             .get::<ContentType>()
             .cloned()
-            .ok_or_else(|| ErrorKind::NoMime.into());
+            .ok_or_else(|| Tag::NoMime.into());
         let content_type = content_type?;
 
         Document::parse(response, &content_type)
@@ -381,7 +349,7 @@ fn read_chars(
         .flat_map(|v| encoding_from_whatwg_label(v.as_str()))
         .next()
         .ok_or_else(|| LookupError {
-            kind: ErrorKind::DecodingError,
+            tag: Tag::DecodingError,
             cause: Some(Box::new(GenericError::new(
                 Cow::from("Failed to detect character encoding"),
                 None,
@@ -391,7 +359,7 @@ fn read_chars(
     charset?
         .decode(cursor.into_inner().as_ref(), DecoderTrap::Strict)
         .map_err(|err| LookupError {
-            kind: ErrorKind::DecodingError,
+            tag: Tag::DecodingError,
             cause: Some(Box::new(GenericError::new(err, None))),
         })
 }
@@ -523,9 +491,9 @@ pub fn lookup_fragment(
     resolver
         .fragment(fragment, document)
         .ok_or_else(|| {
-            let err: LookupError = ErrorKind::NoFragment.into();
+            let err: LookupError = Tag::NoFragment.into();
             (
-                Tag::from_error_kind(ErrorKind::NoFragment),
+                Tag::NoFragment,
                 GenericError::new(
                     Cow::from(format!("Fragment: {}", fragment)),
                     Some(Box::new(err)),
@@ -536,9 +504,9 @@ pub fn lookup_fragment(
             if prefix == "" {
                 Ok(())
             } else {
-                let err: LookupError = ErrorKind::Prefixed.into();
+                let err: LookupError = Tag::Prefixed.into();
                 Err((
-                    Tag::from_error_kind(ErrorKind::Prefixed),
+                    Tag::Prefixed,
                     GenericError::new(
                         Cow::from(format!("Fragment: {}", &fragment)),
                         Some(Box::new(GenericError::new(
@@ -559,7 +527,7 @@ pub fn parse_link(record: &Record, root: &str) -> Result<(Link, Option<String>),
 pub fn resolve_link(
     client: &Client,
     targets: &mut HashMap<Link, Result<Document, (Tag, Rc<GenericError>)>>,
-    link: Link,
+    link: &Link,
     fragment: &Option<String>,
     prefixes: &[&str],
 ) -> (Tag, Option<Rc<GenericError>>) {
@@ -567,10 +535,10 @@ pub fn resolve_link(
         .entry(link.clone())
         .or_insert_with(|| {
             match link {
-                Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
-                Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
+                &Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
+                &Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
             }.map_err(|err| {
-                let tag = Tag::from_error_kind(err.kind());
+                let tag = err.tag();
                 (
                     tag,
                     Rc::new(GenericError::new(
@@ -599,7 +567,7 @@ pub fn resolve_link(
             }
         })
         .err()
-        .unwrap_or_else(|| (Tag::ok(), None))
+        .unwrap_or_else(|| (Tag::Ok, None))
 }
 
 pub fn print_warning(err: &error::Error) {
@@ -664,7 +632,7 @@ mod tests {
         );
         assert_eq!(
             lookup_fragment(&Document::empty(), "", &FragResolver::new()).map_err(|e| e.0),
-            Err(Tag::from_error_kind(ErrorKind::NoFragment))
+            Err(Tag::NoFragment.into())
         );
         assert_eq!(
             lookup_fragment(
@@ -676,7 +644,7 @@ mod tests {
         );
         assert_eq!(
             lookup_fragment(&Document::new(), "abc", &FragResolver::new()).map_err(|e| e.0),
-            Err(Tag::from_error_kind(ErrorKind::NoFragment))
+            Err(Tag::NoFragment.into())
         );
         assert_eq!(
             lookup_fragment(
@@ -684,7 +652,7 @@ mod tests {
                 "123",
                 &FragResolver::from(&["abc-"])
             ).map_err(|e| e.0),
-            Err(Tag::from_error_kind(ErrorKind::Prefixed))
+            Err(Tag::Prefixed.into())
         );
     }
 

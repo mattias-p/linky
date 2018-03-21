@@ -9,7 +9,8 @@ use reqwest::StatusCode;
 use url;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum ErrorKind {
+pub enum Tag {
+    Ok,
     HttpError,
     IoError,
     HttpStatus(StatusCode),
@@ -25,64 +26,66 @@ pub enum ErrorKind {
     Prefixed,
 }
 
-impl ErrorKind {
-    fn from_http_status_str(s: &str) -> Result<ErrorKind, ParseError> {
+impl Tag {
+    fn from_http_status_str(s: &str) -> Result<Tag, ParseError> {
         if !s.starts_with("HTTP_") {
             return Err(ParseError);
         }
         u16::from_str(&s[5..])
             .ok()
             .and_then(|s| StatusCode::try_from(s).ok())
-            .map(ErrorKind::HttpStatus)
+            .map(Tag::HttpStatus)
             .ok_or(ParseError)
     }
 }
 
-impl fmt::Display for ErrorKind {
+impl fmt::Display for Tag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ErrorKind::HttpError => write!(f, "HTTP_OTH"),
-            ErrorKind::IoError => write!(f, "IO_ERR"),
-            ErrorKind::InvalidUrl => write!(f, "URL_ERR"),
-            ErrorKind::HttpStatus(status) => write!(f, "HTTP_{}", status.as_u16()),
-            ErrorKind::NoDocument => write!(f, "NO_DOC"),
-            ErrorKind::NoFragment => write!(f, "NO_FRAG"),
-            ErrorKind::Protocol => write!(f, "PROTOCOL"),
-            ErrorKind::Absolute => write!(f, "ABSOLUTE"),
-            ErrorKind::Directory => write!(f, "DIR"),
-            ErrorKind::NoMime => write!(f, "NO_MIME"),
-            ErrorKind::UnrecognizedMime => write!(f, "MIME"),
-            ErrorKind::DecodingError => write!(f, "DEC_ERR"),
-            ErrorKind::Prefixed => write!(f, "PREFIXED"),
+            Tag::Ok => write!(f, "OK"),
+            Tag::HttpError => write!(f, "HTTP_OTH"),
+            Tag::IoError => write!(f, "IO_ERR"),
+            Tag::InvalidUrl => write!(f, "URL_ERR"),
+            Tag::HttpStatus(status) => write!(f, "HTTP_{}", status.as_u16()),
+            Tag::NoDocument => write!(f, "NO_DOC"),
+            Tag::NoFragment => write!(f, "NO_FRAG"),
+            Tag::Protocol => write!(f, "PROTOCOL"),
+            Tag::Absolute => write!(f, "ABSOLUTE"),
+            Tag::Directory => write!(f, "DIR"),
+            Tag::NoMime => write!(f, "NO_MIME"),
+            Tag::UnrecognizedMime => write!(f, "MIME"),
+            Tag::DecodingError => write!(f, "DEC_ERR"),
+            Tag::Prefixed => write!(f, "PREFIXED"),
         }
     }
 }
 
-impl Into<LookupError> for ErrorKind {
+impl Into<LookupError> for Tag {
     fn into(self) -> LookupError {
         LookupError {
-            kind: self,
+            tag: self,
             cause: None,
         }
     }
 }
 
-impl FromStr for ErrorKind {
+impl FromStr for Tag {
     type Err = ParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
-            "HTTP_OTH" => Ok(ErrorKind::HttpError),
-            "IO_ERR" => Ok(ErrorKind::IoError),
-            "URL_ERR" => Ok(ErrorKind::InvalidUrl),
-            "NO_DOC" => Ok(ErrorKind::NoDocument),
-            "NO_FRAG" => Ok(ErrorKind::NoFragment),
-            "PROTOCOL" => Ok(ErrorKind::Protocol),
-            "ABSOLUTE" => Ok(ErrorKind::Absolute),
-            "DIR" => Ok(ErrorKind::Directory),
-            "NO_MIME" => Ok(ErrorKind::NoMime),
-            "MIME" => Ok(ErrorKind::UnrecognizedMime),
-            "PREFIXED" => Ok(ErrorKind::Prefixed),
-            s => ErrorKind::from_http_status_str(s),
+            "OK" => Ok(Tag::Ok),
+            "HTTP_OTH" => Ok(Tag::HttpError),
+            "IO_ERR" => Ok(Tag::IoError),
+            "URL_ERR" => Ok(Tag::InvalidUrl),
+            "NO_DOC" => Ok(Tag::NoDocument),
+            "NO_FRAG" => Ok(Tag::NoFragment),
+            "PROTOCOL" => Ok(Tag::Protocol),
+            "ABSOLUTE" => Ok(Tag::Absolute),
+            "DIR" => Ok(Tag::Directory),
+            "NO_MIME" => Ok(Tag::NoMime),
+            "MIME" => Ok(Tag::UnrecognizedMime),
+            "PREFIXED" => Ok(Tag::Prefixed),
+            s => Tag::from_http_status_str(s),
         }
     }
 }
@@ -107,13 +110,13 @@ impl error::Error for ParseError {
 
 #[derive(Debug)]
 pub struct LookupError {
-    pub kind: ErrorKind,
+    pub tag: Tag,
     pub cause: Option<Box<error::Error>>,
 }
 
 impl LookupError {
-    pub fn kind(&self) -> ErrorKind {
-        self.kind.clone()
+    pub fn tag(&self) -> Tag {
+        self.tag.clone()
     }
 
     #[allow(dead_code)]
@@ -124,11 +127,12 @@ impl LookupError {
 
 impl fmt::Display for LookupError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.kind {
-            ErrorKind::InvalidUrl => write!(f, "Invalid url"),
-            ErrorKind::HttpError => write!(f, "HTTP error"),
-            ErrorKind::IoError => write!(f, "IO error"),
-            ErrorKind::HttpStatus(status) => write!(
+        match self.tag {
+            Tag::Ok => write!(f, "Ok"),
+            Tag::InvalidUrl => write!(f, "Invalid url"),
+            Tag::HttpError => write!(f, "HTTP error"),
+            Tag::IoError => write!(f, "IO error"),
+            Tag::HttpStatus(status) => write!(
                 f,
                 "Unexpected HTTP status {}{}",
                 status.as_u16(),
@@ -137,35 +141,36 @@ impl fmt::Display for LookupError {
                     .map(|s| format!(" {}", s))
                     .unwrap_or_else(String::new)
             ),
-            ErrorKind::NoDocument => write!(f, "Document not found"),
-            ErrorKind::NoFragment => write!(f, "Fragment not found"),
-            ErrorKind::Protocol => write!(f, "Unhandled protocol"),
-            ErrorKind::Absolute => write!(f, "Unable to handle absolute path"),
-            ErrorKind::Directory => write!(f, "Document is a directory"),
-            ErrorKind::NoMime => write!(f, "No mime type"),
-            ErrorKind::UnrecognizedMime => write!(f, "Unrecognized mime type"),
-            ErrorKind::DecodingError => write!(f, "Decoding error"),
-            ErrorKind::Prefixed => write!(f, "Fragment not found without prefix"),
+            Tag::NoDocument => write!(f, "Document not found"),
+            Tag::NoFragment => write!(f, "Fragment not found"),
+            Tag::Protocol => write!(f, "Unhandled protocol"),
+            Tag::Absolute => write!(f, "Unable to handle absolute path"),
+            Tag::Directory => write!(f, "Document is a directory"),
+            Tag::NoMime => write!(f, "No mime type"),
+            Tag::UnrecognizedMime => write!(f, "Unrecognized mime type"),
+            Tag::DecodingError => write!(f, "Decoding error"),
+            Tag::Prefixed => write!(f, "Fragment not found without prefix"),
         }
     }
 }
 
 impl error::Error for LookupError {
     fn description(&self) -> &str {
-        match self.kind {
-            ErrorKind::HttpError => "http error",
-            ErrorKind::IoError => "io error",
-            ErrorKind::InvalidUrl => "invalid url",
-            ErrorKind::HttpStatus(_) => "unexpected http status",
-            ErrorKind::NoDocument => "document not found",
-            ErrorKind::NoFragment => "fragment not found",
-            ErrorKind::Protocol => "unrecognized protocol",
-            ErrorKind::Absolute => "unhandled absolute path",
-            ErrorKind::Directory => "document is a directory",
-            ErrorKind::NoMime => "no mime type",
-            ErrorKind::UnrecognizedMime => "unrecognized mime type",
-            ErrorKind::DecodingError => "decoding error",
-            ErrorKind::Prefixed => "prefixed fragmendt",
+        match self.tag {
+            Tag::Ok => "ok",
+            Tag::HttpError => "http error",
+            Tag::IoError => "io error",
+            Tag::InvalidUrl => "invalid url",
+            Tag::HttpStatus(_) => "unexpected http status",
+            Tag::NoDocument => "document not found",
+            Tag::NoFragment => "fragment not found",
+            Tag::Protocol => "unrecognized protocol",
+            Tag::Absolute => "unhandled absolute path",
+            Tag::Directory => "document is a directory",
+            Tag::NoMime => "no mime type",
+            Tag::UnrecognizedMime => "unrecognized mime type",
+            Tag::DecodingError => "decoding error",
+            Tag::Prefixed => "prefixed fragmendt",
         }
     }
 
@@ -178,12 +183,12 @@ impl From<io::Error> for LookupError {
     fn from(err: io::Error) -> Self {
         if err.kind() == io::ErrorKind::NotFound {
             LookupError {
-                kind: ErrorKind::NoDocument,
+                tag: Tag::NoDocument,
                 cause: Some(Box::new(err)),
             }
         } else {
             LookupError {
-                kind: ErrorKind::IoError,
+                tag: Tag::IoError,
                 cause: Some(Box::new(err)),
             }
         }
@@ -193,7 +198,7 @@ impl From<io::Error> for LookupError {
 impl From<reqwest::Error> for LookupError {
     fn from(err: reqwest::Error) -> Self {
         LookupError {
-            kind: ErrorKind::HttpError,
+            tag: Tag::HttpError,
             cause: Some(Box::new(err)),
         }
     }
@@ -202,7 +207,7 @@ impl From<reqwest::Error> for LookupError {
 impl From<url::ParseError> for LookupError {
     fn from(err: url::ParseError) -> Self {
         LookupError {
-            kind: ErrorKind::InvalidUrl,
+            tag: Tag::InvalidUrl,
             cause: Some(Box::new(err)),
         }
     }
