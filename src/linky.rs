@@ -509,11 +509,11 @@ pub fn parse_link(record: &Record, root: &str) -> Result<(Link, Option<String>),
 
 pub fn resolve_link(
     client: &Client,
-    targets: &mut HashMap<Link, Result<Document, (Tag, Rc<GenericError>)>>,
+    targets: &mut HashMap<Link, Result<Document, (Tag, Rc<LookupError>)>>,
     link: &Link,
     fragment: &Option<String>,
     prefixes: &[&str],
-) -> (Tag, Option<Rc<GenericError>>) {
+) -> (Tag, Option<Rc<LookupError>>) {
     targets
         .entry(link.clone())
         .or_insert_with(|| {
@@ -523,8 +523,11 @@ pub fn resolve_link(
             }.map_err(|err| {
                 let tag = err.tag();
                 (
-                    tag,
-                    Rc::new(err.context(Cow::from(format!("Link: {}", link)))),
+                    tag.clone(),
+                    Rc::new(
+                        err.context(Cow::from(format!("Link: {}", link)))
+                            .into_tagged(tag),
+                    ),
                 )
             })
         })
@@ -536,7 +539,10 @@ pub fn resolve_link(
                 lookup_fragment(document, fragment, &resolver).map_err(|(tag, err)| {
                     (
                         tag.clone(),
-                        Some(Rc::new(err.context(Cow::from(format!("Link: {}", link))))),
+                        Some(Rc::new(
+                            err.context(Cow::from(format!("Link: {}", link)))
+                                .into_tagged(tag),
+                        )),
                     )
                 })
             } else {
