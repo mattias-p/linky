@@ -482,22 +482,20 @@ pub fn lookup_fragment(
     document: &Document,
     fragment: &str,
     resolver: &FragResolver,
-) -> Result<(), (Tag, LookupError)> {
+) -> Result<(), LookupError> {
     resolver
         .fragment(fragment, document)
         .ok_or_else(|| {
-            let err = GenericError::root(Cow::from(format!("Fragment: {}", fragment)))
-                .into_tagged(Tag::NoFragment);
-            (Tag::NoFragment, err)
+            GenericError::root(Cow::from(format!("Fragment: {}", fragment)))
+                .into_tagged(Tag::NoFragment)
         })
         .and_then(|prefix| {
             if prefix == "" {
                 Ok(())
             } else {
-                let err = GenericError::root(Cow::from(format!("Prefix: {}", prefix)))
+                Err(GenericError::root(Cow::from(format!("Prefix: {}", prefix)))
                     .context(Cow::from(format!("Fragment: {}", &fragment)))
-                    .into_tagged(Tag::Prefixed);
-                Err((Tag::Prefixed, err))
+                    .into_tagged(Tag::Prefixed))
             }
         })
 }
@@ -529,23 +527,22 @@ pub fn resolve_link(
             })
         })
         .as_ref()
-        .map_err(|err| ((*err).tag(), Some(err.clone())))
+        .map_err(|err| err.clone())
         .and_then(|document| {
             if let Some(ref fragment) = *fragment {
                 let resolver = FragResolver::from(prefixes);
-                lookup_fragment(document, fragment, &resolver).map_err(|(tag, err)| {
-                    (
-                        tag.clone(),
-                        Some(Rc::new(
-                            err.context(Cow::from(format!("Link: {}", link)))
-                                .into_tagged(tag),
-                        )),
+                lookup_fragment(document, fragment, &resolver).map_err(|err| {
+                    let tag = err.tag();
+                    Rc::new(
+                        err.context(Cow::from(format!("Link: {}", link)))
+                            .into_tagged(tag),
                     )
                 })
             } else {
                 Ok(())
             }
         })
+        .map_err(|err| ((*err).tag(), Some(err.clone())))
         .err()
         .unwrap_or_else(|| (Tag::Ok, None))
 }
