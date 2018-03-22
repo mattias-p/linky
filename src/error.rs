@@ -124,15 +124,49 @@ impl Error {
         self.cause.as_ref().map(|e| e.as_ref())
     }
 
-    pub fn print_warning(&self) {
-        warn!("warn: {}", self);
-        for msg in self.msgs.iter().rev() {
-            warn!("  caused by: {}", &msg);
+    pub fn decoding_error(msg: Cow<'static, str>) -> Self {
+        Error {
+            tag: Tag::DecodingError,
+            msgs: vec![],
+            cause: Some(Box::new(MsgError(msg))),
         }
-        let mut e = self.cause();
-        while let Some(err) = e {
-            warn!("  caused by: {}", &err);
-            e = err.cause();
+    }
+
+    pub fn iter<'a>(&'a self) -> ErrorIter<'a> {
+        ErrorIter {
+            count: 0,
+            err: self,
+            cause: self.cause(),
+        }
+    }
+}
+
+pub struct ErrorIter<'a> {
+    count: usize,
+    err: &'a Error,
+    cause: Option<&'a error::Error>,
+}
+
+use std::iter::Iterator;
+use std::mem;
+
+impl<'a> Iterator for ErrorIter<'a> {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.count == 0 {
+            self.count += 1;
+            Some(format!("{}", self.err))
+        } else if self.count <= self.err.msgs.len() {
+            let elem = &self.err.msgs.get(self.err.msgs.len() - self.count).unwrap();
+            self.count += 1;
+            Some(format!("  context: {}", elem))
+        } else if let Some(cause) = mem::replace(&mut self.cause, None) {
+            let s = format!("  caused by: {}", &cause);
+            mem::replace(&mut self.cause, cause.cause());
+            Some(s)
+        } else {
+            None
         }
     }
 }
@@ -230,7 +264,7 @@ impl From<url::ParseError> for Error {
 }
 
 #[derive(Debug)]
-pub struct MsgError(Cow<'static, str>);
+pub struct MsgError(pub Cow<'static, str>);
 
 impl fmt::Display for MsgError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

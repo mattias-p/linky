@@ -15,7 +15,7 @@ extern crate structopt;
 extern crate url;
 extern crate xhtmlchardet;
 
-mod errors;
+mod error;
 mod linky;
 
 use std::borrow::Cow;
@@ -26,7 +26,7 @@ use std::io::BufRead;
 use std::io;
 use std::str::FromStr;
 
-use errors::Tag;
+use error::Tag;
 use linky::Record;
 use linky::md_file_links;
 use linky::parse_link;
@@ -55,7 +55,7 @@ struct Opt {
 }
 
 fn main() {
-    pretty_env_logger::init().unwrap();
+    pretty_env_logger::init();
     let opt = Opt::from_args();
     let silence: HashSet<_> = opt.silence.iter().collect();
 
@@ -112,7 +112,9 @@ fn main() {
 
         if !tag.as_ref().map_or(false, |tag| silence.contains(&tag)) {
             if let Some(Err(ref err)) = res {
-                err.print_warning();
+                for line in err.iter() {
+                    warn!("{}", line);
+                }
             }
             println!(
                 "{}:{}: {} {}",

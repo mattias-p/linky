@@ -16,9 +16,9 @@ use std::str::FromStr;
 use bytecount::count;
 use encoding::DecoderTrap;
 use encoding::label::encoding_from_whatwg_label;
-use errors::Error;
-use errors::Result;
-use errors::Tag;
+use error::Error;
+use error::Result;
+use error::Tag;
 use htmlstream;
 use pulldown_cmark::Event;
 use pulldown_cmark::Parser;
@@ -337,18 +337,17 @@ fn read_chars(reader: &mut Read, charset_hint: Option<String>) -> Result<String>
 
     debug!("detected charsets: {:?}", &charsets);
 
-    let charset: Result<_> = charsets
+    let charset = charsets
         .iter()
         .flat_map(|v| encoding_from_whatwg_label(v.as_str()))
         .next()
-        .ok_or_else(|| {
-            Error::root(Tag::DecodingError)
-                .context(Cow::from("Failed to detect character encoding"))
-        });
+        .ok_or_else(|| Error::decoding_error(Cow::from("Failed to detect character encoding")))?;
 
-    charset?
+    charset
         .decode(cursor.into_inner().as_ref(), DecoderTrap::Strict)
-        .map_err(|err| Error::root(Tag::DecodingError).context(err))
+        .map_err(|err| {
+            Error::decoding_error(err).context(Cow::from(format!("encoding = {}", &charset.name())))
+        })
 }
 
 fn slurp<P: AsRef<Path>>(filename: &P, mut buffer: &mut String) -> io::Result<usize> {
@@ -474,15 +473,15 @@ pub fn lookup_fragment(document: &Document, fragment: &str, resolver: &FragResol
     resolver
         .fragment(fragment, document)
         .ok_or_else(|| {
-            Error::root(Tag::NoFragment).context(Cow::from(format!("Fragment: {}", fragment)))
+            Error::root(Tag::NoFragment).context(Cow::from(format!("fragment = #{}", fragment)))
         })
         .and_then(|prefix| {
             if prefix == "" {
                 Ok(())
             } else {
                 Err(Error::root(Tag::Prefixed)
-                    .context(Cow::from(format!("Prefix: {}", prefix)))
-                    .context(Cow::from(format!("Fragment: {}", &fragment))))
+                    .context(Cow::from(format!("prefix = {}", prefix)))
+                    .context(Cow::from(format!("fragment = #{}", &fragment))))
             }
         })
 }
@@ -508,7 +507,7 @@ pub fn resolve_link(
             match *link {
                 Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
                 Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
-            }.map_err(|err| Rc::new(err.context(Cow::from(format!("Link: {}", link)))))
+            }.map_err(|err| Rc::new(err.context(Cow::from(format!("link = {}", link)))))
         })
         .as_ref()
         .map_err(|err| err.clone())
@@ -516,7 +515,7 @@ pub fn resolve_link(
             if let Some(ref fragment) = *fragment {
                 let resolver = FragResolver::from(prefixes);
                 lookup_fragment(document, fragment, &resolver)
-                    .map_err(|err| Rc::new(err.context(Cow::from(format!("Link: {}", link)))))
+                    .map_err(|err| Rc::new(err.context(Cow::from(format!("link = {}", link)))))
             } else {
                 Ok(())
             }

@@ -214,24 +214,24 @@ set the `RUST_LOG` environment variable to `warn`.
 ```sh
 $ env RUST_LOG=warn linky --check example_site/path/to/example.md
 example_site/path/to/example.md:2: OK https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
-WARN :linky::linky: warn: Link: https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
-WARN :linky::linky:   caused by: Fragment: existing
-WARN :linky::linky:   caused by: Fragment not found
+ WARN  linky > Fragment not found
+ WARN  linky >   context: link = https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
+ WARN  linky >   context: fragment = #existing
 example_site/path/to/example.md:3: NO_FRAG https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
 example_site/path/to/example.md:4: OK other.md
-WARN :linky::linky: warn: Link: example_site/path/to/non-existing.md
-WARN :linky::linky:   caused by: Document not found
-WARN :linky::linky:   caused by: No such file or directory (os error 2)
+ WARN  linky > Document not found
+ WARN  linky >   context: link = example_site/path/to/non-existing.md
+ WARN  linky >   caused by: No such file or directory (os error 2)
 example_site/path/to/example.md:5: NO_DOC non-existing.md
 example_site/path/to/example.md:6: OK other.md#existing
-WARN :linky::linky: warn: Link: example_site/path/to/other.md
-WARN :linky::linky:   caused by: Fragment: non-existing
-WARN :linky::linky:   caused by: Fragment not found
+ WARN  linky > Fragment not found
+ WARN  linky >   context: link = example_site/path/to/other.md
+ WARN  linky >   context: fragment = #non-existing
 example_site/path/to/example.md:7: NO_FRAG other.md#non-existing
 example_site/path/to/example.md:8: OK #heading
-WARN :linky::linky: warn: Link: example_site/path/to/example.md
-WARN :linky::linky:   caused by: Fragment: non-existing
-WARN :linky::linky:   caused by: Fragment not found
+ WARN  linky > Fragment not found
+ WARN  linky >   context: link = example_site/path/to/example.md
+ WARN  linky >   context: fragment = #non-existing
 example_site/path/to/example.md:9: NO_FRAG #non-existing
 ```
 
