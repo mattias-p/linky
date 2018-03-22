@@ -197,13 +197,20 @@ impl From<url::ParseError> for LookupError {
 
 #[derive(Debug)]
 pub struct GenericError {
-    pub msg: Cow<'static, str>,
+    msg: Cow<'static, str>,
     cause: Option<Box<error::Error>>,
 }
 
 impl GenericError {
     pub fn root(msg: Cow<'static, str>) -> Self {
         GenericError { msg, cause: None }
+    }
+
+    pub fn into_tagged(self, tag: Tag) -> LookupError {
+        LookupError {
+            tag,
+            cause: Some(Box::new(self)),
+        }
     }
 }
 

@@ -349,19 +349,14 @@ fn read_chars(
         .iter()
         .flat_map(|v| encoding_from_whatwg_label(v.as_str()))
         .next()
-        .ok_or_else(|| LookupError {
-            tag: Tag::DecodingError,
-            cause: Some(Box::new(GenericError::root(Cow::from(
-                "Failed to detect character encoding",
-            )))),
+        .ok_or_else(|| {
+            GenericError::root(Cow::from("Failed to detect character encoding"))
+                .into_tagged(Tag::DecodingError)
         });
 
     charset?
         .decode(cursor.into_inner().as_ref(), DecoderTrap::Strict)
-        .map_err(|err| LookupError {
-            tag: Tag::DecodingError,
-            cause: Some(Box::new(GenericError::root(err))),
-        })
+        .map_err(|err| GenericError::root(err).into_tagged(Tag::DecodingError))
 }
 
 fn slurp<P: AsRef<Path>>(filename: &P, mut buffer: &mut String) -> io::Result<usize> {
@@ -487,26 +482,22 @@ pub fn lookup_fragment(
     document: &Document,
     fragment: &str,
     resolver: &FragResolver,
-) -> Result<(), (Tag, GenericError)> {
+) -> Result<(), (Tag, LookupError)> {
     resolver
         .fragment(fragment, document)
         .ok_or_else(|| {
-            let err: LookupError = Tag::NoFragment.into();
-            (
-                Tag::NoFragment,
-                err.context(Cow::from(format!("Fragment: {}", fragment))),
-            )
+            let err = GenericError::root(Cow::from(format!("Fragment: {}", fragment)))
+                .into_tagged(Tag::NoFragment);
+            (Tag::NoFragment, err)
         })
         .and_then(|prefix| {
             if prefix == "" {
                 Ok(())
             } else {
-                let err: LookupError = Tag::Prefixed.into();
-                Err((
-                    Tag::Prefixed,
-                    err.context(Cow::from(format!("Prefix: {}", prefix)))
-                        .context(Cow::from(format!("Fragment: {}", &fragment))),
-                ))
+                let err = GenericError::root(Cow::from(format!("Prefix: {}", prefix)))
+                    .context(Cow::from(format!("Fragment: {}", &fragment)))
+                    .into_tagged(Tag::Prefixed);
+                Err((Tag::Prefixed, err))
             }
         })
 }
