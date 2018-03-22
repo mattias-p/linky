@@ -32,19 +32,13 @@ pub enum Tag {
 impl Tag {
     fn from_http_status_str(s: &str) -> result::Result<Tag, MsgError> {
         if !s.starts_with("HTTP_") {
-            return Err(MsgError {
-                msg: Cow::from("Invalid tag"),
-                cause: None,
-            });
+            return Err(MsgError(Cow::from("Invalid tag")));
         }
         u16::from_str(&s[5..])
             .ok()
             .and_then(|s| StatusCode::try_from(s).ok())
             .map(Tag::HttpStatus)
-            .ok_or_else(|| MsgError {
-                msg: Cow::from("Invalid tag"),
-                cause: None,
-            })
+            .ok_or_else(|| MsgError(Cow::from("Invalid tag")))
     }
 }
 
@@ -73,6 +67,7 @@ impl Into<Error> for Tag {
     fn into(self) -> Error {
         Error {
             tag: self,
+            msgs: vec![],
             cause: None,
         }
     }
@@ -101,8 +96,9 @@ impl FromStr for Tag {
 
 #[derive(Debug)]
 pub struct Error {
-    pub tag: Tag,
-    pub cause: Option<Box<error::Error>>,
+    tag: Tag,
+    msgs: Vec<Cow<'static, str>>,
+    cause: Option<Box<error::Error>>,
 }
 
 impl Error {
@@ -111,15 +107,16 @@ impl Error {
     }
 
     pub fn root(tag: Tag) -> Self {
-        Error { tag, cause: None }
-    }
-
-    pub fn context(self, msg: Cow<'static, str>) -> Self {
-        let Error { tag, cause } = self;
         Error {
             tag,
-            cause: Some(Box::new(MsgError { msg, cause })),
+            msgs: vec![],
+            cause: None,
         }
+    }
+
+    pub fn context(mut self, msg: Cow<'static, str>) -> Self {
+        self.msgs.push(msg);
+        self
     }
 
     #[allow(dead_code)]
@@ -129,6 +126,9 @@ impl Error {
 
     pub fn print_warning(&self) {
         warn!("warn: {}", self);
+        for msg in self.msgs.iter().rev() {
+            warn!("  caused by: {}", &msg);
+        }
         let mut e = self.cause();
         while let Some(err) = e {
             warn!("  caused by: {}", &err);
@@ -196,11 +196,13 @@ impl From<io::Error> for Error {
         if err.kind() == io::ErrorKind::NotFound {
             Error {
                 tag: Tag::NoDocument,
+                msgs: vec![],
                 cause: Some(Box::new(err)),
             }
         } else {
             Error {
                 tag: Tag::IoError,
+                msgs: vec![],
                 cause: Some(Box::new(err)),
             }
         }
@@ -211,6 +213,7 @@ impl From<reqwest::Error> for Error {
     fn from(err: reqwest::Error) -> Self {
         Error {
             tag: Tag::HttpError,
+            msgs: vec![],
             cause: Some(Box::new(err)),
         }
     }
@@ -220,29 +223,27 @@ impl From<url::ParseError> for Error {
     fn from(err: url::ParseError) -> Self {
         Error {
             tag: Tag::InvalidUrl,
+            msgs: vec![],
             cause: Some(Box::new(err)),
         }
     }
 }
 
 #[derive(Debug)]
-pub struct MsgError {
-    msg: Cow<'static, str>,
-    cause: Option<Box<error::Error>>,
-}
+pub struct MsgError(Cow<'static, str>);
 
 impl fmt::Display for MsgError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.msg)
+        write!(f, "{}", self.0)
     }
 }
 
 impl error::Error for MsgError {
     fn description(&self) -> &str {
-        &*self.msg
+        &*self.0
     }
 
     fn cause(&self) -> Option<&error::Error> {
-        self.cause.as_ref().map(|boxed| &**boxed)
+        None
     }
 }
