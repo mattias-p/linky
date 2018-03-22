@@ -27,11 +27,11 @@ use std::io;
 use std::str::FromStr;
 
 use errors::Tag;
+use linky::Record;
 use linky::md_file_links;
 use linky::parse_link;
-use linky::Record;
-use linky::resolve_link;
 use linky::print_warning;
+use linky::resolve_link;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
 use shell_escape::escape;

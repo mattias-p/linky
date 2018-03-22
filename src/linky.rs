@@ -15,15 +15,15 @@ use std::result;
 use std::str::FromStr;
 
 use bytecount::count;
-use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
-use errors::Tag;
+use encoding::label::encoding_from_whatwg_label;
 use errors::Error;
 use errors::Result;
+use errors::Tag;
 use htmlstream;
-use pulldown_cmark;
 use pulldown_cmark::Event;
 use pulldown_cmark::Parser;
+use pulldown_cmark;
 use regex::Regex;
 use reqwest::Client;
 use reqwest::header::ContentType;
