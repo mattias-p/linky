@@ -509,7 +509,7 @@ pub fn parse_link(record: &Record, root: &str) -> Result<(Link, Option<String>),
 
 pub fn resolve_link(
     client: &Client,
-    targets: &mut HashMap<Link, Result<Document, (Tag, Rc<LookupError>)>>,
+    targets: &mut HashMap<Link, Result<Document, Rc<LookupError>>>,
     link: &Link,
     fragment: &Option<String>,
     prefixes: &[&str],
@@ -522,17 +522,14 @@ pub fn resolve_link(
                 Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
             }.map_err(|err| {
                 let tag = err.tag();
-                (
-                    tag.clone(),
-                    Rc::new(
-                        err.context(Cow::from(format!("Link: {}", link)))
-                            .into_tagged(tag),
-                    ),
+                Rc::new(
+                    err.context(Cow::from(format!("Link: {}", link)))
+                        .into_tagged(tag),
                 )
             })
         })
         .as_ref()
-        .map_err(|&(ref tag, ref err)| (tag.clone(), Some(err.clone())))
+        .map_err(|err| ((*err).tag(), Some(err.clone())))
         .and_then(|document| {
             if let Some(ref fragment) = *fragment {
                 let resolver = FragResolver::from(prefixes);
