@@ -29,13 +29,13 @@ pub enum Tag {
 impl Tag {
     fn from_http_status_str(s: &str) -> Result<Tag, GenericError> {
         if !s.starts_with("HTTP_") {
-            return Err(GenericError::new(Cow::from("Invalid tag"), None));
+            return Err(GenericError::root(Cow::from("Invalid tag")));
         }
         u16::from_str(&s[5..])
             .ok()
             .and_then(|s| StatusCode::try_from(s).ok())
             .map(Tag::HttpStatus)
-            .ok_or_else(|| GenericError::new(Cow::from("Invalid tag"), None))
+            .ok_or_else(|| GenericError::root(Cow::from("Invalid tag")))
     }
 }
 
@@ -202,8 +202,8 @@ pub struct GenericError {
 }
 
 impl GenericError {
-    pub fn new(msg: Cow<'static, str>, cause: Option<Box<error::Error>>) -> Self {
-        GenericError { msg, cause }
+    pub fn root(msg: Cow<'static, str>) -> Self {
+        GenericError { msg, cause: None }
     }
 }
 
@@ -220,5 +220,18 @@ impl error::Error for GenericError {
 
     fn cause(&self) -> Option<&error::Error> {
         self.cause.as_ref().map(|boxed| &**boxed)
+    }
+}
+
+pub trait ErrorContextExt {
+    fn context(self, msg: Cow<'static, str>) -> GenericError;
+}
+
+impl<E: error::Error + 'static> ErrorContextExt for E {
+    fn context(self, msg: Cow<'static, str>) -> GenericError {
+        GenericError {
+            msg,
+            cause: Some(Box::new(self)),
+        }
     }
 }

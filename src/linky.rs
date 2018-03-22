@@ -20,6 +20,7 @@ use encoding::DecoderTrap;
 use errors::Tag;
 use errors::GenericError;
 use errors::LookupError;
+use errors::ErrorContextExt;
 use htmlstream;
 use pulldown_cmark;
 use pulldown_cmark::Event;
@@ -350,17 +351,16 @@ fn read_chars(
         .next()
         .ok_or_else(|| LookupError {
             tag: Tag::DecodingError,
-            cause: Some(Box::new(GenericError::new(
-                Cow::from("Failed to detect character encoding"),
-                None,
-            ))),
+            cause: Some(Box::new(GenericError::root(Cow::from(
+                "Failed to detect character encoding",
+            )))),
         });
 
     charset?
         .decode(cursor.into_inner().as_ref(), DecoderTrap::Strict)
         .map_err(|err| LookupError {
             tag: Tag::DecodingError,
-            cause: Some(Box::new(GenericError::new(err, None))),
+            cause: Some(Box::new(GenericError::root(err))),
         })
 }
 
@@ -494,10 +494,7 @@ pub fn lookup_fragment(
             let err: LookupError = Tag::NoFragment.into();
             (
                 Tag::NoFragment,
-                GenericError::new(
-                    Cow::from(format!("Fragment: {}", fragment)),
-                    Some(Box::new(err)),
-                ),
+                err.context(Cow::from(format!("Fragment: {}", fragment))),
             )
         })
         .and_then(|prefix| {
@@ -507,13 +504,8 @@ pub fn lookup_fragment(
                 let err: LookupError = Tag::Prefixed.into();
                 Err((
                     Tag::Prefixed,
-                    GenericError::new(
-                        Cow::from(format!("Fragment: {}", &fragment)),
-                        Some(Box::new(GenericError::new(
-                            Cow::from(format!("Prefix: {}", prefix)),
-                            Some(Box::new(err)),
-                        ))),
-                    ),
+                    err.context(Cow::from(format!("Prefix: {}", prefix)))
+                        .context(Cow::from(format!("Fragment: {}", &fragment))),
                 ))
             }
         })
@@ -541,10 +533,7 @@ pub fn resolve_link(
                 let tag = err.tag();
                 (
                     tag,
-                    Rc::new(GenericError::new(
-                        Cow::from(format!("Link: {}", link)),
-                        Some(Box::new(err)),
-                    )),
+                    Rc::new(err.context(Cow::from(format!("Link: {}", link)))),
                 )
             })
         })
@@ -556,10 +545,7 @@ pub fn resolve_link(
                 lookup_fragment(document, fragment, &resolver).map_err(|(tag, err)| {
                     (
                         tag.clone(),
-                        Some(Rc::new(GenericError::new(
-                            Cow::from(format!("Link: {}", link)),
-                            Some(Box::new(err)),
-                        ))),
+                        Some(Rc::new(err.context(Cow::from(format!("Link: {}", link))))),
                     )
                 })
             } else {
