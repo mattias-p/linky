@@ -234,7 +234,16 @@ pub trait ErrorContextExt {
     fn context(self, msg: Cow<'static, str>) -> GenericError;
 }
 
-impl<E: error::Error + 'static> ErrorContextExt for E {
+impl ErrorContextExt for LookupError {
+    fn context(self, msg: Cow<'static, str>) -> GenericError {
+        GenericError {
+            msg,
+            cause: self.cause,
+        }
+    }
+}
+
+impl ErrorContextExt for GenericError {
     fn context(self, msg: Cow<'static, str>) -> GenericError {
         GenericError {
             msg,
