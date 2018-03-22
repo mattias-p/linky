@@ -20,7 +20,6 @@ use encoding::DecoderTrap;
 use errors::Tag;
 use errors::GenericError;
 use errors::LookupError;
-use errors::ErrorContextExt;
 use htmlstream;
 use pulldown_cmark;
 use pulldown_cmark::Event;
@@ -518,26 +517,15 @@ pub fn resolve_link(
             match *link {
                 Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
                 Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
-            }.map_err(|err| {
-                let tag = err.tag();
-                Rc::new(
-                    err.context(Cow::from(format!("Link: {}", link)))
-                        .into_tagged(tag),
-                )
-            })
+            }.map_err(|err| Rc::new(err.context(Cow::from(format!("Link: {}", link)))))
         })
         .as_ref()
         .map_err(|err| err.clone())
         .and_then(|document| {
             if let Some(ref fragment) = *fragment {
                 let resolver = FragResolver::from(prefixes);
-                lookup_fragment(document, fragment, &resolver).map_err(|err| {
-                    let tag = err.tag();
-                    Rc::new(
-                        err.context(Cow::from(format!("Link: {}", link)))
-                            .into_tagged(tag),
-                    )
-                })
+                lookup_fragment(document, fragment, &resolver)
+                    .map_err(|err| Rc::new(err.context(Cow::from(format!("Link: {}", link)))))
             } else {
                 Ok(())
             }

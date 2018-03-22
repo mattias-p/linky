@@ -101,6 +101,14 @@ impl LookupError {
         self.tag.clone()
     }
 
+    pub fn context(self, msg: Cow<'static, str>) -> Self {
+        let LookupError { tag, cause } = self;
+        LookupError {
+            tag,
+            cause: Some(Box::new(GenericError { msg, cause })),
+        }
+    }
+
     #[allow(dead_code)]
     pub fn cause(&self) -> Option<&error::Error> {
         self.cause.as_ref().map(|e| e.as_ref())
@@ -212,6 +220,12 @@ impl GenericError {
             cause: Some(Box::new(self)),
         }
     }
+    pub fn context(self, msg: Cow<'static, str>) -> GenericError {
+        GenericError {
+            msg,
+            cause: Some(Box::new(self)),
+        }
+    }
 }
 
 impl fmt::Display for GenericError {
@@ -227,27 +241,5 @@ impl error::Error for GenericError {
 
     fn cause(&self) -> Option<&error::Error> {
         self.cause.as_ref().map(|boxed| &**boxed)
-    }
-}
-
-pub trait ErrorContextExt {
-    fn context(self, msg: Cow<'static, str>) -> GenericError;
-}
-
-impl ErrorContextExt for LookupError {
-    fn context(self, msg: Cow<'static, str>) -> GenericError {
-        GenericError {
-            msg,
-            cause: self.cause,
-        }
-    }
-}
-
-impl ErrorContextExt for GenericError {
-    fn context(self, msg: Cow<'static, str>) -> GenericError {
-        GenericError {
-            msg,
-            cause: Some(Box::new(self)),
-        }
     }
 }
