@@ -18,7 +18,8 @@ use bytecount::count;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
 use errors::Tag;
-use errors::LookupError;
+use errors::Error;
+use errors::Result;
 use htmlstream;
 use pulldown_cmark;
 use pulldown_cmark::Event;
@@ -65,10 +66,7 @@ impl<'a> Document<'a> {
         }
     }
 
-    fn parse<R: Read>(
-        mut reader: R,
-        content_type: &ContentType,
-    ) -> result::Result<Document<'a>, LookupError> {
+    fn parse<R: Read>(mut reader: R, content_type: &ContentType) -> Result<Document<'a>> {
         let format = match (content_type.type_(), content_type.subtype().as_str()) {
             (mime::TEXT, "html") => Format::Html,
             (mime::TEXT, "markdown") => Format::Markdown,
@@ -143,17 +141,17 @@ impl<'a> FragResolver<'a> {
 }
 
 trait LocalResolver {
-    fn local(&self, path: &Path) -> Result<Document, LookupError>;
+    fn local(&self, path: &Path) -> Result<Document>;
 }
 
 trait RemoteResolver {
-    fn remote<'b>(&self, url: &Url) -> Result<Document<'b>, LookupError>;
+    fn remote<'b>(&self, url: &Url) -> Result<Document<'b>>;
 }
 
 struct FilesystemLocalResolver;
 
 impl LocalResolver for FilesystemLocalResolver {
-    fn local(&self, path: &Path) -> Result<Document, LookupError> {
+    fn local(&self, path: &Path) -> Result<Document> {
         if path.is_absolute() {
             Err(Tag::Absolute.into())
         } else if path.is_dir() {
@@ -168,7 +166,7 @@ impl LocalResolver for FilesystemLocalResolver {
 struct NetworkRemoteResolver<'a>(&'a Client);
 
 impl<'a> RemoteResolver for NetworkRemoteResolver<'a> {
-    fn remote<'b>(&self, url: &Url) -> result::Result<Document<'b>, LookupError> {
+    fn remote<'b>(&self, url: &Url) -> Result<Document<'b>> {
         if url.scheme() != "http" && url.scheme() != "https" {
             return Err(Tag::Protocol.into());
         }
@@ -178,7 +176,7 @@ impl<'a> RemoteResolver for NetworkRemoteResolver<'a> {
         if !response.status().is_success() {
             return Err(Tag::HttpStatus(response.status()).into());
         }
-        let content_type: Result<ContentType, LookupError> = response
+        let content_type: Result<ContentType> = response
             .headers()
             .get::<ContentType>()
             .cloned()
@@ -331,10 +329,7 @@ impl fmt::Display for Link {
     }
 }
 
-fn read_chars(
-    reader: &mut Read,
-    charset_hint: Option<String>,
-) -> result::Result<String, LookupError> {
+fn read_chars(reader: &mut Read, charset_hint: Option<String>) -> Result<String> {
     let mut buffer = Vec::new();
     reader.read_to_end(&mut buffer)?;
     let mut cursor = Cursor::new(buffer);
@@ -343,18 +338,18 @@ fn read_chars(
 
     debug!("detected charsets: {:?}", &charsets);
 
-    let charset: result::Result<_, LookupError> = charsets
+    let charset: Result<_> = charsets
         .iter()
         .flat_map(|v| encoding_from_whatwg_label(v.as_str()))
         .next()
         .ok_or_else(|| {
-            LookupError::root(Tag::DecodingError)
+            Error::root(Tag::DecodingError)
                 .context(Cow::from("Failed to detect character encoding"))
         });
 
     charset?
         .decode(cursor.into_inner().as_ref(), DecoderTrap::Strict)
-        .map_err(|err| LookupError::root(Tag::DecodingError).context(err))
+        .map_err(|err| Error::root(Tag::DecodingError).context(err))
 }
 
 fn slurp<P: AsRef<Path>>(filename: &P, mut buffer: &mut String) -> io::Result<usize> {
@@ -453,7 +448,7 @@ lazy_static! {
 
 impl FromStr for Record {
     type Err = ();
-    fn from_str(line: &str) -> Result<Self, Self::Err> {
+    fn from_str(line: &str) -> result::Result<Self, Self::Err> {
         let cap = RECORD_REGEX.captures(line).ok_or(())?;
         Ok(Record {
             path: cap.get(1).unwrap().as_str().to_string(),
@@ -476,39 +471,38 @@ pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<Record>) -> io::Result<(
     Ok(())
 }
 
-pub fn lookup_fragment(
-    document: &Document,
-    fragment: &str,
-    resolver: &FragResolver,
-) -> Result<(), LookupError> {
+pub fn lookup_fragment(document: &Document, fragment: &str, resolver: &FragResolver) -> Result<()> {
     resolver
         .fragment(fragment, document)
         .ok_or_else(|| {
-            LookupError::root(Tag::NoFragment).context(Cow::from(format!("Fragment: {}", fragment)))
+            Error::root(Tag::NoFragment).context(Cow::from(format!("Fragment: {}", fragment)))
         })
         .and_then(|prefix| {
             if prefix == "" {
                 Ok(())
             } else {
-                Err(LookupError::root(Tag::Prefixed)
+                Err(Error::root(Tag::Prefixed)
                     .context(Cow::from(format!("Prefix: {}", prefix)))
                     .context(Cow::from(format!("Fragment: {}", &fragment))))
             }
         })
 }
 
-pub fn parse_link(record: &Record, root: &str) -> Result<(Link, Option<String>), url::ParseError> {
+pub fn parse_link(
+    record: &Record,
+    root: &str,
+) -> result::Result<(Link, Option<String>), url::ParseError> {
     Link::parse_with_root(record.link.as_str(), &Path::new(&record.path), &root)
         .map(|parsed| parsed.split_fragment())
 }
 
 pub fn resolve_link(
     client: &Client,
-    targets: &mut HashMap<Link, Result<Document, Rc<LookupError>>>,
+    targets: &mut HashMap<Link, result::Result<Document, Rc<Error>>>,
     link: &Link,
     fragment: &Option<String>,
     prefixes: &[&str],
-) -> (Tag, Option<Rc<LookupError>>) {
+) -> (Tag, Option<Rc<Error>>) {
     targets
         .entry(link.clone())
         .or_insert_with(|| {

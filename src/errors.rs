@@ -2,11 +2,14 @@ use std::borrow::Cow;
 use std::error;
 use std::fmt;
 use std::io;
+use std::result;
 use std::str::FromStr;
 
 use reqwest;
 use reqwest::StatusCode;
 use url;
+
+pub type Result<T> = result::Result<T, Error>;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Tag {
@@ -27,9 +30,9 @@ pub enum Tag {
 }
 
 impl Tag {
-    fn from_http_status_str(s: &str) -> Result<Tag, GenericError> {
+    fn from_http_status_str(s: &str) -> result::Result<Tag, MsgError> {
         if !s.starts_with("HTTP_") {
-            return Err(GenericError {
+            return Err(MsgError {
                 msg: Cow::from("Invalid tag"),
                 cause: None,
             });
@@ -38,7 +41,7 @@ impl Tag {
             .ok()
             .and_then(|s| StatusCode::try_from(s).ok())
             .map(Tag::HttpStatus)
-            .ok_or_else(|| GenericError {
+            .ok_or_else(|| MsgError {
                 msg: Cow::from("Invalid tag"),
                 cause: None,
             })
@@ -66,9 +69,9 @@ impl fmt::Display for Tag {
     }
 }
 
-impl Into<LookupError> for Tag {
-    fn into(self) -> LookupError {
-        LookupError {
+impl Into<Error> for Tag {
+    fn into(self) -> Error {
+        Error {
             tag: self,
             cause: None,
         }
@@ -76,8 +79,8 @@ impl Into<LookupError> for Tag {
 }
 
 impl FromStr for Tag {
-    type Err = GenericError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    type Err = MsgError;
+    fn from_str(s: &str) -> result::Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
             "OK" => Ok(Tag::Ok),
             "HTTP_OTH" => Ok(Tag::HttpError),
@@ -97,25 +100,25 @@ impl FromStr for Tag {
 }
 
 #[derive(Debug)]
-pub struct LookupError {
+pub struct Error {
     pub tag: Tag,
     pub cause: Option<Box<error::Error>>,
 }
 
-impl LookupError {
+impl Error {
     pub fn tag(&self) -> Tag {
         self.tag.clone()
     }
 
     pub fn root(tag: Tag) -> Self {
-        LookupError { tag, cause: None }
+        Error { tag, cause: None }
     }
 
     pub fn context(self, msg: Cow<'static, str>) -> Self {
-        let LookupError { tag, cause } = self;
-        LookupError {
+        let Error { tag, cause } = self;
+        Error {
             tag,
-            cause: Some(Box::new(GenericError { msg, cause })),
+            cause: Some(Box::new(MsgError { msg, cause })),
         }
     }
 
@@ -125,7 +128,7 @@ impl LookupError {
     }
 }
 
-impl fmt::Display for LookupError {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.tag {
             Tag::Ok => write!(f, "Ok"),
@@ -154,7 +157,7 @@ impl fmt::Display for LookupError {
     }
 }
 
-impl error::Error for LookupError {
+impl error::Error for Error {
     fn description(&self) -> &str {
         match self.tag {
             Tag::Ok => "ok",
@@ -179,15 +182,15 @@ impl error::Error for LookupError {
     }
 }
 
-impl From<io::Error> for LookupError {
+impl From<io::Error> for Error {
     fn from(err: io::Error) -> Self {
         if err.kind() == io::ErrorKind::NotFound {
-            LookupError {
+            Error {
                 tag: Tag::NoDocument,
                 cause: Some(Box::new(err)),
             }
         } else {
-            LookupError {
+            Error {
                 tag: Tag::IoError,
                 cause: Some(Box::new(err)),
             }
@@ -195,18 +198,18 @@ impl From<io::Error> for LookupError {
     }
 }
 
-impl From<reqwest::Error> for LookupError {
+impl From<reqwest::Error> for Error {
     fn from(err: reqwest::Error) -> Self {
-        LookupError {
+        Error {
             tag: Tag::HttpError,
             cause: Some(Box::new(err)),
         }
     }
 }
 
-impl From<url::ParseError> for LookupError {
+impl From<url::ParseError> for Error {
     fn from(err: url::ParseError) -> Self {
-        LookupError {
+        Error {
             tag: Tag::InvalidUrl,
             cause: Some(Box::new(err)),
         }
@@ -214,18 +217,18 @@ impl From<url::ParseError> for LookupError {
 }
 
 #[derive(Debug)]
-pub struct GenericError {
+pub struct MsgError {
     msg: Cow<'static, str>,
     cause: Option<Box<error::Error>>,
 }
 
-impl fmt::Display for GenericError {
+impl fmt::Display for MsgError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.msg)
     }
 }
 
-impl error::Error for GenericError {
+impl error::Error for MsgError {
     fn description(&self) -> &str {
         &*self.msg
     }
