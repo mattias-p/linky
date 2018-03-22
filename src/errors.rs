@@ -29,13 +29,19 @@ pub enum Tag {
 impl Tag {
     fn from_http_status_str(s: &str) -> Result<Tag, GenericError> {
         if !s.starts_with("HTTP_") {
-            return Err(GenericError::root(Cow::from("Invalid tag")));
+            return Err(GenericError {
+                msg: Cow::from("Invalid tag"),
+                cause: None,
+            });
         }
         u16::from_str(&s[5..])
             .ok()
             .and_then(|s| StatusCode::try_from(s).ok())
             .map(Tag::HttpStatus)
-            .ok_or_else(|| GenericError::root(Cow::from("Invalid tag")))
+            .ok_or_else(|| GenericError {
+                msg: Cow::from("Invalid tag"),
+                cause: None,
+            })
     }
 }
 
@@ -99,6 +105,10 @@ pub struct LookupError {
 impl LookupError {
     pub fn tag(&self) -> Tag {
         self.tag.clone()
+    }
+
+    pub fn root(tag: Tag) -> Self {
+        LookupError { tag, cause: None }
     }
 
     pub fn context(self, msg: Cow<'static, str>) -> Self {
@@ -207,25 +217,6 @@ impl From<url::ParseError> for LookupError {
 pub struct GenericError {
     msg: Cow<'static, str>,
     cause: Option<Box<error::Error>>,
-}
-
-impl GenericError {
-    pub fn root(msg: Cow<'static, str>) -> Self {
-        GenericError { msg, cause: None }
-    }
-
-    pub fn into_tagged(self, tag: Tag) -> LookupError {
-        LookupError {
-            tag,
-            cause: Some(Box::new(self)),
-        }
-    }
-    pub fn context(self, msg: Cow<'static, str>) -> GenericError {
-        GenericError {
-            msg,
-            cause: Some(Box::new(self)),
-        }
-    }
 }
 
 impl fmt::Display for GenericError {

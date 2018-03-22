@@ -18,7 +18,6 @@ use bytecount::count;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
 use errors::Tag;
-use errors::GenericError;
 use errors::LookupError;
 use htmlstream;
 use pulldown_cmark;
@@ -349,13 +348,13 @@ fn read_chars(
         .flat_map(|v| encoding_from_whatwg_label(v.as_str()))
         .next()
         .ok_or_else(|| {
-            GenericError::root(Cow::from("Failed to detect character encoding"))
-                .into_tagged(Tag::DecodingError)
+            LookupError::root(Tag::DecodingError)
+                .context(Cow::from("Failed to detect character encoding"))
         });
 
     charset?
         .decode(cursor.into_inner().as_ref(), DecoderTrap::Strict)
-        .map_err(|err| GenericError::root(err).into_tagged(Tag::DecodingError))
+        .map_err(|err| LookupError::root(Tag::DecodingError).context(err))
 }
 
 fn slurp<P: AsRef<Path>>(filename: &P, mut buffer: &mut String) -> io::Result<usize> {
@@ -485,16 +484,15 @@ pub fn lookup_fragment(
     resolver
         .fragment(fragment, document)
         .ok_or_else(|| {
-            GenericError::root(Cow::from(format!("Fragment: {}", fragment)))
-                .into_tagged(Tag::NoFragment)
+            LookupError::root(Tag::NoFragment).context(Cow::from(format!("Fragment: {}", fragment)))
         })
         .and_then(|prefix| {
             if prefix == "" {
                 Ok(())
             } else {
-                Err(GenericError::root(Cow::from(format!("Prefix: {}", prefix)))
-                    .context(Cow::from(format!("Fragment: {}", &fragment)))
-                    .into_tagged(Tag::Prefixed))
+                Err(LookupError::root(Tag::Prefixed)
+                    .context(Cow::from(format!("Prefix: {}", prefix)))
+                    .context(Cow::from(format!("Fragment: {}", &fragment))))
             }
         })
 }
