@@ -2,7 +2,6 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::hash_map::Entry;
-use std::error;
 use std::fmt;
 use std::fs::File;
 use std::io::Cursor;
@@ -525,15 +524,6 @@ pub fn resolve_link(
         .map_err(|err| ((*err).tag(), Some(err.clone())))
         .err()
         .unwrap_or_else(|| (Tag::Ok, None))
-}
-
-pub fn print_warning(err: &error::Error) {
-    warn!("warn: {}", &err);
-    let mut e = err.cause();
-    while let Some(err) = e {
-        warn!("  caused by: {}", &err);
-        e = err.cause();
-    }
 }
 
 #[cfg(test)]

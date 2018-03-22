@@ -126,6 +126,15 @@ impl Error {
     pub fn cause(&self) -> Option<&error::Error> {
         self.cause.as_ref().map(|e| e.as_ref())
     }
+
+    pub fn print_warning(&self) {
+        warn!("warn: {}", self);
+        let mut e = self.cause();
+        while let Some(err) = e {
+            warn!("  caused by: {}", &err);
+            e = err.cause();
+        }
+    }
 }
 
 impl fmt::Display for Error {

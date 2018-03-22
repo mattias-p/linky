@@ -30,7 +30,6 @@ use errors::Tag;
 use linky::Record;
 use linky::md_file_links;
 use linky::parse_link;
-use linky::print_warning;
 use linky::resolve_link;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
@@ -113,7 +112,7 @@ fn main() {
             .map_or(false, |&(ref tag, _)| silence.contains(&tag))
         {
             if let Some((_, Some(ref err))) = tag_and_err {
-                print_warning(err.as_ref());
+                err.print_warning();
             }
             println!(
                 "{}:{}: {} {}",
