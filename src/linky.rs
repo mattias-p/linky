@@ -501,7 +501,7 @@ pub fn resolve_link(
     link: &Link,
     fragment: &Option<String>,
     prefixes: &[&str],
-) -> (Tag, Option<Rc<Error>>) {
+) -> result::Result<(), Rc<Error>> {
     targets
         .entry(link.clone())
         .or_insert_with(|| {
@@ -521,9 +521,6 @@ pub fn resolve_link(
                 Ok(())
             }
         })
-        .map_err(|err| ((*err).tag(), Some(err.clone())))
-        .err()
-        .unwrap_or_else(|| (Tag::Ok, None))
 }
 
 #[cfg(test)]

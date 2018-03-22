@@ -106,21 +106,20 @@ fn main() {
         Some((record, resolution))
     });
 
-    for (record, tag_and_err) in resolved {
-        if !tag_and_err
-            .as_ref()
-            .map_or(false, |&(ref tag, _)| silence.contains(&tag))
-        {
-            if let Some((_, Some(ref err))) = tag_and_err {
+    for (record, res) in resolved {
+        let tag = res.as_ref()
+            .map(|ref res| res.as_ref().err().map(|err| err.tag()).unwrap_or(Tag::Ok));
+
+        if !tag.as_ref().map_or(false, |tag| silence.contains(&tag)) {
+            if let Some(Err(ref err)) = res {
                 err.print_warning();
             }
             println!(
                 "{}:{}: {} {}",
                 record.path,
                 record.linenum,
-                tag_and_err
-                    .as_ref()
-                    .map(|&(ref tag, _)| tag as &fmt::Display)
+                tag.as_ref()
+                    .map(|tag| tag as &fmt::Display)
                     .unwrap_or(&"" as &fmt::Display),
                 record.link
             );
