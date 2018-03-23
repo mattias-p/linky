@@ -9,7 +9,7 @@ use std::io::Read;
 use std::io;
 use std::ops::Add;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::result;
 use std::str::FromStr;
 
@@ -264,6 +264,8 @@ pub enum Link {
     Path(String),
 }
 
+unsafe impl Sync for Link {}
+
 impl Link {
     pub fn split_fragment(&self) -> (Link, Option<String>) {
         match *self {
@@ -434,11 +436,14 @@ impl<'a> Iterator for MdLinkParser<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct Record {
     pub path: String,
     pub linenum: usize,
     pub link: String,
 }
+
+unsafe impl Sync for Record {}
 
 lazy_static! {
     static ref RECORD_REGEX: Regex = Regex::new(r"^(.*):(\d+): [^ ]* ([^ ]*)$").unwrap();
@@ -494,11 +499,11 @@ pub fn parse_link(
         .map(|parsed| parsed.split_fragment())
 }
 
-pub fn fetch_link<'a>(client: &Client, link: &Link) -> result::Result<Document<'a>, Rc<Error>> {
+pub fn fetch_link<'a>(client: &Client, link: &Link) -> result::Result<Document<'a>, Arc<Error>> {
     match *link {
         Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
         Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
-    }.map_err(|err| Rc::new(err.context(Cow::from(format!("link = {}", link)))))
+    }.map_err(|err| Arc::new(err.context(Cow::from(format!("link = {}", link)))))
 }
 
 pub fn resolve_fragment(
@@ -506,11 +511,11 @@ pub fn resolve_fragment(
     link: &Link,
     fragment: &Option<String>,
     prefixes: &[&str],
-) -> result::Result<(), Rc<Error>> {
+) -> result::Result<(), Arc<Error>> {
     if let Some(ref fragment) = *fragment {
         let resolver = FragResolver::from(prefixes);
         lookup_fragment(document, fragment, &resolver)
-            .map_err(|err| Rc::new(err.context(Cow::from(format!("link = {}", link)))))
+            .map_err(|err| Arc::new(err.context(Cow::from(format!("link = {}", link)))))
     } else {
         Ok(())
     }

@@ -7,6 +7,7 @@ extern crate lazy_static;
 extern crate log;
 extern crate pretty_env_logger;
 extern crate pulldown_cmark;
+extern crate rayon;
 extern crate regex;
 extern crate reqwest;
 extern crate shell_escape;
@@ -33,6 +34,7 @@ use linky::fetch_link;
 use linky::md_file_links;
 use linky::parse_link;
 use linky::resolve_fragment;
+use rayon::prelude::*;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
 use shell_escape::escape;
@@ -115,9 +117,8 @@ fn main() {
 
     let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
 
-    let resolved = grouped_links.into_iter().flat_map(|(base, links)| {
+    let resolved = grouped_links.into_par_iter().flat_map(|(base, links)| {
         let document = client.as_ref().map(|client| fetch_link(client, &base));
-
         let resolved: Vec<_> = links
             .into_iter()
             .map(|(fragment, record)| match document {
@@ -132,7 +133,7 @@ fn main() {
         resolved
     });
 
-    for (record, res) in resolved {
+    resolved.for_each(|(record, res)| {
         let tag = res.as_ref()
             .map(|res| res.as_ref().err().map(|err| err.tag()).unwrap_or(Tag::Ok));
 
@@ -152,5 +153,5 @@ fn main() {
                 record.link
             );
         }
-    }
+    })
 }

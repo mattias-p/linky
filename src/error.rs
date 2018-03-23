@@ -98,7 +98,7 @@ impl FromStr for Tag {
 pub struct Error {
     tag: Tag,
     msgs: Vec<Cow<'static, str>>,
-    cause: Option<Box<error::Error>>,
+    cause: Option<Box<error::Error + Sync + Send + 'static>>,
 }
 
 impl Error {
@@ -120,7 +120,7 @@ impl Error {
     }
 
     #[allow(dead_code)]
-    pub fn cause(&self) -> Option<&error::Error> {
+    pub fn cause(&self) -> Option<&(error::Error + Sync + Send)> {
         self.cause.as_ref().map(|e| e.as_ref())
     }
 
@@ -136,7 +136,7 @@ impl Error {
         ErrorIter {
             count: 0,
             err: self,
-            cause: self.cause(),
+            cause: self.cause().map(|c| c as &error::Error),
         }
     }
 }
@@ -221,7 +221,7 @@ impl error::Error for Error {
     }
 
     fn cause(&self) -> Option<&error::Error> {
-        self.cause.as_ref().map(|c| c.as_ref())
+        self.cause.as_ref().map(|c| c.as_ref() as &error::Error)
     }
 }
 
