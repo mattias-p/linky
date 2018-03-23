@@ -30,7 +30,8 @@ use error::Tag;
 use linky::Record;
 use linky::md_file_links;
 use linky::parse_link;
-use linky::resolve_link;
+use linky::fetch_link;
+use linky::resolve_fragment;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
 use shell_escape::escape;
@@ -105,9 +106,14 @@ fn main() {
 
     let resolved = parsed_links.scan(HashMap::new(), |all_targets, (record, base, fragment)| {
         let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
-        let resolution = client
-            .as_ref()
-            .map(|client| resolve_link(client, all_targets, &base, &fragment, &prefixes));
+        let resolution = client.as_ref().map(|client| {
+            all_targets
+                .entry(base.clone())
+                .or_insert_with(|| fetch_link(client, &base))
+                .as_ref()
+                .map_err(|err| err.clone())
+                .and_then(|document| resolve_fragment(document, &base, &fragment, &prefixes))
+        });
         Some((record, resolution))
     });
 

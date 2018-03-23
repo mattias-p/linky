@@ -494,32 +494,26 @@ pub fn parse_link(
         .map(|parsed| parsed.split_fragment())
 }
 
-pub fn resolve_link(
-    client: &Client,
-    targets: &mut HashMap<Link, result::Result<Document, Rc<Error>>>,
+pub fn fetch_link<'a>(client: &Client, link: &Link) -> result::Result<Document<'a>, Rc<Error>> {
+    match *link {
+        Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
+        Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
+    }.map_err(|err| Rc::new(err.context(Cow::from(format!("link = {}", link)))))
+}
+
+pub fn resolve_fragment(
+    document: &Document,
     link: &Link,
     fragment: &Option<String>,
     prefixes: &[&str],
 ) -> result::Result<(), Rc<Error>> {
-    targets
-        .entry(link.clone())
-        .or_insert_with(|| {
-            match *link {
-                Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
-                Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
-            }.map_err(|err| Rc::new(err.context(Cow::from(format!("link = {}", link)))))
-        })
-        .as_ref()
-        .map_err(|err| err.clone())
-        .and_then(|document| {
-            if let Some(ref fragment) = *fragment {
-                let resolver = FragResolver::from(prefixes);
-                lookup_fragment(document, fragment, &resolver)
-                    .map_err(|err| Rc::new(err.context(Cow::from(format!("link = {}", link)))))
-            } else {
-                Ok(())
-            }
-        })
+    if let Some(ref fragment) = *fragment {
+        let resolver = FragResolver::from(prefixes);
+        lookup_fragment(document, fragment, &resolver)
+            .map_err(|err| Rc::new(err.context(Cow::from(format!("link = {}", link)))))
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
