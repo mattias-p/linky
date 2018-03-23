@@ -27,10 +27,11 @@ use std::io;
 use std::str::FromStr;
 
 use error::Tag;
+use linky::Link;
 use linky::Record;
+use linky::fetch_link;
 use linky::md_file_links;
 use linky::parse_link;
-use linky::fetch_link;
 use linky::resolve_fragment;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
@@ -104,22 +105,36 @@ fn main() {
         }
     });
 
-    let resolved = parsed_links.scan(HashMap::new(), |all_targets, (record, base, fragment)| {
-        let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
-        let resolution = client.as_ref().map(|client| {
-            all_targets
-                .entry(base.clone())
-                .or_insert_with(|| fetch_link(client, &base))
-                .as_ref()
-                .map_err(|err| err.clone())
-                .and_then(|document| resolve_fragment(document, &base, &fragment, &prefixes))
-        });
-        Some((record, resolution))
+    let mut grouped_links: HashMap<Link, Vec<(Option<String>, Record)>> = HashMap::new();
+    for (record, base, fragment) in parsed_links {
+        grouped_links
+            .entry(base.clone())
+            .or_insert_with(|| vec![])
+            .push((fragment, record));
+    }
+
+    let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
+
+    let resolved = grouped_links.into_iter().flat_map(|(base, links)| {
+        let document = client.as_ref().map(|client| fetch_link(client, &base));
+
+        let resolved: Vec<_> = links
+            .into_iter()
+            .map(|(fragment, record)| match document {
+                Some(Ok(ref document)) => {
+                    let resolution = resolve_fragment(document, &base, &fragment, &prefixes);
+                    (record, Some(resolution))
+                }
+                Some(Err(ref err)) => (record, Some(Err(err.clone()))),
+                None => (record, None),
+            })
+            .collect();
+        resolved
     });
 
     for (record, res) in resolved {
         let tag = res.as_ref()
-            .map(|ref res| res.as_ref().err().map(|err| err.tag()).unwrap_or(Tag::Ok));
+            .map(|res| res.as_ref().err().map(|err| err.tag()).unwrap_or(Tag::Ok));
 
         if !tag.as_ref().map_or(false, |tag| silence.contains(&tag)) {
             if let Some(Err(ref err)) = res {

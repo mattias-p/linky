@@ -132,7 +132,7 @@ impl Error {
         }
     }
 
-    pub fn iter<'a>(&'a self) -> ErrorIter<'a> {
+    pub fn iter(&self) -> ErrorIter {
         ErrorIter {
             count: 0,
             err: self,
@@ -158,7 +158,7 @@ impl<'a> Iterator for ErrorIter<'a> {
             self.count += 1;
             Some(format!("{}", self.err))
         } else if self.count <= self.err.msgs.len() {
-            let elem = &self.err.msgs.get(self.err.msgs.len() - self.count).unwrap();
+            let elem = &self.err.msgs[self.err.msgs.len() - self.count];
             self.count += 1;
             Some(format!("  context: {}", elem))
         } else if let Some(cause) = mem::replace(&mut self.cause, None) {
