@@ -20,12 +20,14 @@ mod error;
 mod linky;
 
 use std::borrow::Cow;
+use std::cmp;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
 use std::io::BufRead;
 use std::io;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use error::Tag;
 use linky::Link;
@@ -61,6 +63,66 @@ struct Opt {
 
     #[structopt(help = "Files to parse")]
     file: Vec<String>,
+}
+
+struct Item<T> {
+    index: usize,
+    value: T,
+}
+
+impl<T> PartialEq for Item<T> {
+    fn eq(&self, rhs: &Self) -> bool {
+        rhs.index.eq(&self.index)
+    }
+}
+
+impl<T> Eq for Item<T> {}
+
+impl<T> PartialOrd for Item<T> {
+    fn partial_cmp(&self, rhs: &Self) -> Option<cmp::Ordering> {
+        rhs.index.partial_cmp(&self.index)
+    }
+}
+
+impl<T> Ord for Item<T> {
+    fn cmp(&self, rhs: &Self) -> cmp::Ordering {
+        rhs.index.cmp(&self.index)
+    }
+}
+
+impl<T> From<(usize, T)> for Item<T> {
+    fn from(pair: (usize, T)) -> Self {
+        Item {
+            index: pair.0,
+            value: pair.1,
+        }
+    }
+}
+
+fn print_result(
+    record: Record,
+    res: Option<Result<(), Arc<error::Error>>>,
+    silence: &HashSet<&Tag>,
+) {
+    let tag = res.as_ref()
+        .map(|res| res.as_ref().err().map(|err| err.tag()).unwrap_or(Tag::Ok));
+
+    if !tag.as_ref().map_or(false, |tag| silence.contains(&tag)) {
+        if let Some(Err(ref err)) = res {
+            for line in err.iter() {
+                warn!("{}", line);
+            }
+        }
+        println!(
+            "{}:{}: {} {}",
+            record.path,
+            record.linenum,
+            tag.as_ref()
+                .map(|tag| tag as &fmt::Display)
+                .unwrap_or(&"" as &fmt::Display),
+            record.link
+        );
+    }
 }
 
 fn main() {
@@ -107,51 +169,36 @@ fn main() {
         }
     });
 
-    let mut grouped_links: HashMap<Link, Vec<(Option<String>, Record)>> = HashMap::new();
-    for (record, base, fragment) in parsed_links {
+    let mut grouped_links: HashMap<Link, Vec<(usize, Option<String>, Record)>> = HashMap::new();
+    for (index, (record, base, fragment)) in parsed_links.enumerate() {
         grouped_links
             .entry(base.clone())
             .or_insert_with(|| vec![])
-            .push((fragment, record));
+            .push((index, fragment, record));
     }
 
     let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
 
-    let resolved = grouped_links.into_par_iter().flat_map(|(base, links)| {
-        let document = client.as_ref().map(|client| fetch_link(client, &base));
-        let resolved: Vec<_> = links
-            .into_iter()
-            .map(|(fragment, record)| match document {
-                Some(Ok(ref document)) => {
-                    let resolution = resolve_fragment(document, &base, &fragment, &prefixes);
-                    (record, Some(resolution))
-                }
-                Some(Err(ref err)) => (record, Some(Err(err.clone()))),
-                None => (record, None),
-            })
-            .collect();
-        resolved
-    });
-
-    resolved.for_each(|(record, res)| {
-        let tag = res.as_ref()
-            .map(|res| res.as_ref().err().map(|err| err.tag()).unwrap_or(Tag::Ok));
-
-        if !tag.as_ref().map_or(false, |tag| silence.contains(&tag)) {
-            if let Some(Err(ref err)) = res {
-                for line in err.iter() {
-                    warn!("{}", line);
-                }
-            }
-            println!(
-                "{}:{}: {} {}",
-                record.path,
-                record.linenum,
-                tag.as_ref()
-                    .map(|tag| tag as &fmt::Display)
-                    .unwrap_or(&"" as &fmt::Display),
-                record.link
-            );
-        }
-    })
+    grouped_links
+        .into_par_iter()
+        .flat_map(|(base, links)| {
+            let document = client.as_ref().map(|client| fetch_link(client, &base));
+            let resolved: Vec<_> = links
+                .into_iter()
+                .map(|(index, fragment, record)| {
+                    let res = match document {
+                        Some(Ok(ref document)) => {
+                            let resolution =
+                                resolve_fragment(document, &base, &fragment, &prefixes);
+                            (record, Some(resolution))
+                        }
+                        Some(Err(ref err)) => (record, Some(Err(err.clone()))),
+                        None => (record, None),
+                    };
+                    (index, res)
+                })
+                .collect();
+            resolved
+        })
+        .for_each(|(_index, (record, res))| print_result(record, res, &silence))
 }
