@@ -40,6 +40,9 @@ use rayon::prelude::*;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
 use shell_escape::escape;
+use std::collections::BinaryHeap;
+use std::sync::Mutex;
+use std::sync::atomic;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -95,6 +98,31 @@ impl<T> From<(usize, T)> for Item<T> {
         Item {
             index: pair.0,
             value: pair.1,
+        }
+    }
+}
+
+struct Orderer<T, F: Fn(T) -> ()> {
+    heap: Mutex<BinaryHeap<Item<T>>>,
+    current: atomic::AtomicUsize,
+    f: F,
+}
+
+impl<T, F: Fn(T) -> ()> Orderer<T, F> {
+    fn can_pop(&self, heap: &BinaryHeap<Item<T>>) -> bool {
+        let peek_index = heap.peek().map(|item| item.index);
+        let current_index = self.current.load(atomic::Ordering::SeqCst);
+        Some(current_index) == peek_index
+    }
+    fn push(&self, item: Item<T>) {
+        let mut heap = self.heap.lock().unwrap();
+        heap.push(item);
+        while self.can_pop(&heap) {
+            while self.can_pop(&heap) {
+                let value = heap.pop().unwrap().value;
+                (self.f)(value);
+            }
+            self.current.fetch_add(1, atomic::Ordering::SeqCst);
         }
     }
 }
@@ -179,6 +207,14 @@ fn main() {
 
     let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
 
+    let o = Orderer {
+        heap: Mutex::new(BinaryHeap::new()),
+        current: atomic::AtomicUsize::new(0),
+        f: |(record, res)| {
+            print_result(record, res, &silence);
+        },
+    };
+
     grouped_links
         .into_par_iter()
         .flat_map(|(base, links)| {
@@ -200,5 +236,5 @@ fn main() {
                 .collect();
             resolved
         })
-        .for_each(|(_index, (record, res))| print_result(record, res, &silence))
+        .for_each(|(index, value)| o.push(Item { index, value }));
 }
