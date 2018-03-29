@@ -39,19 +39,24 @@ use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Extract links from Markdown files.")]
 struct Opt {
-    #[structopt(long = "check", short = "c", help = "Check links")] check: bool,
+    #[structopt(long = "check", short = "c", help = "Check links")]
+    check: bool,
 
-    #[structopt(long = "follow", short = "f", help = "Follow HTTP redirects")] redirect: bool,
+    #[structopt(long = "follow", short = "f", help = "Follow HTTP redirects")]
+    redirect: bool,
 
-    #[structopt(long = "mute", short = "m", help = "Tags to mute")] silence: Vec<Tag>,
+    #[structopt(long = "mute", short = "m", help = "Tags to mute")]
+    silence: Vec<Tag>,
 
-    #[structopt(long = "prefix", short = "p", help = "Fragment prefixes")] prefixes: Vec<String>,
+    #[structopt(long = "prefix", short = "p", help = "Fragment prefixes")]
+    prefixes: Vec<String>,
 
     #[structopt(long = "root", short = "r", name = "path",
                 help = "Join absolute local links to a document root", default_value = "/")]
     root: String,
 
-    #[structopt(help = "Files to parse")] file: Vec<String>,
+    #[structopt(help = "Files to parse")]
+    file: Vec<String>,
 }
 
 fn main() {
