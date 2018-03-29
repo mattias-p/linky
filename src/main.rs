@@ -23,6 +23,7 @@ use std::borrow::Cow;
 use std::cmp;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::hash_map::Entry;
 use std::fmt;
 use std::io::BufRead;
 use std::io;
@@ -184,6 +185,16 @@ fn main() {
         }
     }
 
+    let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
+
+    let o = Orderer {
+        heap: Mutex::new(BinaryHeap::new()),
+        current: atomic::AtomicUsize::new(0),
+        f: |(record, res)| {
+            print_result(record, res, &silence);
+        },
+    };
+
     let parsed_links = raw_links.into_iter().filter_map(|record| {
         match parse_link(&record, opt.root.as_str()) {
             Ok((base, fragment)) => Some((record, base, fragment)),
@@ -197,25 +208,26 @@ fn main() {
         }
     });
 
+    let mut base_order = vec![];
     let mut grouped_links: HashMap<Link, Vec<(usize, Option<String>, Record)>> = HashMap::new();
     for (index, (record, base, fragment)) in parsed_links.enumerate() {
-        grouped_links
-            .entry(base.clone())
-            .or_insert_with(|| vec![])
-            .push((index, fragment, record));
+        match grouped_links.entry(base.clone()) {
+            Entry::Vacant(vacant) => {
+                vacant.insert(vec![(index, fragment, record)]);
+                base_order.push(base);
+            }
+            Entry::Occupied(mut occupied) => {
+                occupied.get_mut().push((index, fragment, record));
+            }
+        }
     }
 
-    let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
+    let base_order: Vec<(_, _)> = base_order
+        .iter()
+        .map(|base| (base.clone(), grouped_links.remove(&base).unwrap()))
+        .collect();
 
-    let o = Orderer {
-        heap: Mutex::new(BinaryHeap::new()),
-        current: atomic::AtomicUsize::new(0),
-        f: |(record, res)| {
-            print_result(record, res, &silence);
-        },
-    };
-
-    grouped_links
+    base_order
         .into_par_iter()
         .flat_map(|(base, links)| {
             let document = client.as_ref().map(|client| fetch_link(client, &base));
