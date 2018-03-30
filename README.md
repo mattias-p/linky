@@ -206,6 +206,26 @@ example_site/path/to/transform.md:3: OK https://github.com/mattias-p/linky/blob/
 ```
 
 
+### Resolution speed
+
+Linky uses a thread pool for link resolution.
+The size of the thread pool affects throughput, but the output itself
+remains unaffected.
+
+You set the size of the thread pool using the `RAYON_NUM_THREADS`
+environment variable:
+
+```sh
+$ env RAYON_NUM_THREADS=16 linky --check example_site/path/to/example.md
+```
+
+The default size of the thead pool is equal to the number of logical
+CPU cores available to the process.
+You may be able to achieve much higher throughputs with a larger than
+default thread pool.
+Use the `time` command to benchmark a suitable size.
+
+
 ### Resolution details
 
 In case you ever wonder why a certain link resolved to whatever status token it got,
