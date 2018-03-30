@@ -41,8 +41,6 @@ use linky::md_file_links;
 use linky::parse_link;
 use linky::resolve_fragment;
 use rayon::prelude::*;
-use reqwest::Client;
-use reqwest::RedirectPolicy;
 use shell_escape::escape;
 use structopt::StructOpt;
 
@@ -132,8 +130,24 @@ impl<T, F: Fn(T) -> ()> Orderer<T, F> {
     }
 }
 
+fn print_error(
+    link: Result<(Link, Option<String>), url::ParseError>,
+    record: Record,
+) -> Option<(Record, Link, Option<String>)> {
+    match link {
+        Ok((base, fragment)) => Some((record, base, fragment)),
+        Err(err) => {
+            error!(
+                "{}:{}: {}: {}",
+                record.path, record.linenum, err, record.link
+            );
+            None
+        }
+    }
+}
+
 fn resolve_link(
-    client: &Option<Client>,
+    client: &Option<reqwest::Client>,
     prefixes: &[&str],
     base: Link,
     links: Vec<(usize, Option<String>, Record)>,
@@ -188,9 +202,9 @@ fn main() {
     let silence: HashSet<_> = opt.silence.iter().collect();
 
     let client = if opt.check {
-        let mut builder = Client::builder();
+        let mut builder = reqwest::Client::builder();
         if !opt.redirect {
-            builder.redirect(RedirectPolicy::none());
+            builder.redirect(reqwest::RedirectPolicy::none());
         }
         Some(builder.build().unwrap())
     } else {
@@ -224,16 +238,8 @@ fn main() {
 
     raw_links
         .into_iter()
-        .filter_map(|record| match parse_link(&record, opt.root.as_str()) {
-            Ok((base, fragment)) => Some((record, base, fragment)),
-            Err(err) => {
-                error!(
-                    "{}:{}: {}: {}",
-                    record.path, record.linenum, err, record.link
-                );
-                None
-            }
-        })
+        .map(|record| (parse_link(&record, opt.root.as_str()), record))
+        .filter_map(|(link, record)| print_error(link, record))
         .enumerate()
         .fold(
             (vec![], HashMap::new()),
