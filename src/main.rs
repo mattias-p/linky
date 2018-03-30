@@ -236,19 +236,21 @@ fn main() {
         }
     });
 
-    let mut base_order = vec![];
-    let mut base_fragments: HashMap<Link, Vec<(usize, Option<String>, Record)>> = HashMap::new();
-    for (index, (record, base, fragment)) in parsed_links.enumerate() {
-        match base_fragments.entry(base.clone()) {
-            Entry::Vacant(vacant) => {
-                vacant.insert(vec![(index, fragment, record)]);
-                base_order.push(base);
-            }
-            Entry::Occupied(mut occupied) => {
-                occupied.get_mut().push((index, fragment, record));
-            }
-        }
-    }
+    let (base_order, mut base_fragments) = parsed_links.enumerate().fold(
+        (vec![], HashMap::new()),
+        |(mut order, mut fragments), (index, (record, base, fragment))| {
+            match fragments.entry(base.clone()) {
+                Entry::Vacant(vacant) => {
+                    vacant.insert(vec![(index, fragment, record)]);
+                    order.push(base);
+                }
+                Entry::Occupied(mut occupied) => {
+                    occupied.get_mut().push((index, fragment, record));
+                }
+            };
+            (order, fragments)
+        },
+    );
 
     base_order
         .iter()
