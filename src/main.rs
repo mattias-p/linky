@@ -197,8 +197,17 @@ fn main() {
         None
     };
 
-    let mut raw_links = vec![];
+    let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
 
+    let o = Orderer {
+        heap: Mutex::new(BinaryHeap::new()),
+        current: atomic::AtomicUsize::new(0),
+        f: |(record, res)| {
+            print_result(record, res, &silence);
+        },
+    };
+
+    let mut raw_links = vec![];
     if opt.file.is_empty() {
         let stdin = io::stdin();
         for line in stdin.lock().lines() {
@@ -213,18 +222,9 @@ fn main() {
         }
     }
 
-    let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
-
-    let o = Orderer {
-        heap: Mutex::new(BinaryHeap::new()),
-        current: atomic::AtomicUsize::new(0),
-        f: |(record, res)| {
-            print_result(record, res, &silence);
-        },
-    };
-
-    let parsed_links = raw_links.into_iter().filter_map(|record| {
-        match parse_link(&record, opt.root.as_str()) {
+    raw_links
+        .into_iter()
+        .filter_map(|record| match parse_link(&record, opt.root.as_str()) {
             Ok((base, fragment)) => Some((record, base, fragment)),
             Err(err) => {
                 error!(
@@ -233,29 +233,24 @@ fn main() {
                 );
                 None
             }
-        }
-    });
-
-    let (base_order, mut base_fragments) = parsed_links.enumerate().fold(
-        (vec![], HashMap::new()),
-        |(mut order, mut fragments), (index, (record, base, fragment))| {
-            match fragments.entry(base.clone()) {
-                Entry::Vacant(vacant) => {
-                    vacant.insert(vec![(index, fragment, record)]);
-                    order.push(base);
-                }
-                Entry::Occupied(mut occupied) => {
-                    occupied.get_mut().push((index, fragment, record));
-                }
-            };
-            (order, fragments)
-        },
-    );
-
-    base_order
-        .iter()
-        .map(|base| (base.clone(), base_fragments.remove(base).unwrap()))
-        .collect::<Vec<_>>()
+        })
+        .enumerate()
+        .fold(
+            (vec![], HashMap::new()),
+            |(mut order, mut fragments), (index, (record, base, fragment))| {
+                match fragments.entry(base.clone()) {
+                    Entry::Vacant(vacant) => {
+                        vacant.insert(order.len());
+                        order.push((base, vec![(index, fragment, record)]));
+                    }
+                    Entry::Occupied(occupied) => {
+                        order[*occupied.get()].1.push((index, fragment, record));
+                    }
+                };
+                (order, fragments)
+            },
+        )
+        .0
         .into_par_iter()
         .flat_map(|(base, fragments)| resolve_link(&client, &prefixes, base, fragments))
         .for_each(|(index, value)| o.push(Item { index, value }));
