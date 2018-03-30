@@ -34,6 +34,7 @@ use std::sync::Mutex;
 use std::sync::atomic;
 
 use error::Tag;
+use linky::Document;
 use linky::Link;
 use linky::Record;
 use linky::fetch_link;
@@ -171,13 +172,12 @@ fn group_fragments(
 }
 
 fn resolve_link(
-    client: &Option<reqwest::Client>,
+    document: Option<Result<Document, Arc<error::Error>>>,
     prefixes: &[&str],
     base: Link,
     links: Vec<(usize, Option<String>, Record)>,
 ) -> Vec<(usize, (Record, Option<Result<(), Arc<error::Error>>>))> {
-    let document = client.as_ref().map(|client| fetch_link(client, &base));
-    let resolved: Vec<_> = links
+    links
         .into_iter()
         .map(|(index, fragment, record)| {
             let res = match document {
@@ -190,8 +190,7 @@ fn resolve_link(
             };
             (index, res)
         })
-        .collect();
-    resolved
+        .collect::<Vec<_>>()
 }
 
 fn print_result(
@@ -268,6 +267,13 @@ fn main() {
         .fold((vec![], HashMap::new()), group_fragments)
         .0
         .into_par_iter()
-        .flat_map(|(base, fragments)| resolve_link(&client, &prefixes, base, fragments))
+        .flat_map(|(base, fragments)| {
+            resolve_link(
+                client.as_ref().map(|client| fetch_link(client, &base)),
+                &prefixes,
+                base,
+                fragments,
+            )
+        })
         .for_each(|(index, value)| o.push(Item { index, value }));
 }
