@@ -304,5 +304,5 @@ limitations under the License.
 [Changelog]: https://raw.githubusercontent.com/mattias-p/linky/master/img/changelog.svg?sanitize=true
 [Crates.io badge]: https://crates.io/crates/linky
 [Crates.io]: https://img.shields.io/crates/v/linky.svg
-[Install stable Rust and Cargo]: http://doc.crates.io/
+[Install stable Rust and Cargo]: https://www.rust-lang.org/en-US/install.html
 [Link resolution section]: #link-resolution
