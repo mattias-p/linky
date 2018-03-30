@@ -5,7 +5,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Remove direct dependency on structopt-derive
+
+## [0.1.4]
+### Changed
+- Resolve links using a thread pool.
+- Improved log messages
+
+### Added
+- Support for `RAYON_NUM_THREADS` environment variable, controlling the
+  new thread pool.
 
 ## [0.1.3] - 2018-03-16
 ### Fixed
