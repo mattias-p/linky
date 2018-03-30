@@ -146,6 +146,30 @@ fn print_error(
     }
 }
 
+fn group_fragments(
+    acc: (
+        Vec<(Link, Vec<(usize, Option<String>, Record)>)>,
+        HashMap<Link, usize>,
+    ),
+    link: (usize, (Record, Link, Option<String>)),
+) -> (
+    Vec<(Link, Vec<(usize, Option<String>, Record)>)>,
+    HashMap<Link, usize>,
+) {
+    let (mut order, mut fragments) = acc;
+    let (index, (record, base, fragment)) = link;
+    match fragments.entry(base.clone()) {
+        Entry::Vacant(vacant) => {
+            vacant.insert(order.len());
+            order.push((base, vec![(index, fragment, record)]));
+        }
+        Entry::Occupied(occupied) => {
+            order[*occupied.get()].1.push((index, fragment, record));
+        }
+    };
+    (order, fragments)
+}
+
 fn resolve_link(
     client: &Option<reqwest::Client>,
     prefixes: &[&str],
@@ -241,21 +265,7 @@ fn main() {
         .map(|record| (parse_link(&record, opt.root.as_str()), record))
         .filter_map(|(link, record)| print_error(link, record))
         .enumerate()
-        .fold(
-            (vec![], HashMap::new()),
-            |(mut order, mut fragments), (index, (record, base, fragment))| {
-                match fragments.entry(base.clone()) {
-                    Entry::Vacant(vacant) => {
-                        vacant.insert(order.len());
-                        order.push((base, vec![(index, fragment, record)]));
-                    }
-                    Entry::Occupied(occupied) => {
-                        order[*occupied.get()].1.push((index, fragment, record));
-                    }
-                };
-                (order, fragments)
-            },
-        )
+        .fold((vec![], HashMap::new()), group_fragments)
         .0
         .into_par_iter()
         .flat_map(|(base, fragments)| resolve_link(&client, &prefixes, base, fragments))
