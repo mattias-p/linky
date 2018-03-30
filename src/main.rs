@@ -21,6 +21,7 @@ mod linky;
 
 use std::borrow::Cow;
 use std::cmp;
+use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::hash_map::Entry;
@@ -29,6 +30,8 @@ use std::io::BufRead;
 use std::io;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::atomic;
 
 use error::Tag;
 use linky::Link;
@@ -41,9 +44,6 @@ use rayon::prelude::*;
 use reqwest::Client;
 use reqwest::RedirectPolicy;
 use shell_escape::escape;
-use std::collections::BinaryHeap;
-use std::sync::Mutex;
-use std::sync::atomic;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -126,6 +126,30 @@ impl<T, F: Fn(T) -> ()> Orderer<T, F> {
             self.current.fetch_add(1, atomic::Ordering::SeqCst);
         }
     }
+}
+
+fn resolve_link(
+    client: &Option<Client>,
+    prefixes: &[&str],
+    base: Link,
+    links: Vec<(usize, Option<String>, Record)>,
+) -> Vec<(usize, (Record, Option<Result<(), Arc<error::Error>>>))> {
+    let document = client.as_ref().map(|client| fetch_link(&client, &base));
+    let resolved: Vec<_> = links
+        .into_iter()
+        .map(|(index, fragment, record)| {
+            let res = match document {
+                Some(Ok(ref document)) => {
+                    let resolution = resolve_fragment(document, &base, &fragment, &prefixes);
+                    (record, Some(resolution))
+                }
+                Some(Err(ref err)) => (record, Some(Err(err.clone()))),
+                None => (record, None),
+            };
+            (index, res)
+        })
+        .collect();
+    resolved
 }
 
 fn print_result(
@@ -229,24 +253,6 @@ fn main() {
 
     base_order
         .into_par_iter()
-        .flat_map(|(base, links)| {
-            let document = client.as_ref().map(|client| fetch_link(client, &base));
-            let resolved: Vec<_> = links
-                .into_iter()
-                .map(|(index, fragment, record)| {
-                    let res = match document {
-                        Some(Ok(ref document)) => {
-                            let resolution =
-                                resolve_fragment(document, &base, &fragment, &prefixes);
-                            (record, Some(resolution))
-                        }
-                        Some(Err(ref err)) => (record, Some(Err(err.clone()))),
-                        None => (record, None),
-                    };
-                    (index, res)
-                })
-                .collect();
-            resolved
-        })
+        .flat_map(|(base, links)| resolve_link(&client, &prefixes, base, links))
         .for_each(|(index, value)| o.push(Item { index, value }));
 }
