@@ -47,7 +47,7 @@ use shell_escape::escape;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
-#[structopt(about = "Extract links from Markdown files.")]
+/// Extract links from Markdown files and check links for brokenness.
 struct Opt {
     #[structopt(long = "check", short = "c", help = "Check links")]
     check: bool,

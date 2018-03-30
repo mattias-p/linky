@@ -3,10 +3,7 @@ Linky
 [![Crates.io]][Crates.io badge]
 [![Changelog]][Changelog badge]
 
-Extract and check links from Markdown files.
-
-A command line utility to extract links from Markdown files and to check links
-for brokenness.
+Extract links from Markdown files and check links for brokenness.
 
 
 Motivation

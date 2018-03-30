@@ -2,7 +2,7 @@
 name = "linky"
 version = "0.1.4"
 authors = ["Mattias Päivärinta <mattias@paivarinta.se>"]
-description = "Extract and check links from Markdown files"
+description = "Extract links from Markdown files and check links for brokenness"
 repository = "https://github.com/mattias-p/linky"
 readme = "README.md"
 keywords = ["commonmark","extract","validate","links","documentation"]
