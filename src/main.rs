@@ -237,9 +237,9 @@ fn main() {
     });
 
     let mut base_order = vec![];
-    let mut grouped_links: HashMap<Link, Vec<(usize, Option<String>, Record)>> = HashMap::new();
+    let mut base_fragments: HashMap<Link, Vec<(usize, Option<String>, Record)>> = HashMap::new();
     for (index, (record, base, fragment)) in parsed_links.enumerate() {
-        match grouped_links.entry(base.clone()) {
+        match base_fragments.entry(base.clone()) {
             Entry::Vacant(vacant) => {
                 vacant.insert(vec![(index, fragment, record)]);
                 base_order.push(base);
@@ -250,13 +250,11 @@ fn main() {
         }
     }
 
-    let base_order: Vec<(_, _)> = base_order
-        .iter()
-        .map(|base| (base.clone(), grouped_links.remove(base).unwrap()))
-        .collect();
-
     base_order
+        .iter()
+        .map(|base| (base.clone(), base_fragments.remove(base).unwrap()))
+        .collect::<Vec<_>>()
         .into_par_iter()
-        .flat_map(|(base, links)| resolve_link(&client, &prefixes, base, links))
+        .flat_map(|(base, fragments)| resolve_link(&client, &prefixes, base, fragments))
         .for_each(|(index, value)| o.push(Item { index, value }));
 }
