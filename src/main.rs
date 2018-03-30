@@ -174,23 +174,19 @@ fn group_fragments(
 fn resolve_link(
     document: Option<Result<Document, Arc<error::Error>>>,
     prefixes: &[&str],
-    base: Link,
-    links: Vec<(usize, Option<String>, Record)>,
-) -> Vec<(usize, (Record, Option<Result<(), Arc<error::Error>>>))> {
-    links
-        .into_iter()
-        .map(|(index, fragment, record)| {
-            let res = match document {
-                Some(Ok(ref document)) => {
-                    let resolution = resolve_fragment(document, &base, &fragment, prefixes);
-                    (record, Some(resolution))
-                }
-                Some(Err(ref err)) => (record, Some(Err(err.clone()))),
-                None => (record, None),
-            };
-            (index, res)
-        })
-        .collect::<Vec<_>>()
+    base: &Link,
+    link: (usize, Option<String>, Record),
+) -> (usize, (Record, Option<Result<(), Arc<error::Error>>>)) {
+    let (index, fragment, record) = link;
+    let res = match document {
+        Some(Ok(ref document)) => {
+            let resolution = resolve_fragment(document, base, &fragment, prefixes);
+            (record, Some(resolution))
+        }
+        Some(Err(ref err)) => (record, Some(Err(err.clone()))),
+        None => (record, None),
+    };
+    (index, res)
 }
 
 fn print_result(
@@ -268,12 +264,13 @@ fn main() {
         .0
         .into_par_iter()
         .flat_map(|(base, fragments)| {
-            resolve_link(
-                client.as_ref().map(|client| fetch_link(client, &base)),
-                &prefixes,
-                base,
-                fragments,
-            )
+            fragments
+                .into_iter()
+                .map(|fragment| {
+                    let document = client.as_ref().map(|client| fetch_link(client, &base));
+                    resolve_link(document, &prefixes, &base, fragment)
+                })
+                .collect::<Vec<_>>()
         })
         .for_each(|(index, value)| o.push(Item { index, value }));
 }
