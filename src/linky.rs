@@ -565,36 +565,36 @@ mod tests {
     fn check_fragment() {
         assert_eq!(
             lookup_fragment(&Document::from(&["abc"]), "abc", &FragResolver::new())
-                .map_err(|e| e.0),
+                .map_err(|e| e.tag()),
             Ok(())
         );
         assert_eq!(
-            lookup_fragment(&Document::new(), "", &FragResolver::new()).map_err(|e| e.0),
+            lookup_fragment(&Document::new(), "", &FragResolver::new()).map_err(|e| e.tag()),
             Ok(())
         );
         assert_eq!(
-            lookup_fragment(&Document::empty(), "", &FragResolver::new()).map_err(|e| e.0),
-            Err(Tag::NoFragment.into())
+            lookup_fragment(&Document::empty(), "", &FragResolver::new()).map_err(|e| e.tag()),
+            Err(Tag::NoFragment)
         );
         assert_eq!(
             lookup_fragment(
                 &Document::from(&["prefix"]),
                 "",
                 &FragResolver::from(&["prefix"])
-            ).map_err(|e| e.0),
+            ).map_err(|e| e.tag()),
             Ok(())
         );
         assert_eq!(
-            lookup_fragment(&Document::new(), "abc", &FragResolver::new()).map_err(|e| e.0),
-            Err(Tag::NoFragment.into())
+            lookup_fragment(&Document::new(), "abc", &FragResolver::new()).map_err(|e| e.tag()),
+            Err(Tag::NoFragment)
         );
         assert_eq!(
             lookup_fragment(
                 &Document::from(&["abc-123"]),
                 "123",
                 &FragResolver::from(&["abc-"])
-            ).map_err(|e| e.0),
-            Err(Tag::Prefixed.into())
+            ).map_err(|e| e.tag()),
+            Err(Tag::Prefixed)
         );
     }
 
