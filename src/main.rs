@@ -134,13 +134,13 @@ fn resolve_link(
     base: Link,
     links: Vec<(usize, Option<String>, Record)>,
 ) -> Vec<(usize, (Record, Option<Result<(), Arc<error::Error>>>))> {
-    let document = client.as_ref().map(|client| fetch_link(&client, &base));
+    let document = client.as_ref().map(|client| fetch_link(client, &base));
     let resolved: Vec<_> = links
         .into_iter()
         .map(|(index, fragment, record)| {
             let res = match document {
                 Some(Ok(ref document)) => {
-                    let resolution = resolve_fragment(document, &base, &fragment, &prefixes);
+                    let resolution = resolve_fragment(document, &base, &fragment, prefixes);
                     (record, Some(resolution))
                 }
                 Some(Err(ref err)) => (record, Some(Err(err.clone()))),
@@ -248,7 +248,7 @@ fn main() {
 
     let base_order: Vec<(_, _)> = base_order
         .iter()
-        .map(|base| (base.clone(), grouped_links.remove(&base).unwrap()))
+        .map(|base| (base.clone(), grouped_links.remove(base).unwrap()))
         .collect();
 
     base_order
