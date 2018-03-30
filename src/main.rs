@@ -172,19 +172,19 @@ fn group_fragments(
 }
 
 fn resolve_link(
-    document: Option<Result<Document, Arc<error::Error>>>,
+    document: &Option<Result<Document, Arc<error::Error>>>,
     prefixes: &[&str],
     base: &Link,
     link: (usize, Option<String>, Record),
 ) -> (usize, (Record, Option<Result<(), Arc<error::Error>>>)) {
     let (index, fragment, record) = link;
     let res = match document {
-        Some(Ok(ref document)) => {
+        &Some(Ok(ref document)) => {
             let resolution = resolve_fragment(document, base, &fragment, prefixes);
             (record, Some(resolution))
         }
-        Some(Err(ref err)) => (record, Some(Err(err.clone()))),
-        None => (record, None),
+        &Some(Err(ref err)) => (record, Some(Err(err.clone()))),
+        &None => (record, None),
     };
     (index, res)
 }
@@ -263,14 +263,11 @@ fn main() {
         .fold((vec![], HashMap::new()), group_fragments)
         .0
         .into_par_iter()
-        .flat_map(|(base, fragments)| {
-            fragments
-                .into_iter()
-                .map(|fragment| {
-                    let document = client.as_ref().map(|client| fetch_link(client, &base));
-                    resolve_link(document, &prefixes, &base, fragment)
-                })
-                .collect::<Vec<_>>()
-        })
-        .for_each(|(index, value)| o.push(Item { index, value }));
+        .for_each(|(base, fragments)| {
+            let document = client.as_ref().map(|client| fetch_link(client, &base));
+            for fragment in fragments {
+                let (index, value) = resolve_link(&document, &prefixes, &base, fragment);
+                o.push(Item { index, value });
+            }
+        });
 }
