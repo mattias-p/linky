@@ -49,23 +49,27 @@ use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
 /// Extract links from Markdown files and check links for brokenness.
 struct Opt {
-    #[structopt(long = "check", short = "c", help = "Check links")]
+    #[structopt(long = "check", short = "c")]
+    /// Check links
     check: bool,
 
-    #[structopt(long = "follow", short = "f", help = "Follow HTTP redirects")]
+    #[structopt(long = "follow", short = "f")]
+    /// Follow HTTP redirects
     redirect: bool,
 
-    #[structopt(long = "mute", short = "m", help = "Tags to mute")]
+    #[structopt(long = "mute", short = "m")]
+    /// Tags to mute
     silence: Vec<Tag>,
 
-    #[structopt(long = "prefix", short = "p", help = "Fragment prefixes")]
+    #[structopt(long = "prefix", short = "p")]
+    /// Fragment prefixes
     prefixes: Vec<String>,
 
-    #[structopt(long = "root", short = "r", name = "path",
-                help = "Join absolute local links to a document root", default_value = "/")]
+    #[structopt(long = "root", short = "r", name = "path", default_value = "/")]
+    /// Join absolute local links to a document root
     root: String,
 
-    #[structopt(help = "Files to parse")]
+    /// Files to parse
     file: Vec<String>,
 }
 
