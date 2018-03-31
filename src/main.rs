@@ -248,7 +248,8 @@ fn main() {
                 .lock()
                 .lines()
                 .map(Result::unwrap)
-                .map(|line| Record::from_str(line.as_str()).unwrap()),
+                .map(|line| Record::from_str(&line))
+                .map(Result::unwrap),
         );
         raw_links
     } else {
