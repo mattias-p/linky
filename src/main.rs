@@ -255,8 +255,8 @@ fn main() {
         raw_links
     } else {
         let mut raw_links = vec![];
+        let mut buffer = String::new();
         for path in &opt.file {
-            let mut buffer = String::new();
             if let Err(err) = slurp(&path, &mut buffer) {
                 error!("reading file {}: {}", escape(Cow::Borrowed(path)), err);
             } else {
