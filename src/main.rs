@@ -240,20 +240,23 @@ fn main() {
         },
     };
 
-    let mut raw_links = vec![];
-    if opt.file.is_empty() {
+    let raw_links = if opt.file.is_empty() {
+        let mut raw_links = vec![];
         let stdin = io::stdin();
         for line in stdin.lock().lines() {
             let line = line.unwrap();
             raw_links.push(Record::from_str(line.as_str()).unwrap());
         }
+        raw_links
     } else {
+        let mut raw_links = vec![];
         for path in &opt.file {
             if let Err(err) = md_file_links(path, &mut raw_links) {
                 error!("reading file {}: {}", escape(Cow::Borrowed(path)), err);
             }
         }
-    }
+        raw_links
+    };
 
     raw_links
         .into_iter()
