@@ -258,7 +258,7 @@ fn main() {
     } else {
         let mut raw_links = vec![];
         let mut buffer = String::new();
-        for path in &opt.file {
+        opt.file.iter().for_each(|path| {
             let links: Box<Iterator<Item = _>> = if let Err(err) = slurp(&path, &mut buffer) {
                 error!("reading file {}: {}", escape(Cow::Borrowed(path)), err);
                 Box::new(iter::empty())
@@ -268,10 +268,10 @@ fn main() {
                     linenum: lineno,
                     link: url.as_ref().to_string(),
                 });
-                Box::new(parser)
+                Box::new(parser.collect::<Vec<_>>().into_iter())
             };
             raw_links.extend(links);
-        }
+        });
         raw_links
     };
 
