@@ -243,10 +243,13 @@ fn main() {
     let raw_links = if opt.file.is_empty() {
         let mut raw_links = vec![];
         let stdin = io::stdin();
-        for line in stdin.lock().lines() {
-            let line = line.unwrap();
-            raw_links.push(Record::from_str(line.as_str()).unwrap());
-        }
+        raw_links.extend(
+            stdin
+                .lock()
+                .lines()
+                .map(Result::unwrap)
+                .map(|line| Record::from_str(line.as_str()).unwrap()),
+        );
         raw_links
     } else {
         let mut raw_links = vec![];
