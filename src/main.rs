@@ -28,6 +28,7 @@ use std::collections::hash_map::Entry;
 use std::fmt;
 use std::io::BufRead;
 use std::io;
+use std::iter;
 use std::iter::FromIterator;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -131,6 +132,17 @@ impl<T, F: Fn(T) -> ()> Orderer<T, F> {
             self.current.fetch_add(1, atomic::Ordering::SeqCst);
         }
     }
+}
+
+fn read_md(path: &str) -> Result<Box<Iterator<Item = Record>>, io::Error> {
+    let mut buffer = String::new();
+    slurp(&path, &mut buffer)?;
+    let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
+        path: path.to_string(),
+        linenum: lineno,
+        link: url.as_ref().to_string(),
+    });
+    Ok(Box::new(parser.collect::<Vec<_>>().into_iter()))
 }
 
 fn print_error(
@@ -242,8 +254,6 @@ fn main() {
         },
     };
 
-    use std::iter;
-
     let raw_links: Box<Iterator<Item = _>> = if opt.file.is_empty() {
         let stdin = io::stdin();
         let links = stdin
@@ -254,19 +264,12 @@ fn main() {
             .map(Result::unwrap);
         Box::new(Vec::from_iter(links).into_iter())
     } else {
-        Box::new(opt.file.iter().flat_map(|path| {
-            let mut buffer = String::new();
-            (if let Err(err) = slurp(&path, &mut buffer) {
+        Box::new(opt.file.iter().flat_map(|path| match read_md(path) {
+            Err(err) => {
                 error!("reading file {}: {}", escape(Cow::Borrowed(path)), err);
                 Box::new(iter::empty())
-            } else {
-                let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
-                    path: path.to_string(),
-                    linenum: lineno,
-                    link: url.as_ref().to_string(),
-                });
-                Box::new(parser.collect::<Vec<_>>().into_iter()) as Box<Iterator<Item = _>>
-            })
+            }
+            Ok(records) => records,
         }))
     };
 
