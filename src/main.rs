@@ -258,20 +258,24 @@ fn main() {
     } else {
         let mut raw_links = vec![];
         let mut buffer = String::new();
-        opt.file.iter().for_each(|path| {
-            let links: Box<Iterator<Item = _>> = if let Err(err) = slurp(&path, &mut buffer) {
-                error!("reading file {}: {}", escape(Cow::Borrowed(path)), err);
-                Box::new(iter::empty())
-            } else {
-                let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
-                    path: path.to_string(),
-                    linenum: lineno,
-                    link: url.as_ref().to_string(),
-                });
-                Box::new(parser.collect::<Vec<_>>().into_iter())
-            };
-            raw_links.extend(links);
-        });
+        opt.file
+            .iter()
+            .map(|path| {
+                (if let Err(err) = slurp(&path, &mut buffer) {
+                    error!("reading file {}: {}", escape(Cow::Borrowed(path)), err);
+                    Box::new(iter::empty())
+                } else {
+                    let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
+                        path: path.to_string(),
+                        linenum: lineno,
+                        link: url.as_ref().to_string(),
+                    });
+                    Box::new(parser.collect::<Vec<_>>().into_iter()) as Box<Iterator<Item = _>>
+                })
+            })
+            .for_each(|links| {
+                raw_links.extend(links);
+            });
         raw_links
     };
 
