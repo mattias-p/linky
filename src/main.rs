@@ -36,11 +36,12 @@ use std::sync::atomic;
 use error::Tag;
 use linky::Document;
 use linky::Link;
+use linky::MdLinkParser;
 use linky::Record;
 use linky::fetch_link;
-use linky::md_file_links;
 use linky::parse_link;
 use linky::resolve_fragment;
+use linky::slurp;
 use rayon::prelude::*;
 use shell_escape::escape;
 use structopt::StructOpt;
@@ -255,8 +256,16 @@ fn main() {
     } else {
         let mut raw_links = vec![];
         for path in &opt.file {
-            if let Err(err) = md_file_links(path, &mut raw_links) {
+            let mut buffer = String::new();
+            if let Err(err) = slurp(&path, &mut buffer) {
                 error!("reading file {}: {}", escape(Cow::Borrowed(path)), err);
+            } else {
+                let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
+                    path: path.to_string(),
+                    linenum: lineno,
+                    link: url.as_ref().to_string(),
+                });
+                raw_links.extend(parser);
             }
         }
         raw_links

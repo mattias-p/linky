@@ -352,7 +352,7 @@ fn read_chars(reader: &mut Read, charset_hint: Option<String>) -> Result<String>
         })
 }
 
-fn slurp<P: AsRef<Path>>(filename: &P, mut buffer: &mut String) -> io::Result<usize> {
+pub fn slurp<P: AsRef<Path>>(filename: &P, mut buffer: &mut String) -> io::Result<usize> {
     File::open(filename.as_ref())?.read_to_string(&mut buffer)
 }
 
@@ -401,7 +401,7 @@ impl Headers {
     }
 }
 
-struct MdLinkParser<'a> {
+pub struct MdLinkParser<'a> {
     buffer: &'a str,
     parser: Parser<'a>,
     linenum: usize,
@@ -409,7 +409,7 @@ struct MdLinkParser<'a> {
 }
 
 impl<'a> MdLinkParser<'a> {
-    fn new(buffer: &'a str) -> Self {
+    pub fn new(buffer: &'a str) -> Self {
         MdLinkParser {
             parser: Parser::new(buffer),
             buffer,
@@ -459,19 +459,6 @@ impl FromStr for Record {
             link: cap.get(3).unwrap().as_str().to_string(),
         })
     }
-}
-
-pub fn md_file_links<'a>(path: &'a str, links: &mut Vec<Record>) -> io::Result<()> {
-    let mut buffer = String::new();
-    slurp(&path, &mut buffer)?;
-    let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
-        path: path.to_string(),
-        linenum: lineno,
-        link: url.as_ref().to_string(),
-    });
-
-    links.extend(parser);
-    Ok(())
 }
 
 pub fn lookup_fragment(document: &Document, fragment: &str, resolver: &FragResolver) -> Result<()> {
