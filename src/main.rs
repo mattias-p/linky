@@ -241,6 +241,8 @@ fn main() {
         },
     };
 
+    use std::iter;
+
     let raw_links = if opt.file.is_empty() {
         let mut raw_links = vec![];
         let stdin = io::stdin();
@@ -257,16 +259,18 @@ fn main() {
         let mut raw_links = vec![];
         let mut buffer = String::new();
         for path in &opt.file {
-            if let Err(err) = slurp(&path, &mut buffer) {
+            let links: Box<Iterator<Item = _>> = if let Err(err) = slurp(&path, &mut buffer) {
                 error!("reading file {}: {}", escape(Cow::Borrowed(path)), err);
+                Box::new(iter::empty())
             } else {
                 let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
                     path: path.to_string(),
                     linenum: lineno,
                     link: url.as_ref().to_string(),
                 });
-                raw_links.extend(parser);
-            }
+                Box::new(parser)
+            };
+            raw_links.extend(links);
         }
         raw_links
     };
