@@ -244,7 +244,7 @@ fn main() {
 
     use std::iter;
 
-    let raw_links = if opt.file.is_empty() {
+    let raw_links: Box<Iterator<Item = _>> = if opt.file.is_empty() {
         let stdin = io::stdin();
         let links = stdin
             .lock()
@@ -252,29 +252,25 @@ fn main() {
             .map(Result::unwrap)
             .map(|line| Record::from_str(&line))
             .map(Result::unwrap);
-        Vec::from_iter(links)
+        Box::new(Vec::from_iter(links).into_iter())
     } else {
-        let mut buffer = String::new();
-        opt.file
-            .iter()
-            .flat_map(|path| {
-                (if let Err(err) = slurp(&path, &mut buffer) {
-                    error!("reading file {}: {}", escape(Cow::Borrowed(path)), err);
-                    Box::new(iter::empty())
-                } else {
-                    let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
-                        path: path.to_string(),
-                        linenum: lineno,
-                        link: url.as_ref().to_string(),
-                    });
-                    Box::new(parser.collect::<Vec<_>>().into_iter()) as Box<Iterator<Item = _>>
-                })
+        Box::new(opt.file.iter().flat_map(|path| {
+            let mut buffer = String::new();
+            (if let Err(err) = slurp(&path, &mut buffer) {
+                error!("reading file {}: {}", escape(Cow::Borrowed(path)), err);
+                Box::new(iter::empty())
+            } else {
+                let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
+                    path: path.to_string(),
+                    linenum: lineno,
+                    link: url.as_ref().to_string(),
+                });
+                Box::new(parser.collect::<Vec<_>>().into_iter()) as Box<Iterator<Item = _>>
             })
-            .collect::<Vec<_>>()
+        }))
     };
 
     raw_links
-        .into_iter()
         .map(|record| (parse_link(&record, opt.root.as_str()), record))
         .filter_map(|(link, record)| print_error(link, record))
         .enumerate()
