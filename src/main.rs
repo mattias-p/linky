@@ -145,22 +145,6 @@ fn read_md(path: &str) -> Result<Box<Iterator<Item = Record>>, io::Error> {
     Ok(Box::new(parser.collect::<Vec<_>>().into_iter()))
 }
 
-fn print_error(
-    link: Result<(Link, Option<String>), url::ParseError>,
-    record: Record,
-) -> Option<(Record, Link, Option<String>)> {
-    match link {
-        Ok((base, fragment)) => Some((record, base, fragment)),
-        Err(err) => {
-            error!(
-                "{}:{}: {}: {}",
-                record.path, record.linenum, err, record.link
-            );
-            None
-        }
-    }
-}
-
 fn group_fragments(
     acc: (
         Vec<(Link, Vec<(usize, Option<String>, Record)>)>,
@@ -269,8 +253,17 @@ fn main() {
                 .map_err(|err| error!("reading file {}: {}", escape(Cow::Borrowed(path)), err))
                 .unwrap_or(Box::new(iter::empty()))
         })) as Box<Iterator<Item = _>>
-    }.map(|record| (parse_link(&record, opt.root.as_str()), record))
-        .filter_map(|(link, record)| print_error(link, record))
+    }.filter_map(|record| {
+        parse_link(&record, opt.root.as_str())
+            .map_err(|err| {
+                error!(
+                    "{}:{}: {}: {}",
+                    record.path, record.linenum, err, record.link
+                )
+            })
+            .map(|(base, fragment)| Some((record, base, fragment)))
+            .unwrap_or(None)
+    })
         .enumerate()
         .fold((vec![], HashMap::new()), group_fragments)
         .0
