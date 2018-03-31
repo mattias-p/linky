@@ -256,11 +256,10 @@ fn main() {
         );
         raw_links
     } else {
-        let mut raw_links = vec![];
         let mut buffer = String::new();
         opt.file
             .iter()
-            .map(|path| {
+            .flat_map(|path| {
                 (if let Err(err) = slurp(&path, &mut buffer) {
                     error!("reading file {}: {}", escape(Cow::Borrowed(path)), err);
                     Box::new(iter::empty())
@@ -273,10 +272,7 @@ fn main() {
                     Box::new(parser.collect::<Vec<_>>().into_iter()) as Box<Iterator<Item = _>>
                 })
             })
-            .for_each(|links| {
-                raw_links.extend(links);
-            });
-        raw_links
+            .collect::<Vec<_>>()
     };
 
     raw_links
