@@ -254,7 +254,7 @@ fn main() {
         },
     };
 
-    let raw_links: Box<Iterator<Item = _>> = if opt.file.is_empty() {
+    if opt.file.is_empty() {
         let stdin = io::stdin();
         let links = stdin
             .lock()
@@ -262,19 +262,14 @@ fn main() {
             .map(Result::unwrap)
             .map(|line| Record::from_str(&line))
             .map(Result::unwrap);
-        Box::new(Vec::from_iter(links).into_iter())
+        Box::new(Vec::from_iter(links).into_iter()) as Box<Iterator<Item = _>>
     } else {
-        Box::new(opt.file.iter().flat_map(|path| match read_md(path) {
-            Err(err) => {
-                error!("reading file {}: {}", escape(Cow::Borrowed(path)), err);
-                Box::new(iter::empty())
-            }
-            Ok(records) => records,
-        }))
-    };
-
-    raw_links
-        .map(|record| (parse_link(&record, opt.root.as_str()), record))
+        Box::new(opt.file.iter().flat_map(|path| {
+            read_md(path)
+                .map_err(|err| error!("reading file {}: {}", escape(Cow::Borrowed(path)), err))
+                .unwrap_or(Box::new(iter::empty()))
+        })) as Box<Iterator<Item = _>>
+    }.map(|record| (parse_link(&record, opt.root.as_str()), record))
         .filter_map(|(link, record)| print_error(link, record))
         .enumerate()
         .fold((vec![], HashMap::new()), group_fragments)
