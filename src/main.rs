@@ -28,6 +28,7 @@ use std::collections::hash_map::Entry;
 use std::fmt;
 use std::io::BufRead;
 use std::io;
+use std::iter::FromIterator;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -244,17 +245,14 @@ fn main() {
     use std::iter;
 
     let raw_links = if opt.file.is_empty() {
-        let mut raw_links = vec![];
         let stdin = io::stdin();
-        raw_links.extend(
-            stdin
-                .lock()
-                .lines()
-                .map(Result::unwrap)
-                .map(|line| Record::from_str(&line))
-                .map(Result::unwrap),
-        );
-        raw_links
+        let links = stdin
+            .lock()
+            .lines()
+            .map(Result::unwrap)
+            .map(|line| Record::from_str(&line))
+            .map(Result::unwrap);
+        Vec::from_iter(links)
     } else {
         let mut buffer = String::new();
         opt.file
