@@ -36,6 +36,7 @@ use std::sync::Mutex;
 use std::sync::atomic;
 
 use error::Tag;
+use linky::Client;
 use linky::FragResolver;
 use linky::Link;
 use linky::Record;
@@ -180,11 +181,11 @@ fn main() {
     let silence: HashSet<_> = opt.silence.iter().collect();
 
     let client = if opt.check {
-        let mut builder = reqwest::Client::builder();
-        if !opt.redirect {
-            builder.redirect(reqwest::RedirectPolicy::none());
+        if opt.redirect {
+            Some(Client::new_follow())
+        } else {
+            Some(Client::new_no_follow())
         }
-        Some(builder.build().unwrap())
     } else {
         None
     };
