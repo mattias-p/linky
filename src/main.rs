@@ -173,21 +173,21 @@ fn resolve_link(
     document: &Option<Result<Document, Arc<error::Error>>>,
     prefixes: &[&str],
     base: &Link,
-    fragment: Option<String>,
+    fragment: &Option<String>,
 ) -> Option<Result<(), Arc<error::Error>>> {
     match document {
-        &Some(Ok(ref document)) => {
+        Some(Ok(ref document)) => {
             let resolution = resolve_fragment(document, base, &fragment, prefixes);
             Some(resolution)
         }
-        &Some(Err(ref err)) => Some(Err(err.clone())),
-        &None => None,
+        Some(Err(ref err)) => Some(Err(err.clone())),
+        None => None,
     }
 }
 
 fn print_result(
-    record: Record,
-    res: Option<Result<(), Arc<error::Error>>>,
+    record: &Record,
+    res: &Option<Result<(), Arc<error::Error>>>,
     silence: &HashSet<&Tag>,
 ) {
     let tag = res.as_ref()
@@ -232,7 +232,7 @@ fn main() {
         heap: Mutex::new(BinaryHeap::new()),
         current: atomic::AtomicUsize::new(0),
         f: |(record, res)| {
-            print_result(record, res, &silence);
+            print_result(&record, &res, &silence);
         },
     };
 
@@ -249,7 +249,7 @@ fn main() {
         Box::new(opt.file.iter().flat_map(|path| {
             read_md(path)
                 .map_err(|err| error!("reading file {}: {}", escape(Cow::Borrowed(path)), err))
-                .unwrap_or(Box::new(iter::empty()))
+                .unwrap_or_else(|_| Box::new(iter::empty()))
         })) as Box<Iterator<Item = _>>
     }.filter_map(|record| {
         parse_link(&record, opt.root.as_str())
@@ -269,7 +269,7 @@ fn main() {
         .for_each(|(base, fragments)| {
             let document = client.as_ref().map(|client| fetch_link(client, &base));
             for (index, fragment, record) in fragments {
-                let value = resolve_link(&document, &prefixes, &base, fragment);
+                let value = resolve_link(&document, &prefixes, &base, &fragment);
                 o.push(Item {
                     index,
                     value: (record, value),
