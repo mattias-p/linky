@@ -173,18 +173,16 @@ fn resolve_link(
     document: &Option<Result<Document, Arc<error::Error>>>,
     prefixes: &[&str],
     base: &Link,
-    link: (usize, Option<String>, Record),
-) -> (usize, (Record, Option<Result<(), Arc<error::Error>>>)) {
-    let (index, fragment, record) = link;
-    let res = match document {
+    fragment: Option<String>,
+) -> Option<Result<(), Arc<error::Error>>> {
+    match document {
         &Some(Ok(ref document)) => {
             let resolution = resolve_fragment(document, base, &fragment, prefixes);
-            (record, Some(resolution))
+            Some(resolution)
         }
-        &Some(Err(ref err)) => (record, Some(Err(err.clone()))),
-        &None => (record, None),
-    };
-    (index, res)
+        &Some(Err(ref err)) => Some(Err(err.clone())),
+        &None => None,
+    }
 }
 
 fn print_result(
@@ -270,9 +268,12 @@ fn main() {
         .into_par_iter()
         .for_each(|(base, fragments)| {
             let document = client.as_ref().map(|client| fetch_link(client, &base));
-            for fragment in fragments {
-                let (index, value) = resolve_link(&document, &prefixes, &base, fragment);
-                o.push(Item { index, value });
+            for (index, fragment, record) in fragments {
+                let value = resolve_link(&document, &prefixes, &base, fragment);
+                o.push(Item {
+                    index,
+                    value: (record, value),
+                });
             }
         });
 }
