@@ -5,8 +5,8 @@ use std::io;
 use std::result;
 use std::str::FromStr;
 
-use reqwest::StatusCode;
 use reqwest;
+use reqwest::StatusCode;
 use url;
 
 pub type Result<T> = result::Result<T, Error>;

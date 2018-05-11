@@ -4,14 +4,14 @@ use std::collections::HashSet;
 use std::collections::hash_map::Entry;
 use std::fmt;
 use std::fs::File;
+use std::io;
 use std::io::Cursor;
 use std::io::Read;
-use std::io;
 use std::ops::Add;
 use std::path::Path;
-use std::sync::Arc;
 use std::result;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use bytecount::count;
 use encoding::DecoderTrap;
@@ -20,21 +20,20 @@ use error::Error;
 use error::Result;
 use error::Tag;
 use htmlstream;
+use pulldown_cmark;
 use pulldown_cmark::Event;
 use pulldown_cmark::Parser;
-use pulldown_cmark;
 use regex::Regex;
 use reqwest::Client;
 use reqwest::header::ContentType;
 use reqwest::mime;
-use url::Url;
 use url;
+use url::Url;
 use xhtmlchardet;
 
 lazy_static! {
-    static ref MARKDOWN_CONTENT_TYPE: ContentType = ContentType("text/markdown; charset=UTF-8"
-            .parse()
-            .unwrap());
+    static ref MARKDOWN_CONTENT_TYPE: ContentType =
+        ContentType("text/markdown; charset=UTF-8".parse().unwrap());
 }
 
 enum Format {
