@@ -146,27 +146,19 @@ fn read_md(path: &str) -> Result<Box<Iterator<Item = Record>>, io::Error> {
 }
 
 fn group_fragments(
-    acc: (
-        Vec<(Link, Vec<(usize, Option<String>, Record)>)>,
-        HashMap<Link, usize>,
-    ),
+    mut acc: HashMap<Link, Vec<(usize, Option<String>, Record)>>,
     link: (usize, (Record, Link, Option<String>)),
-) -> (
-    Vec<(Link, Vec<(usize, Option<String>, Record)>)>,
-    HashMap<Link, usize>,
-) {
-    let (mut order, mut fragments) = acc;
+) -> HashMap<Link, Vec<(usize, Option<String>, Record)>> {
     let (index, (record, base, fragment)) = link;
-    match fragments.entry(base.clone()) {
+    match acc.entry(base.clone()) {
         Entry::Vacant(vacant) => {
-            vacant.insert(order.len());
-            order.push((base, vec![(index, fragment, record)]));
+            vacant.insert(vec![(index, fragment, record)]);
         }
-        Entry::Occupied(occupied) => {
-            order[*occupied.get()].1.push((index, fragment, record));
+        Entry::Occupied(mut occupied) => {
+            occupied.get_mut().push((index, fragment, record));
         }
     };
-    (order, fragments)
+    acc
 }
 
 fn resolve_link(
@@ -263,8 +255,9 @@ fn main() {
             .unwrap_or(None)
     })
         .enumerate()
-        .fold((vec![], HashMap::new()), group_fragments)
-        .0
+        .fold(HashMap::new(), group_fragments)
+        .into_iter()
+        .collect::<Vec<_>>()
         .into_par_iter()
         .for_each(|(base, fragments)| {
             let document = client.as_ref().map(|client| fetch_link(client, &base));
