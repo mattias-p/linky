@@ -513,6 +513,17 @@ pub fn fetch_link<'a>(client: &Client, link: &Link) -> result::Result<Document<'
     }.map_err(|err| Arc::new(err.context(Cow::from(format!("link = {}", link)))))
 }
 
+pub fn read_md(path: &str) -> result::Result<Box<Iterator<Item = Record>>, io::Error> {
+    let mut buffer = String::new();
+    slurp(&path, &mut buffer)?;
+    let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
+        path: path.to_string(),
+        linenum: lineno,
+        link: url.as_ref().to_string(),
+    });
+    Ok(Box::new(parser.collect::<Vec<_>>().into_iter()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

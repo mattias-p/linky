@@ -38,11 +38,10 @@ use std::sync::atomic;
 use error::Tag;
 use linky::FragResolver;
 use linky::Link;
-use linky::MdLinkParser;
 use linky::Record;
 use linky::fetch_link;
 use linky::parse_link;
-use linky::slurp;
+use linky::read_md;
 use rayon::prelude::*;
 use shell_escape::escape;
 use structopt::StructOpt;
@@ -131,17 +130,6 @@ impl<T, F: Fn(T) -> ()> Orderer<T, F> {
             self.current.fetch_add(1, atomic::Ordering::SeqCst);
         }
     }
-}
-
-fn read_md(path: &str) -> Result<Box<Iterator<Item = Record>>, io::Error> {
-    let mut buffer = String::new();
-    slurp(&path, &mut buffer)?;
-    let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
-        path: path.to_string(),
-        linenum: lineno,
-        link: url.as_ref().to_string(),
-    });
-    Ok(Box::new(parser.collect::<Vec<_>>().into_iter()))
 }
 
 fn group_fragments(
