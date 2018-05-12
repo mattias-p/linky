@@ -122,7 +122,7 @@ impl<'a> FragResolver<'a> {
         }
     }
 
-    fn fragment<'d>(&self, fragment: &str, document: &Document<'d>) -> Option<&str> {
+    fn find_prefix<'d>(&self, fragment: &str, document: &Document<'d>) -> Option<&str> {
         if document.ids.contains(&Cow::from(fragment)) {
             return Some("");
         }
@@ -135,6 +135,44 @@ impl<'a> FragResolver<'a> {
             }
         }
         None
+    }
+
+    pub fn fragment(&self, document: &Document, fragment: &str) -> Result<()> {
+        self.find_prefix(fragment, document)
+            .ok_or_else(|| {
+                Error::root(Tag::NoFragment).context(Cow::from(format!("fragment = #{}", fragment)))
+            })
+            .and_then(|prefix| {
+                if prefix == "" {
+                    Ok(())
+                } else {
+                    Err(Error::root(Tag::Prefixed)
+                        .context(Cow::from(format!("prefix = {}", prefix)))
+                        .context(Cow::from(format!("fragment = #{}", &fragment))))
+                }
+            })
+    }
+
+    pub fn link(
+        &self,
+        document: &Option<result::Result<Document, Arc<Error>>>,
+        base: &Link,
+        fragment: &Option<String>,
+    ) -> Option<result::Result<(), Arc<Error>>> {
+        document.as_ref().map(|document| {
+            document
+                .as_ref()
+                .map_err(|err| err.clone())
+                .and_then(|document| {
+                    if let Some(ref fragment) = *fragment {
+                        self.fragment(document, fragment).map_err(|err| {
+                            Arc::new(err.context(Cow::from(format!("link = {}", base))))
+                        })
+                    } else {
+                        Ok(())
+                    }
+                })
+        })
     }
 }
 
@@ -460,23 +498,6 @@ impl FromStr for Record {
     }
 }
 
-pub fn lookup_fragment(document: &Document, fragment: &str, resolver: &FragResolver) -> Result<()> {
-    resolver
-        .fragment(fragment, document)
-        .ok_or_else(|| {
-            Error::root(Tag::NoFragment).context(Cow::from(format!("fragment = #{}", fragment)))
-        })
-        .and_then(|prefix| {
-            if prefix == "" {
-                Ok(())
-            } else {
-                Err(Error::root(Tag::Prefixed)
-                    .context(Cow::from(format!("prefix = {}", prefix)))
-                    .context(Cow::from(format!("fragment = #{}", &fragment))))
-            }
-        })
-}
-
 pub fn parse_link(
     record: &Record,
     root: &str,
@@ -490,21 +511,6 @@ pub fn fetch_link<'a>(client: &Client, link: &Link) -> result::Result<Document<'
         Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
         Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
     }.map_err(|err| Arc::new(err.context(Cow::from(format!("link = {}", link)))))
-}
-
-pub fn resolve_fragment(
-    document: &Document,
-    link: &Link,
-    fragment: &Option<String>,
-    prefixes: &[&str],
-) -> result::Result<(), Arc<Error>> {
-    if let Some(ref fragment) = *fragment {
-        let resolver = FragResolver::from(prefixes);
-        lookup_fragment(document, fragment, &resolver)
-            .map_err(|err| Arc::new(err.context(Cow::from(format!("link = {}", link)))))
-    } else {
-        Ok(())
-    }
 }
 
 #[cfg(test)]

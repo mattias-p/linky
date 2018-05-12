@@ -36,13 +36,12 @@ use std::sync::Mutex;
 use std::sync::atomic;
 
 use error::Tag;
-use linky::Document;
+use linky::FragResolver;
 use linky::Link;
 use linky::MdLinkParser;
 use linky::Record;
 use linky::fetch_link;
 use linky::parse_link;
-use linky::resolve_fragment;
 use linky::slurp;
 use rayon::prelude::*;
 use shell_escape::escape;
@@ -161,22 +160,6 @@ fn group_fragments(
     acc
 }
 
-fn resolve_link(
-    document: &Option<Result<Document, Arc<error::Error>>>,
-    prefixes: &[&str],
-    base: &Link,
-    fragment: &Option<String>,
-) -> Option<Result<(), Arc<error::Error>>> {
-    match document {
-        Some(Ok(ref document)) => {
-            let resolution = resolve_fragment(document, base, &fragment, prefixes);
-            Some(resolution)
-        }
-        Some(Err(ref err)) => Some(Err(err.clone())),
-        None => None,
-    }
-}
-
 fn print_result(
     record: &Record,
     res: &Option<Result<(), Arc<error::Error>>>,
@@ -219,6 +202,7 @@ fn main() {
     };
 
     let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
+    let resolver = FragResolver::from(&prefixes);
 
     let o = Orderer {
         heap: Mutex::new(BinaryHeap::new()),
@@ -262,7 +246,7 @@ fn main() {
         .for_each(|(base, fragments)| {
             let document = client.as_ref().map(|client| fetch_link(client, &base));
             for (index, fragment, record) in fragments {
-                let value = resolve_link(&document, &prefixes, &base, &fragment);
+                let value = resolver.link(&document, &base, &fragment);
                 o.push(Item {
                     index,
                     value: (record, value),
