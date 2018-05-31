@@ -565,64 +565,64 @@ mod tests {
     }
 
     #[test]
-    fn check_fragment() {
+    fn fragment() {
         assert_eq!(
-            lookup_fragment(&Document::from(&["abc"]), "abc", &FragResolver::new())
+            FragResolver::new()
+                .fragment(&Document::from(&["abc"]), "abc")
                 .map_err(|e| e.tag()),
             Ok(())
         );
         assert_eq!(
-            lookup_fragment(&Document::new(), "", &FragResolver::new()).map_err(|e| e.tag()),
+            FragResolver::new()
+                .fragment(&Document::new(), "")
+                .map_err(|e| e.tag()),
             Ok(())
         );
         assert_eq!(
-            lookup_fragment(&Document::empty(), "", &FragResolver::new()).map_err(|e| e.tag()),
+            FragResolver::new()
+                .fragment(&Document::empty(), "")
+                .map_err(|e| e.tag()),
             Err(Tag::NoFragment)
         );
         assert_eq!(
-            lookup_fragment(
-                &Document::from(&["prefix"]),
-                "",
-                &FragResolver::from(&["prefix"])
-            ).map_err(|e| e.tag()),
+            FragResolver::from(&["prefix"])
+                .fragment(&Document::from(&["prefix"]), "")
+                .map_err(|e| e.tag()),
             Ok(())
         );
         assert_eq!(
-            lookup_fragment(&Document::new(), "abc", &FragResolver::new()).map_err(|e| e.tag()),
+            FragResolver::new()
+                .fragment(&Document::new(), "abc")
+                .map_err(|e| e.tag()),
             Err(Tag::NoFragment)
         );
         assert_eq!(
-            lookup_fragment(
-                &Document::from(&["abc-123"]),
-                "123",
-                &FragResolver::from(&["abc-"])
-            ).map_err(|e| e.tag()),
+            FragResolver::new()
+                .fragment(&Document::from(&["abc-123"]), "123")
+                .map_err(|e| e.tag()),
+            Err(Tag::NoFragment)
+        );
+        assert_eq!(
+            FragResolver::from(&["abc-"])
+                .fragment(&Document::from(&["abc-123"]), "123")
+                .map_err(|e| e.tag()),
             Err(Tag::Prefixed)
         );
     }
 
     #[test]
-    fn find_fragments() {
-        assert_eq!(FragResolver::new().fragment("123", &Document::new()), None);
-
+    fn find_prefix() {
         assert_eq!(
-            FragResolver::new().fragment("123", &Document::from(&["abc-123"])),
-            None
+            FragResolver::new().find_prefix("123", &Document::from(&["123"])),
+            Some("")
         );
-
         assert_eq!(
-            FragResolver::from(&["def-"]).fragment("123", &Document::from(&["abc-123"])),
-            None
-        );
-
-        assert_eq!(
-            FragResolver::from(&["abc-"]).fragment("123", &Document::from(&["abc-123"])),
-            Some("abc-")
-        );
-
-        assert_eq!(
-            FragResolver::from(&["abc-", "def-"]).fragment("123", &Document::from(&["def-123"])),
+            FragResolver::from(&["abc-", "def-"]).find_prefix("123", &Document::from(&["def-123"])),
             Some("def-")
+        );
+        assert_eq!(
+            FragResolver::from(&["abc-"]).find_prefix("123", &Document::from(&["def-123"])),
+            None
         );
     }
 
