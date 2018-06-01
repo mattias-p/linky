@@ -36,6 +36,7 @@ use std::sync::Mutex;
 use std::sync::atomic;
 
 use error::Tag;
+use linky::Client;
 use linky::FragResolver;
 use linky::Link;
 use linky::Record;
@@ -179,16 +180,6 @@ fn main() {
     let opt = Opt::from_args();
     let silence: HashSet<_> = opt.silence.iter().collect();
 
-    let client = if opt.check {
-        let mut builder = reqwest::Client::builder();
-        if !opt.redirect {
-            builder.redirect(reqwest::RedirectPolicy::none());
-        }
-        Some(builder.build().unwrap())
-    } else {
-        None
-    };
-
     let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
     let resolver = FragResolver::from(&prefixes);
 
@@ -232,6 +223,15 @@ fn main() {
         .collect::<Vec<_>>()
         .into_par_iter()
         .for_each(|(base, fragments)| {
+            let client = if opt.check {
+                if opt.redirect {
+                    Some(Client::new_follow())
+                } else {
+                    Some(Client::new_no_follow())
+                }
+            } else {
+                None
+            };
             let document = client.as_ref().map(|client| fetch_link(client, &base));
             for (index, fragment, record) in fragments {
                 let value = resolver.link(&document, &base, &fragment);

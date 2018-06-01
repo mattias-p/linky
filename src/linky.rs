@@ -11,7 +11,7 @@ use std::ops::Add;
 use std::path::Path;
 use std::result;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync;
 
 use bytecount::count;
 use encoding::DecoderTrap;
@@ -24,7 +24,7 @@ use pulldown_cmark;
 use pulldown_cmark::Event;
 use pulldown_cmark::Parser;
 use regex::Regex;
-use reqwest::Client;
+use reqwest;
 use reqwest::header::ContentType;
 use reqwest::mime;
 use url;
@@ -155,10 +155,10 @@ impl<'a> FragResolver<'a> {
 
     pub fn link(
         &self,
-        document: &Option<result::Result<Document, Arc<Error>>>,
+        document: &Option<result::Result<Document, sync::Arc<Error>>>,
         base: &Link,
         fragment: &Option<String>,
-    ) -> Option<result::Result<(), Arc<Error>>> {
+    ) -> Option<result::Result<(), sync::Arc<Error>>> {
         document.as_ref().map(|document| {
             document
                 .as_ref()
@@ -166,7 +166,7 @@ impl<'a> FragResolver<'a> {
                 .and_then(|document| {
                     if let Some(ref fragment) = *fragment {
                         self.fragment(document, fragment).map_err(|err| {
-                            Arc::new(err.context(Cow::from(format!("link = {}", base))))
+                            sync::Arc::new(err.context(Cow::from(format!("link = {}", base))))
                         })
                     } else {
                         Ok(())
@@ -207,10 +207,21 @@ impl<'a> RemoteResolver for NetworkRemoteResolver<'a> {
             return Err(Tag::Protocol.into());
         }
 
-        let response = self.0.get(url.clone()).send()?;
+        let (response, redirects) = self.0.get(url.clone())?;
 
         if !response.status().is_success() {
             return Err(Tag::HttpStatus(response.status()).into());
+        }
+        if !redirects.is_empty() {
+            let mut err: Error = Tag::HttpStatus(redirects[0].0).into();
+            for &(status, ref url) in redirects.iter().rev() {
+                err = err.context(Cow::from(format!(
+                    "redirect({}) = {}",
+                    status.as_u16(),
+                    url
+                )));
+            }
+            return Err(err);
         }
         let content_type: Result<ContentType> = response
             .headers()
@@ -220,6 +231,43 @@ impl<'a> RemoteResolver for NetworkRemoteResolver<'a> {
         let content_type = content_type?;
 
         Document::parse(response, &content_type)
+    }
+}
+
+pub struct Client {
+    inner: reqwest::Client,
+    redirects: sync::Arc<sync::Mutex<Vec<(reqwest::StatusCode, reqwest::Url)>>>,
+}
+
+impl Client {
+    pub fn new_no_follow() -> Self {
+        let redirects = sync::Arc::new(sync::Mutex::new(vec![]));
+        let redirects_clone = redirects.clone();
+        let inner = reqwest::Client::builder()
+            .redirect(reqwest::RedirectPolicy::custom(move |attempt| {
+                let mut redirects_guard = redirects_clone.lock().unwrap();
+                redirects_guard.push((attempt.status(), attempt.url().clone()));
+                reqwest::RedirectPolicy::default().redirect(attempt)
+            }))
+            .build()
+            .unwrap();
+        Client { inner, redirects }
+    }
+
+    pub fn new_follow() -> Self {
+        let redirects = sync::Arc::new(sync::Mutex::new(vec![]));
+        let inner = reqwest::Client::new();
+        Client { inner, redirects }
+    }
+
+    pub fn get<U: reqwest::IntoUrl>(
+        &self,
+        url: U,
+    ) -> reqwest::Result<(reqwest::Response, Vec<(reqwest::StatusCode, reqwest::Url)>)> {
+        self.redirects.lock().unwrap().clear();
+        let response = self.inner.get(url).send()?;
+        let redirects = self.redirects.lock().unwrap().clone();
+        Ok((response, redirects))
     }
 }
 
@@ -506,11 +554,14 @@ pub fn parse_link(
         .map(|parsed| parsed.split_fragment())
 }
 
-pub fn fetch_link<'a>(client: &Client, link: &Link) -> result::Result<Document<'a>, Arc<Error>> {
+pub fn fetch_link<'a>(
+    client: &Client,
+    link: &Link,
+) -> result::Result<Document<'a>, sync::Arc<Error>> {
     match *link {
         Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
         Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
-    }.map_err(|err| Arc::new(err.context(Cow::from(format!("link = {}", link)))))
+    }.map_err(|err| sync::Arc::new(err.context(Cow::from(format!("link = {}", link)))))
 }
 
 pub fn read_md(path: &str) -> result::Result<Box<Iterator<Item = Record>>, io::Error> {
