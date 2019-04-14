@@ -163,7 +163,7 @@ impl<'a> FragResolver<'a> {
         document.as_ref().map(|document| {
             document
                 .as_ref()
-                .map_err(|err| err.clone())
+                .map_err(std::clone::Clone::clone)
                 .and_then(|document| {
                     if let Some(ref fragment) = *fragment {
                         self.fragment(document, fragment).map_err(|err| {
@@ -359,14 +359,17 @@ impl Link {
                 let (path, fragment) = split_path_fragment(path);
                 (
                     Link::Path(path.to_string()),
-                    fragment.map(|f| f.to_string()),
+                    fragment.map(std::string::ToString::to_string),
                 )
             }
             Link::Url(ref url) => {
                 let (url, fragment) = split_url_fragment(url);
                 let mut url = url.clone();
                 url.set_fragment(None);
-                (Link::Url(url), fragment.map(|f| f.to_string()))
+                (
+                    Link::Url(url),
+                    fragment.map(std::string::ToString::to_string),
+                )
             }
         }
     }
