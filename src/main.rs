@@ -20,28 +20,28 @@ mod linky;
 
 use std::borrow::Cow;
 use std::cmp;
+use std::collections::hash_map::Entry;
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::collections::hash_map::Entry;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
 use std::iter;
 use std::iter::FromIterator;
 use std::str::FromStr;
+use std::sync::atomic;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::atomic;
 
 use error::Tag;
+use linky::fetch_link;
+use linky::parse_link;
+use linky::read_md;
 use linky::Client;
 use linky::FragResolver;
 use linky::Link;
 use linky::Record;
-use linky::fetch_link;
-use linky::parse_link;
-use linky::read_md;
 use rayon::prelude::*;
 use shell_escape::escape;
 use structopt::StructOpt;
@@ -153,7 +153,8 @@ fn print_result(
     res: &Option<Result<(), Arc<error::Error>>>,
     silence: &HashSet<&Tag>,
 ) {
-    let tag = res.as_ref()
+    let tag = res
+        .as_ref()
         .map(|res| res.as_ref().err().map(|err| err.tag()).unwrap_or(Tag::Ok));
 
     if !tag.as_ref().map_or(false, |tag| silence.contains(&tag)) {
@@ -197,7 +198,9 @@ fn main() {
             .lines()
             .map(Result::unwrap)
             .enumerate()
-            .map(|(lineno, line)| Record::from_str(&line).map_err(|e| format!("line {}: {}", lineno + 1, e)))
+            .map(|(lineno, line)| {
+                Record::from_str(&line).map_err(|e| format!("line {}: {}", lineno + 1, e))
+            })
             .map(Result::unwrap);
         Box::new(Vec::from_iter(links).into_iter()) as Box<Iterator<Item = _>>
     } else {
@@ -206,7 +209,8 @@ fn main() {
                 .map_err(|err| error!("reading file {}: {}", escape(Cow::Borrowed(path)), err))
                 .unwrap_or_else(|_| Box::new(iter::empty()))
         })) as Box<Iterator<Item = _>>
-    }.filter_map(|record| {
+    }
+    .filter_map(|record| {
         parse_link(&record, opt.root.as_str())
             .map_err(|err| {
                 error!(
@@ -217,28 +221,28 @@ fn main() {
             .map(|(base, fragment)| Some((record, base, fragment)))
             .unwrap_or(None)
     })
-        .enumerate()
-        .fold(HashMap::new(), group_fragments)
-        .into_iter()
-        .collect::<Vec<_>>()
-        .into_par_iter()
-        .for_each(|(base, fragments)| {
-            let client = if opt.check {
-                if opt.redirect {
-                    Some(Client::new_follow())
-                } else {
-                    Some(Client::new_no_follow())
-                }
+    .enumerate()
+    .fold(HashMap::new(), group_fragments)
+    .into_iter()
+    .collect::<Vec<_>>()
+    .into_par_iter()
+    .for_each(|(base, fragments)| {
+        let client = if opt.check {
+            if opt.redirect {
+                Some(Client::new_follow())
             } else {
-                None
-            };
-            let document = client.as_ref().map(|client| fetch_link(client, &base));
-            for (index, fragment, record) in fragments {
-                let value = resolver.link(&document, &base, &fragment);
-                o.push(Item {
-                    index,
-                    value: (record, value),
-                });
+                Some(Client::new_no_follow())
             }
-        });
+        } else {
+            None
+        };
+        let document = client.as_ref().map(|client| fetch_link(client, &base));
+        for (index, fragment, record) in fragments {
+            let value = resolver.link(&document, &base, &fragment);
+            o.push(Item {
+                index,
+                value: (record, value),
+            });
+        }
+    });
 }
