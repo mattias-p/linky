@@ -15,6 +15,7 @@ pub type Result<T> = result::Result<T, Error>;
 pub enum Tag {
     Ok,
     HttpError,
+    Timeout,
     IoError,
     HttpStatus(StatusCode),
     NoDocument,
@@ -47,6 +48,7 @@ impl fmt::Display for Tag {
         match *self {
             Tag::Ok => write!(f, "OK"),
             Tag::HttpError => write!(f, "HTTP_OTH"),
+            Tag::Timeout => write!(f, "TIMEOUT"),
             Tag::IoError => write!(f, "IO_ERR"),
             Tag::InvalidUrl => write!(f, "URL_ERR"),
             Tag::HttpStatus(status) => write!(f, "HTTP_{}", status.as_u16()),
@@ -79,6 +81,7 @@ impl FromStr for Tag {
         match s.to_uppercase().as_str() {
             "OK" => Ok(Tag::Ok),
             "HTTP_OTH" => Ok(Tag::HttpError),
+            "TIMEOUT" => Ok(Tag::Timeout),
             "IO_ERR" => Ok(Tag::IoError),
             "URL_ERR" => Ok(Tag::InvalidUrl),
             "NO_DOC" => Ok(Tag::NoDocument),
@@ -177,6 +180,7 @@ impl fmt::Display for Error {
             Tag::Ok => write!(f, "Ok"),
             Tag::InvalidUrl => write!(f, "Invalid url"),
             Tag::HttpError => write!(f, "HTTP error"),
+            Tag::Timeout => write!(f, "Timeout"),
             Tag::IoError => write!(f, "IO error"),
             Tag::HttpStatus(status) => write!(
                 f,
@@ -205,6 +209,7 @@ impl error::Error for Error {
         match self.tag {
             Tag::Ok => "ok",
             Tag::HttpError => "http error",
+            Tag::Timeout => "timeout",
             Tag::IoError => "io error",
             Tag::InvalidUrl => "invalid url",
             Tag::HttpStatus(_) => "unexpected http status",
@@ -245,10 +250,18 @@ impl From<io::Error> for Error {
 
 impl From<reqwest::Error> for Error {
     fn from(err: reqwest::Error) -> Self {
-        Error {
-            tag: Tag::HttpError,
-            msgs: vec![],
-            cause: Some(Box::new(err)),
+        if err.is_timeout() {
+            Error {
+                tag: Tag::Timeout,
+                msgs: vec![],
+                cause: Some(Box::new(err)),
+            }
+        } else {
+            Error {
+                tag: Tag::HttpError,
+                msgs: vec![],
+                cause: Some(Box::new(err)),
+            }
         }
     }
 }
