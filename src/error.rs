@@ -163,7 +163,7 @@ impl<'a> Iterator for ErrorIter<'a> {
             Some(format!("  context: {}", elem))
         } else if let Some(cause) = mem::replace(&mut self.cause, None) {
             let s = format!("  caused by: {}", &cause);
-            mem::replace(&mut self.cause, cause.cause());
+            mem::replace(&mut self.cause, cause.source());
             Some(s)
         } else {
             None

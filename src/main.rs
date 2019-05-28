@@ -11,7 +11,6 @@ extern crate rayon;
 extern crate regex;
 extern crate reqwest;
 extern crate shell_escape;
-#[macro_use]
 extern crate structopt;
 extern crate url;
 extern crate xhtmlchardet;

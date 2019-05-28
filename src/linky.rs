@@ -16,9 +16,6 @@ use std::sync;
 use bytecount::count;
 use encoding::DecoderTrap;
 use encoding::label::encoding_from_whatwg_label;
-use error::Error;
-use error::Result;
-use error::Tag;
 use htmlstream;
 use pulldown_cmark;
 use pulldown_cmark::Event;
@@ -30,6 +27,10 @@ use reqwest::mime;
 use url;
 use url::Url;
 use xhtmlchardet;
+
+use crate::error::Error;
+use crate::error::Result;
+use crate::error::Tag;
 
 lazy_static! {
     static ref MARKDOWN_CONTENT_TYPE: ContentType =
