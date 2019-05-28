@@ -17,13 +17,14 @@ use bytecount::count;
 use encoding::DecoderTrap;
 use encoding::label::encoding_from_whatwg_label;
 use htmlstream;
+use mime;
 use pulldown_cmark;
 use pulldown_cmark::Event;
 use pulldown_cmark::Parser;
 use regex::Regex;
 use reqwest;
-use reqwest::header::ContentType;
-use reqwest::mime;
+use reqwest::header::CONTENT_TYPE;
+use reqwest::header::HeaderValue;
 use url;
 use url::Url;
 use xhtmlchardet;
@@ -33,8 +34,8 @@ use crate::error::Result;
 use crate::error::Tag;
 
 lazy_static! {
-    static ref MARKDOWN_CONTENT_TYPE: ContentType =
-        ContentType("text/markdown; charset=UTF-8".parse().unwrap());
+    static ref MARKDOWN_CONTENT_TYPE: mime::Mime =
+        "text/markdown; charset=UTF-8".parse().unwrap();
 }
 
 enum Format {
@@ -65,7 +66,7 @@ impl<'a> Document<'a> {
         }
     }
 
-    fn parse<R: Read>(mut reader: R, content_type: &ContentType) -> Result<Document<'a>> {
+    fn parse<R: Read>(mut reader: R, content_type: &mime::Mime) -> Result<Document<'a>> {
         let format = match (content_type.type_(), content_type.subtype().as_str()) {
             (mime::TEXT, "html") => Format::Html,
             (mime::TEXT, "markdown") => Format::Markdown,
@@ -224,12 +225,12 @@ impl<'a> RemoteResolver for NetworkRemoteResolver<'a> {
             }
             return Err(err);
         }
-        let content_type: Result<ContentType> = response
+        let content_type: Result<HeaderValue> = response
             .headers()
-            .get::<ContentType>()
+            .get(CONTENT_TYPE)
             .cloned()
             .ok_or_else(|| Tag::NoMime.into());
-        let content_type = content_type?;
+        let content_type: mime::Mime = content_type?.to_str()?.parse()?;
 
         Document::parse(response, &content_type)
     }

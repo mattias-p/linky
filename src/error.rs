@@ -36,7 +36,7 @@ impl Tag {
         }
         u16::from_str(&s[5..])
             .ok()
-            .and_then(|s| StatusCode::try_from(s).ok())
+            .and_then(|s| StatusCode::from_u16(s).ok())
             .map(Tag::HttpStatus)
             .ok_or_else(|| MsgError(Cow::from("Invalid tag")))
     }
@@ -245,6 +245,26 @@ impl From<io::Error> for Error {
 
 impl From<reqwest::Error> for Error {
     fn from(err: reqwest::Error) -> Self {
+        Error {
+            tag: Tag::HttpError,
+            msgs: vec![],
+            cause: Some(Box::new(err)),
+        }
+    }
+}
+
+impl From<mime::FromStrError> for Error {
+    fn from(err: mime::FromStrError) -> Self {
+        Error {
+            tag: Tag::UnrecognizedMime,
+            msgs: vec![],
+            cause: Some(Box::new(err)),
+        }
+    }
+}
+
+impl From<reqwest::header::ToStrError> for Error {
+    fn from(err: reqwest::header::ToStrError) -> Self {
         Error {
             tag: Tag::HttpError,
             msgs: vec![],
