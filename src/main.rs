@@ -196,7 +196,8 @@ fn main() {
             .lock()
             .lines()
             .map(Result::unwrap)
-            .map(|line| Record::from_str(&line))
+            .enumerate()
+            .map(|(lineno, line)| Record::from_str(&line).map_err(|e| format!("line {}: {}", lineno + 1, e)))
             .map(Result::unwrap);
         Box::new(Vec::from_iter(links).into_iter()) as Box<Iterator<Item = _>>
     } else {

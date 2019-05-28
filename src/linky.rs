@@ -536,9 +536,9 @@ lazy_static! {
 }
 
 impl FromStr for Record {
-    type Err = ();
+    type Err = &'static str;
     fn from_str(line: &str) -> result::Result<Self, Self::Err> {
-        let cap = RECORD_REGEX.captures(line).ok_or(())?;
+        let cap = RECORD_REGEX.captures(line).ok_or("invalid record format")?;
         Ok(Record {
             path: cap.get(1).unwrap().as_str().to_string(),
             linenum: cap.get(2).unwrap().as_str().parse().unwrap(),
