@@ -27,6 +27,7 @@ use reqwest::header::HeaderValue;
 use reqwest::header::CONTENT_TYPE;
 use url;
 use url::Url;
+use urlencoding;
 use xhtmlchardet;
 
 use crate::error::Error;
@@ -194,7 +195,11 @@ impl LocalResolver for FilesystemLocalResolver {
         } else if path.is_dir() {
             Err(Tag::Directory.into())
         } else {
-            let reader = File::open(&path)?;
+            let reader = File::open(path).or_else(|e| {
+                urlencoding::decode(path.to_str().unwrap())
+                    .map_err(|_| e)
+                    .and_then(File::open)
+            })?;
             Document::parse(reader, &MARKDOWN_CONTENT_TYPE)
         }
     }

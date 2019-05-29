@@ -13,6 +13,7 @@ extern crate reqwest;
 extern crate shell_escape;
 extern crate structopt;
 extern crate url;
+extern crate urlencoding;
 extern crate xhtmlchardet;
 
 mod error;
