@@ -363,29 +363,24 @@ impl Link {
         url.set_fragment(None);
         (Link::Url(url), fragment)
     }
-    pub fn parse_with_root<P1: AsRef<Path>, P2: AsRef<Path>>(
+
+    pub fn path<P1: AsRef<Path>, P2: AsRef<Path>>(
         link: &str,
         origin: &P1,
         root: &P2,
     ) -> result::Result<(Link, Option<String>), url::ParseError> {
-        match Url::parse(link) {
-            Ok(url) => Ok(Link::from_url(url)),
-            Err(url::ParseError::RelativeUrlWithoutBase) => {
-                let (path, fragment) = split_path_fragment(&link);
-                let path = if Path::new(path).is_absolute() {
-                    root.as_ref().join(as_relative(&path))
-                } else if path == "" {
-                    origin.as_ref().into()
-                } else {
-                    origin.as_ref().with_file_name(path)
-                };
-                Ok((
-                    Link::Path(path.into()),
-                    fragment.map(std::string::ToString::to_string),
-                ))
-            }
-            Err(err) => Err(err),
-        }
+        let (path, fragment) = split_path_fragment(&link);
+        let path = if Path::new(path).is_absolute() {
+            root.as_ref().join(as_relative(&path))
+        } else if path == "" {
+            origin.as_ref().into()
+        } else {
+            origin.as_ref().with_file_name(path)
+        };
+        Ok((
+            Link::Path(path.into()),
+            fragment.map(std::string::ToString::to_string),
+        ))
     }
 }
 
@@ -513,7 +508,13 @@ pub struct Record {
 
 impl Record {
     pub fn resolve(&self, root: &str) -> result::Result<(Link, Option<String>), url::ParseError> {
-        Link::parse_with_root(self.link.as_str(), &self.path, &root)
+        match Url::parse(&self.link) {
+            Ok(url) => Ok(Link::from_url(url)),
+            Err(url::ParseError::RelativeUrlWithoutBase) => {
+                Link::path(&self.link, &self.path, &root)
+            }
+            Err(err) => Err(err),
+        }
     }
 }
 
