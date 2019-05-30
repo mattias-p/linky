@@ -361,8 +361,6 @@ pub enum Link {
     Path(String),
 }
 
-unsafe impl Sync for Link {}
-
 impl Link {
     pub fn split_fragment(&self) -> (Link, Option<String>) {
         match *self {
