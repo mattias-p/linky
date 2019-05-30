@@ -237,17 +237,17 @@ example_site/path/to/example.md:2: OK https://github.com/mattias-p/linky/blob/ma
 example_site/path/to/example.md:3: NO_FRAG https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
 example_site/path/to/example.md:4: OK other.md
  WARN  linky > Document not found
- WARN  linky >   context: link = example_site/path/to/non-existing.md
+ WARN  linky >   context: link = /tmp/linky/example_site/path/to/non-existing.md
  WARN  linky >   caused by: No such file or directory (os error 2)
 example_site/path/to/example.md:5: NO_DOC non-existing.md
 example_site/path/to/example.md:6: OK other.md#existing
  WARN  linky > Fragment not found
- WARN  linky >   context: link = example_site/path/to/other.md
+ WARN  linky >   context: link = /tmp/linky/example_site/path/to/other.md
  WARN  linky >   context: fragment = #non-existing
 example_site/path/to/example.md:7: NO_FRAG other.md#non-existing
 example_site/path/to/example.md:8: OK #heading
  WARN  linky > Fragment not found
- WARN  linky >   context: link = example_site/path/to/example.md
+ WARN  linky >   context: link = /tmp/linky/example_site/path/to/example.md
  WARN  linky >   context: fragment = #non-existing
 example_site/path/to/example.md:9: NO_FRAG #non-existing
 ```

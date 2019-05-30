@@ -26,10 +26,12 @@ use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
+use std::fs;
 use std::io;
 use std::io::BufRead;
 use std::iter;
 use std::iter::FromIterator;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::atomic;
 use std::sync::Arc;
@@ -69,9 +71,9 @@ struct Opt {
     /// Fragment prefixes
     prefixes: Vec<String>,
 
-    #[structopt(long = "root", short = "r", name = "path", default_value = "/")]
+    #[structopt(long = "root", short = "r", name = "path")]
     /// Join absolute local links to a document root
-    root: String,
+    root: Option<PathBuf>,
 
     /// Files to parse
     file: Vec<String>,
@@ -195,6 +197,11 @@ fn main() {
         },
     };
 
+    let root: Option<PathBuf> = opt
+        .root
+        .as_ref()
+        .map(|root| fs::canonicalize(root).unwrap());
+
     if opt.file.is_empty() {
         let stdin = io::stdin();
         let links = stdin
@@ -216,7 +223,7 @@ fn main() {
     }
     .filter_map(|record: Record| {
         record
-            .to_link(opt.root.as_str())
+            .to_link(&root)
             .map_err(|err| {
                 error!(
                     "{}:{}: {}: {}",

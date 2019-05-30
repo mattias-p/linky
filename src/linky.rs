@@ -3,6 +3,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
+use std::fs;
 use std::fs::File;
 use std::io;
 use std::io::Cursor;
@@ -192,7 +193,7 @@ struct FilesystemLocalResolver {
 
 impl LocalResolver for FilesystemLocalResolver {
     fn local<'b>(&self, path: &Path) -> Result<Document<'b>> {
-        if path.is_absolute() {
+        if path.is_relative() {
             Err(Tag::Absolute.into())
         } else if path.is_dir() {
             Err(Tag::Directory.into())
@@ -351,7 +352,7 @@ impl Link {
     pub fn path<P1: AsRef<Path>, P2: AsRef<Path>>(
         link: &str,
         origin_path: &P1,
-        root: &P2,
+        root: &Option<P2>,
     ) -> result::Result<(Link, Option<String>), url::ParseError> {
         let (path, fragment) = if let Some(pos) = link.find('#') {
             (&link[0..pos], Some(&link[pos + 1..]))
@@ -359,7 +360,11 @@ impl Link {
             (link, None)
         };
         let path = if Path::new(path).is_absolute() {
-            root.as_ref().join(as_relative(&path))
+            if let Some(root) = root {
+                root.as_ref().join(as_relative(&path))
+            } else {
+                as_relative(&path).into()
+            }
         } else if path == "" {
             origin_path.as_ref().into()
         } else {
@@ -495,12 +500,17 @@ pub struct Record {
 }
 
 impl Record {
-    pub fn to_link(&self, root: &str) -> result::Result<(Link, Option<String>), url::ParseError> {
+    pub fn to_link<T: AsRef<Path>>(
+        &self,
+        root: &Option<T>,
+    ) -> result::Result<(Link, Option<String>), url::ParseError> {
         match Url::parse(&self.link) {
             Ok(url) => Ok(Link::from_url(url)),
-            Err(url::ParseError::RelativeUrlWithoutBase) => {
-                Link::path(&self.link, &self.origin_path, &root)
-            }
+            Err(url::ParseError::RelativeUrlWithoutBase) => Link::path(
+                &self.link,
+                &fs::canonicalize(&self.origin_path).unwrap(),
+                root,
+            ),
             Err(err) => Err(err),
         }
     }
