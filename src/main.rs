@@ -170,7 +170,7 @@ fn print_result(
         }
         println!(
             "{}:{}: {} {}",
-            record.path,
+            record.path.to_string_lossy(),
             record.linenum,
             tag.as_ref()
                 .map(|tag| tag as &fmt::Display)
@@ -220,7 +220,10 @@ fn main() {
             .map_err(|err| {
                 error!(
                     "{}:{}: {}: {}",
-                    record.path, record.linenum, err, record.link
+                    record.path.to_string_lossy(),
+                    record.linenum,
+                    err,
+                    record.link
                 )
             })
             .map(|(base, fragment)| Some((record, base, fragment)))

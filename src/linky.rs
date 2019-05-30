@@ -9,6 +9,7 @@ use std::io::Cursor;
 use std::io::Read;
 use std::ops::Add;
 use std::path::Path;
+use std::path::PathBuf;
 use std::result;
 use std::str::FromStr;
 use std::sync;
@@ -536,7 +537,7 @@ impl<'a> Iterator for MdLinkParser<'a> {
 
 #[derive(Debug)]
 pub struct Record {
-    pub path: String,
+    pub path: PathBuf,
     pub linenum: usize,
     pub link: String,
 }
@@ -552,7 +553,7 @@ impl FromStr for Record {
     fn from_str(line: &str) -> result::Result<Self, Self::Err> {
         let cap = RECORD_REGEX.captures(line).ok_or("invalid record format")?;
         Ok(Record {
-            path: cap.get(1).unwrap().as_str().to_string(),
+            path: cap.get(1).unwrap().as_str().into(),
             linenum: cap.get(2).unwrap().as_str().parse().unwrap(),
             link: cap.get(3).unwrap().as_str().to_string(),
         })
@@ -583,7 +584,7 @@ pub fn read_md(path: &str) -> result::Result<Box<Iterator<Item = Record>>, io::E
     let mut buffer = String::new();
     slurp(&path, &mut buffer)?;
     let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
-        path: path.to_string(),
+        path: path.into(),
         linenum: lineno,
         link: url.as_ref().to_string(),
     });
