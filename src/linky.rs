@@ -511,8 +511,6 @@ pub struct Record {
     pub link: String,
 }
 
-unsafe impl Sync for Record {}
-
 lazy_static! {
     static ref RECORD_REGEX: Regex = Regex::new(r"^(.*):(\d+): [^ ]* ([^ ]*)$").unwrap();
 }
