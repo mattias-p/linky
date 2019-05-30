@@ -58,6 +58,10 @@ struct Opt {
     /// Follow HTTP redirects
     redirect: bool,
 
+    #[structopt(long = "urldecode", short = "u")]
+    /// URL-decode local links
+    urldecode: bool,
+
     #[structopt(long = "mute", short = "m")]
     /// Tags to mute
     silence: Vec<Tag>,
@@ -237,7 +241,9 @@ fn main() {
         } else {
             None
         };
-        let document = client.as_ref().map(|client| fetch_link(client, &base));
+        let document = client
+            .as_ref()
+            .map(|client| fetch_link(client, opt.urldecode, &base));
         for (index, fragment, record) in fragments {
             let value = resolver.link(&document, &base, &fragment);
             o.push(Item {

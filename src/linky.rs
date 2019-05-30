@@ -179,26 +179,32 @@ impl<'a> FragResolver<'a> {
 }
 
 trait LocalResolver {
-    fn local(&self, path: &Path) -> Result<Document>;
+    fn local<'b>(&self, path: &Path) -> Result<Document<'b>>;
 }
 
 trait RemoteResolver {
     fn remote<'b>(&self, url: &Url) -> Result<Document<'b>>;
 }
 
-struct FilesystemLocalResolver;
+struct FilesystemLocalResolver {
+    urldecode: bool,
+}
 
 impl LocalResolver for FilesystemLocalResolver {
-    fn local(&self, path: &Path) -> Result<Document> {
+    fn local<'b>(&self, path: &Path) -> Result<Document<'b>> {
         if path.is_absolute() {
             Err(Tag::Absolute.into())
         } else if path.is_dir() {
             Err(Tag::Directory.into())
         } else {
             let reader = File::open(path).or_else(|e| {
-                urlencoding::decode(path.to_str().unwrap())
-                    .map_err(|_| e)
-                    .and_then(File::open)
+                if self.urldecode {
+                    urlencoding::decode(path.to_str().unwrap())
+                        .map_err(|_| e)
+                        .and_then(File::open)
+                } else {
+                    Err(e)
+                }
             })?;
             Document::parse(reader, &MARKDOWN_CONTENT_TYPE)
         }
@@ -565,10 +571,11 @@ pub fn parse_link(
 
 pub fn fetch_link<'a>(
     client: &Client,
+    urldecode: bool,
     link: &Link,
 ) -> result::Result<Document<'a>, sync::Arc<Error>> {
     match *link {
-        Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
+        Link::Path(ref path) => FilesystemLocalResolver { urldecode }.local(path.as_ref()),
         Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
     }
     .map_err(|err| sync::Arc::new(err.context(Cow::from(format!("link = {}", link)))))
