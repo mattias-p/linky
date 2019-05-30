@@ -366,16 +366,16 @@ impl Link {
 
     pub fn path<P1: AsRef<Path>, P2: AsRef<Path>>(
         link: &str,
-        origin: &P1,
+        origin_path: &P1,
         root: &P2,
     ) -> result::Result<(Link, Option<String>), url::ParseError> {
         let (path, fragment) = split_path_fragment(&link);
         let path = if Path::new(path).is_absolute() {
             root.as_ref().join(as_relative(&path))
         } else if path == "" {
-            origin.as_ref().into()
+            origin_path.as_ref().into()
         } else {
-            origin.as_ref().with_file_name(path)
+            origin_path.as_ref().with_file_name(path)
         };
         Ok((
             Link::Path(path.into()),
@@ -501,8 +501,8 @@ impl<'a> Iterator for MdLinkParser<'a> {
 
 #[derive(Debug)]
 pub struct Record {
-    pub path: PathBuf,
-    pub linenum: usize,
+    pub origin_path: PathBuf,
+    pub origin_line: usize,
     pub link: String,
 }
 
@@ -511,7 +511,7 @@ impl Record {
         match Url::parse(&self.link) {
             Ok(url) => Ok(Link::from_url(url)),
             Err(url::ParseError::RelativeUrlWithoutBase) => {
-                Link::path(&self.link, &self.path, &root)
+                Link::path(&self.link, &self.origin_path, &root)
             }
             Err(err) => Err(err),
         }
@@ -527,8 +527,8 @@ impl FromStr for Record {
     fn from_str(line: &str) -> result::Result<Self, Self::Err> {
         let cap = RECORD_REGEX.captures(line).ok_or("invalid record format")?;
         Ok(Record {
-            path: cap.get(1).unwrap().as_str().into(),
-            linenum: cap.get(2).unwrap().as_str().parse().unwrap(),
+            origin_path: cap.get(1).unwrap().as_str().into(),
+            origin_line: cap.get(2).unwrap().as_str().parse().unwrap(),
             link: cap.get(3).unwrap().as_str().to_string(),
         })
     }
@@ -550,8 +550,8 @@ pub fn read_md(path: &str) -> result::Result<Box<Iterator<Item = Record>>, io::E
     let mut buffer = String::new();
     slurp(&path, &mut buffer)?;
     let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
-        path: path.into(),
-        linenum: lineno,
+        origin_path: path.into(),
+        origin_line: lineno,
         link: url.as_ref().to_string(),
     });
     Ok(Box::new(parser.collect::<Vec<_>>().into_iter()))
