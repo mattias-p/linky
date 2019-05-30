@@ -507,7 +507,7 @@ pub struct Record {
 }
 
 impl Record {
-    pub fn resolve(&self, root: &str) -> result::Result<(Link, Option<String>), url::ParseError> {
+    pub fn to_link(&self, root: &str) -> result::Result<(Link, Option<String>), url::ParseError> {
         match Url::parse(&self.link) {
             Ok(url) => Ok(Link::from_url(url)),
             Err(url::ParseError::RelativeUrlWithoutBase) => {

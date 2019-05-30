@@ -216,7 +216,7 @@ fn main() {
     }
     .filter_map(|record: Record| {
         record
-            .resolve(opt.root.as_str())
+            .to_link(opt.root.as_str())
             .map_err(|err| {
                 error!(
                     "{}:{}: {}: {}",
