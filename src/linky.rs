@@ -359,40 +359,27 @@ impl<'a> Iterator for MdAnchorParser<'a> {
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Link {
     Url(Url),
-    Path(String),
+    Path(PathBuf),
 }
 
 impl Link {
-    pub fn split_fragment(&self) -> (Link, Option<String>) {
-        match *self {
-            Link::Path(ref path) => {
-                let (path, fragment) = split_path_fragment(path);
-                (
-                    Link::Path(path.to_string()),
-                    fragment.map(std::string::ToString::to_string),
-                )
-            }
-            Link::Url(ref url) => {
-                let (url, fragment) = split_url_fragment(url);
-                let mut url = url.clone();
-                url.set_fragment(None);
-                (
-                    Link::Url(url),
-                    fragment.map(std::string::ToString::to_string),
-                )
-            }
-        }
-    }
-
     pub fn parse_with_root<P1: AsRef<Path>, P2: AsRef<Path>>(
         link: &str,
         origin: &P1,
         root: &P2,
-    ) -> result::Result<Self, url::ParseError> {
+    ) -> result::Result<(Link, Option<String>), url::ParseError> {
         match Url::parse(link) {
-            Ok(url) => Ok(Link::Url(url)),
+            Ok(url) => {
+                let (url, fragment) = split_url_fragment(&url);
+                let mut url = url.clone();
+                url.set_fragment(None);
+                Ok((
+                    Link::Url(url),
+                    fragment.map(std::string::ToString::to_string),
+                ))
+            }
             Err(url::ParseError::RelativeUrlWithoutBase) => {
-                if Path::new(link).is_relative() {
+                let path = if Path::new(link).is_relative() {
                     let link = if link.starts_with('#') {
                         let file_name = origin
                             .as_ref()
@@ -405,15 +392,16 @@ impl Link {
                     } else {
                         origin.as_ref().with_file_name(link)
                     };
-                    Ok(Link::Path(link.to_string_lossy().to_string()))
+                    link
                 } else {
-                    Ok(Link::Path(
-                        root.as_ref()
-                            .join(as_relative(&link))
-                            .to_string_lossy()
-                            .to_string(),
-                    ))
-                }
+                    root.as_ref().join(as_relative(&link))
+                };
+                let path = path.to_string_lossy();
+                let (path, fragment) = split_path_fragment(&path);
+                Ok((
+                    Link::Path(path.into()),
+                    fragment.map(std::string::ToString::to_string),
+                ))
             }
             Err(err) => Err(err),
         }
@@ -424,7 +412,7 @@ impl fmt::Display for Link {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Link::Url(ref url) => write!(f, "{}", url),
-            Link::Path(ref path) => write!(f, "{}", path),
+            Link::Path(ref path) => write!(f, "{}", path.to_string_lossy()),
         }
     }
 }
@@ -565,7 +553,6 @@ pub fn parse_link(
     root: &str,
 ) -> result::Result<(Link, Option<String>), url::ParseError> {
     Link::parse_with_root(record.link.as_str(), &Path::new(&record.path), &root)
-        .map(|parsed| parsed.split_fragment())
 }
 
 pub fn fetch_link<'a>(
