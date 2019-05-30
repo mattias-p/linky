@@ -193,7 +193,7 @@ struct FilesystemLocalResolver {
 
 impl LocalResolver for FilesystemLocalResolver {
     fn local<'b>(&self, path: &Path) -> Result<Document<'b>> {
-        if path.is_relative() {
+        if Link::has_base(path) {
             Err(Tag::Absolute.into())
         } else if path.is_dir() {
             Err(Tag::Directory.into())
@@ -351,8 +351,8 @@ impl Link {
 
     pub fn path<P1: AsRef<Path>, P2: AsRef<Path>>(
         link: &str,
-        origin_path: &P1,
-        root: &Option<P2>,
+        doc_path: &P1,
+        base_path: &Option<P2>,
     ) -> result::Result<(Link, Option<String>), url::ParseError> {
         let (path, fragment) = if let Some(pos) = link.find('#') {
             (&link[0..pos], Some(&link[pos + 1..]))
@@ -360,20 +360,24 @@ impl Link {
             (link, None)
         };
         let path = if Path::new(path).is_absolute() {
-            if let Some(root) = root {
-                root.as_ref().join(as_relative(&path))
+            if let Some(base_path) = base_path {
+                base_path.as_ref().join(as_relative(&path))
             } else {
                 as_relative(&path).into()
             }
         } else if path == "" {
-            origin_path.as_ref().into()
+            doc_path.as_ref().into()
         } else {
-            origin_path.as_ref().with_file_name(path)
+            doc_path.as_ref().with_file_name(path)
         };
         Ok((
             Link::Path(path.into()),
             fragment.map(std::string::ToString::to_string),
         ))
+    }
+
+    pub fn has_base<P: AsRef<Path>>(path: P) -> bool {
+        path.as_ref().is_relative()
     }
 }
 
@@ -494,22 +498,22 @@ impl<'a> Iterator for MdLinkParser<'a> {
 
 #[derive(Debug)]
 pub struct Record {
-    pub origin_path: PathBuf,
-    pub origin_line: usize,
+    pub doc_path: PathBuf,
+    pub doc_line: usize,
     pub link: String,
 }
 
 impl Record {
     pub fn to_link<T: AsRef<Path>>(
         &self,
-        root: &Option<T>,
+        base_path: &Option<T>,
     ) -> result::Result<(Link, Option<String>), url::ParseError> {
         match Url::parse(&self.link) {
             Ok(url) => Ok(Link::from_url(url)),
             Err(url::ParseError::RelativeUrlWithoutBase) => Link::path(
                 &self.link,
-                &fs::canonicalize(&self.origin_path).unwrap(),
-                root,
+                &fs::canonicalize(&self.doc_path).unwrap(),
+                base_path,
             ),
             Err(err) => Err(err),
         }
@@ -525,8 +529,8 @@ impl FromStr for Record {
     fn from_str(line: &str) -> result::Result<Self, Self::Err> {
         let cap = RECORD_REGEX.captures(line).ok_or("invalid record format")?;
         Ok(Record {
-            origin_path: cap.get(1).unwrap().as_str().into(),
-            origin_line: cap.get(2).unwrap().as_str().parse().unwrap(),
+            doc_path: cap.get(1).unwrap().as_str().into(),
+            doc_line: cap.get(2).unwrap().as_str().parse().unwrap(),
             link: cap.get(3).unwrap().as_str().to_string(),
         })
     }
@@ -548,8 +552,8 @@ pub fn read_md(path: &str) -> result::Result<Box<Iterator<Item = Record>>, io::E
     let mut buffer = String::new();
     slurp(&path, &mut buffer)?;
     let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
-        origin_path: path.into(),
-        origin_line: lineno,
+        doc_path: path.into(),
+        doc_line: lineno,
         link: url.as_ref().to_string(),
     });
     Ok(Box::new(parser.collect::<Vec<_>>().into_iter()))

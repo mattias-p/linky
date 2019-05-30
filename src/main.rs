@@ -171,8 +171,8 @@ fn print_result(
         }
         println!(
             "{}:{}: {} {}",
-            record.origin_path.to_string_lossy(),
-            record.origin_line,
+            record.doc_path.to_string_lossy(),
+            record.doc_line,
             tag.as_ref()
                 .map(|tag| tag as &fmt::Display)
                 .unwrap_or(&"" as &fmt::Display),
@@ -227,8 +227,8 @@ fn main() {
             .map_err(|err| {
                 error!(
                     "{}:{}: {}: {}",
-                    record.origin_path.to_string_lossy(),
-                    record.origin_line,
+                    record.doc_path.to_string_lossy(),
+                    record.doc_line,
                     err,
                     record.link
                 )
