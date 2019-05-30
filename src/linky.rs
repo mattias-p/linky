@@ -291,22 +291,6 @@ fn as_relative<P: AsRef<Path>>(path: &P) -> &Path {
     components.as_path()
 }
 
-fn split_fragment(path: &str) -> Option<(&str, &str)> {
-    if let Some(pos) = path.find('#') {
-        Some((&path[0..pos], &path[pos + 1..]))
-    } else {
-        None
-    }
-}
-
-fn split_path_fragment(path: &str) -> (&str, Option<&str>) {
-    if let Some((path, fragment)) = split_fragment(path) {
-        (path, Some(fragment))
-    } else {
-        (path, None)
-    }
-}
-
 struct MdAnchorParser<'a> {
     parser: Parser<'a>,
     is_header: bool,
@@ -369,7 +353,11 @@ impl Link {
         origin_path: &P1,
         root: &P2,
     ) -> result::Result<(Link, Option<String>), url::ParseError> {
-        let (path, fragment) = split_path_fragment(&link);
+        let (path, fragment) = if let Some(pos) = link.find('#') {
+            (&link[0..pos], Some(&link[pos + 1..]))
+        } else {
+            (link, None)
+        };
         let path = if Path::new(path).is_absolute() {
             root.as_ref().join(as_relative(&path))
         } else if path == "" {
