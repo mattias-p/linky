@@ -7,7 +7,6 @@ use std::fs::File;
 use std::io;
 use std::io::Cursor;
 use std::io::Read;
-use std::ops::Add;
 use std::path::Path;
 use std::path::PathBuf;
 use std::result;
@@ -308,10 +307,6 @@ fn split_path_fragment(path: &str) -> (&str, Option<&str>) {
     }
 }
 
-fn split_url_fragment(url: &Url) -> (&Url, Option<&str>) {
-    (url, url.fragment())
-}
-
 struct MdAnchorParser<'a> {
     parser: Parser<'a>,
     is_header: bool,
@@ -363,41 +358,27 @@ pub enum Link {
 }
 
 impl Link {
+    pub fn from_url(mut url: Url) -> (Self, Option<String>) {
+        let fragment = url.fragment().map(std::string::ToString::to_string);
+        url.set_fragment(None);
+        (Link::Url(url), fragment)
+    }
     pub fn parse_with_root<P1: AsRef<Path>, P2: AsRef<Path>>(
         link: &str,
         origin: &P1,
         root: &P2,
     ) -> result::Result<(Link, Option<String>), url::ParseError> {
         match Url::parse(link) {
-            Ok(url) => {
-                let (url, fragment) = split_url_fragment(&url);
-                let mut url = url.clone();
-                url.set_fragment(None);
-                Ok((
-                    Link::Url(url),
-                    fragment.map(std::string::ToString::to_string),
-                ))
-            }
+            Ok(url) => Ok(Link::from_url(url)),
             Err(url::ParseError::RelativeUrlWithoutBase) => {
-                let path = if Path::new(link).is_relative() {
-                    let link = if link.starts_with('#') {
-                        let file_name = origin
-                            .as_ref()
-                            .file_name()
-                            .unwrap()
-                            .to_string_lossy()
-                            .to_string()
-                            .add(link);
-                        origin.as_ref().with_file_name(file_name)
-                    } else {
-                        origin.as_ref().with_file_name(link)
-                    };
-                    link
+                let (path, fragment) = split_path_fragment(&link);
+                let path = if Path::new(path).is_absolute() {
+                    root.as_ref().join(as_relative(&path))
+                } else if path == "" {
+                    origin.as_ref().into()
                 } else {
-                    root.as_ref().join(as_relative(&link))
+                    origin.as_ref().with_file_name(path)
                 };
-                let path = path.to_string_lossy();
-                let (path, fragment) = split_path_fragment(&path);
                 Ok((
                     Link::Path(path.into()),
                     fragment.map(std::string::ToString::to_string),
