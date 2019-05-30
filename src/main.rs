@@ -37,7 +37,6 @@ use std::sync::Mutex;
 
 use error::Tag;
 use linky::fetch_link;
-use linky::parse_link;
 use linky::read_md;
 use linky::Client;
 use linky::FragResolver;
@@ -215,8 +214,9 @@ fn main() {
                 .unwrap_or_else(|_| Box::new(iter::empty()))
         })) as Box<Iterator<Item = _>>
     }
-    .filter_map(|record| {
-        parse_link(&record, opt.root.as_str())
+    .filter_map(|record: Record| {
+        record
+            .resolve(opt.root.as_str())
             .map_err(|err| {
                 error!(
                     "{}:{}: {}: {}",

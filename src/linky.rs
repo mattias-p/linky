@@ -511,6 +511,12 @@ pub struct Record {
     pub link: String,
 }
 
+impl Record {
+    pub fn resolve(&self, root: &str) -> result::Result<(Link, Option<String>), url::ParseError> {
+        Link::parse_with_root(self.link.as_str(), &self.path, &root)
+    }
+}
+
 lazy_static! {
     static ref RECORD_REGEX: Regex = Regex::new(r"^(.*):(\d+): [^ ]* ([^ ]*)$").unwrap();
 }
@@ -525,13 +531,6 @@ impl FromStr for Record {
             link: cap.get(3).unwrap().as_str().to_string(),
         })
     }
-}
-
-pub fn parse_link(
-    record: &Record,
-    root: &str,
-) -> result::Result<(Link, Option<String>), url::ParseError> {
-    Link::parse_with_root(record.link.as_str(), &Path::new(&record.path), &root)
 }
 
 pub fn fetch_link<'a>(
