@@ -1,7 +1,7 @@
 use std::borrow::Cow;
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::collections::hash_map::Entry;
 use std::fmt;
 use std::fs::File;
 use std::io;
@@ -14,8 +14,8 @@ use std::str::FromStr;
 use std::sync;
 
 use bytecount::count;
-use encoding::DecoderTrap;
 use encoding::label::encoding_from_whatwg_label;
+use encoding::DecoderTrap;
 use htmlstream;
 use mime;
 use pulldown_cmark;
@@ -23,8 +23,8 @@ use pulldown_cmark::Event;
 use pulldown_cmark::Parser;
 use regex::Regex;
 use reqwest;
-use reqwest::header::CONTENT_TYPE;
 use reqwest::header::HeaderValue;
+use reqwest::header::CONTENT_TYPE;
 use url;
 use url::Url;
 use xhtmlchardet;
@@ -34,8 +34,7 @@ use crate::error::Result;
 use crate::error::Tag;
 
 lazy_static! {
-    static ref MARKDOWN_CONTENT_TYPE: mime::Mime =
-        "text/markdown; charset=UTF-8".parse().unwrap();
+    static ref MARKDOWN_CONTENT_TYPE: mime::Mime = "text/markdown; charset=UTF-8".parse().unwrap();
 }
 
 enum Format {
@@ -563,7 +562,8 @@ pub fn fetch_link<'a>(
     match *link {
         Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref()),
         Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
-    }.map_err(|err| sync::Arc::new(err.context(Cow::from(format!("link = {}", link)))))
+    }
+    .map_err(|err| sync::Arc::new(err.context(Cow::from(format!("link = {}", link)))))
 }
 
 pub fn read_md(path: &str) -> result::Result<Box<Iterator<Item = Record>>, io::Error> {
