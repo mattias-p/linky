@@ -430,7 +430,7 @@ impl ToId for GithubId {
     fn to_id(&self, text: &str, repetition: usize) -> String {
         let text = GITHUB_PUNCTUATION.replace_all(text, "");
         let text = text.to_ascii_lowercase();
-        let text = text.replace('-', "-");
+        let text = text.replace(' ', "-");
         if repetition == 0 {
             text
         } else {
