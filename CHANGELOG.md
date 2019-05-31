@@ -5,8 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [0.1.5] - 2019-05-31
-### Added
+### Fixed
 - Fix a bug where links were erroneously resolved to ABSOLUTE.
+
+### Added
 - Decode URL-encoded local links in --urldecode mode. [#21]
 - Log redirects in --no-follow mode.
 
