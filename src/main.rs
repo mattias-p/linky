@@ -254,6 +254,19 @@ fn main() {
         let document = client
             .as_ref()
             .map(|client| fetch_link(client, opt.urldecode, &base));
+
+        // Log all found anchors at the debug level
+        if log_enabled!(log::Level::Debug) {
+            debug!("In document: {}", &base);
+            if let Some(Ok(document)) = &document {
+                let mut ids: Vec<_> = document.ids.iter().collect();
+                ids.sort_unstable();
+                for fragment in ids {
+                    debug!("  found anchor: {}", fragment);
+                }
+            }
+        }
+
         for (index, fragment, record) in fragments {
             let value = resolver.link(&document, &base, &fragment);
             o.push(Item {
