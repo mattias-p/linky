@@ -1,6 +1,6 @@
 [package]
 name = "linky"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["Mattias Päivärinta <mattias@paivarinta.se>"]
 description = "Extract links from Markdown files and check links for brokenness"
 repository = "https://github.com/mattias-p/linky"
