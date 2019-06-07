@@ -20,7 +20,7 @@ Installation
 [Install stable Rust and Cargo]:
 
 ```sh
-$ curl https://sh.rustup.rs -sSf | sh
+$ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
 Compile and install linky using Cargo:
