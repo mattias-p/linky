@@ -188,6 +188,15 @@ fn main() {
 
     let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
     let resolver = FragResolver::from(&prefixes);
+    let client = if opt.check {
+        if opt.redirect {
+            Some(Client::new_follow())
+        } else {
+            Some(Client::new_no_follow())
+        }
+    } else {
+        None
+    };
 
     let o = Orderer {
         heap: Mutex::new(BinaryHeap::new()),
@@ -242,15 +251,6 @@ fn main() {
     .collect::<Vec<_>>()
     .into_par_iter()
     .for_each(|(base, fragments)| {
-        let client = if opt.check {
-            if opt.redirect {
-                Some(Client::new_follow())
-            } else {
-                Some(Client::new_no_follow())
-            }
-        } else {
-            None
-        };
         let document = client
             .as_ref()
             .map(|client| fetch_link(client, opt.urldecode, &base));
