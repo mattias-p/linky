@@ -2,6 +2,8 @@ use std::borrow::Cow;
 use std::error;
 use std::fmt;
 use std::io;
+use std::iter::Iterator;
+use std::mem;
 use std::result;
 use std::str::FromStr;
 
@@ -11,7 +13,7 @@ use url;
 
 pub type Result<T> = result::Result<T, Error>;
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Tag {
     Ok,
     HttpError,
@@ -79,36 +81,24 @@ impl FromStr for Tag {
     }
 }
 
-impl Into<Error> for Tag {
-    fn into(self) -> Error {
-        Error {
-            tag: self,
-            msgs: vec![],
-            cause: None,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct Error {
-    tag: Tag,
+    pub tag: Tag,
     msgs: Vec<Cow<'static, str>>,
     cause: Option<Box<dyn error::Error + Sync + Send + 'static>>,
 }
 
-impl Error {
-    pub fn tag(&self) -> Tag {
-        self.tag.clone()
-    }
-
-    pub fn root(tag: Tag) -> Self {
+impl Tag {
+    pub fn as_error(&self) -> Error {
         Error {
-            tag,
+            tag: *self,
             msgs: vec![],
             cause: None,
         }
     }
+}
 
+impl Error {
     pub fn context(mut self, msg: Cow<'static, str>) -> Self {
         self.msgs.push(msg);
         self
@@ -141,9 +131,6 @@ pub struct ErrorIter<'a> {
     err: &'a Error,
     cause: Option<&'a dyn error::Error>,
 }
-
-use std::iter::Iterator;
-use std::mem;
 
 impl<'a> Iterator for ErrorIter<'a> {
     type Item = String;

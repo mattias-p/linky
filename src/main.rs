@@ -161,7 +161,7 @@ fn print_result(
 ) {
     let tag = res
         .as_ref()
-        .map(|res| res.as_ref().err().map(|err| err.tag()).unwrap_or(Tag::Ok));
+        .map(|res| res.as_ref().err().map(|err| err.tag).unwrap_or(Tag::Ok));
 
     if !tag.as_ref().map_or(false, |tag| silence.contains(&tag)) {
         if let Some(Err(ref err)) = res {

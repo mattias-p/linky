@@ -145,13 +145,16 @@ impl<'a> FragResolver<'a> {
     pub fn fragment(&self, document: &Document, fragment: &str) -> Result<()> {
         self.find_prefix(fragment, document)
             .ok_or_else(|| {
-                Error::root(Tag::NoFragment).context(Cow::from(format!("fragment = #{}", fragment)))
+                Tag::NoFragment
+                    .as_error()
+                    .context(Cow::from(format!("fragment = #{}", fragment)))
             })
             .and_then(|prefix| {
                 if prefix == "" {
                     Ok(())
                 } else {
-                    Err(Error::root(Tag::Prefixed)
+                    Err(Tag::Prefixed
+                        .as_error()
                         .context(Cow::from(format!("prefix = {}", prefix)))
                         .context(Cow::from(format!("fragment = #{}", &fragment))))
                 }
@@ -196,9 +199,9 @@ struct FilesystemLocalResolver {
 impl LocalResolver for FilesystemLocalResolver {
     fn local<'b>(&self, path: &Path) -> Result<Document<'b>> {
         if Link::has_base(path) {
-            Err(Tag::Absolute.into())
+            Err(Tag::Absolute.as_error())
         } else if path.is_dir() {
-            Err(Tag::Directory.into())
+            Err(Tag::Directory.as_error())
         } else {
             let reader = File::open(path).or_else(|e| {
                 if self.urldecode {
@@ -219,16 +222,16 @@ struct NetworkRemoteResolver<'a>(&'a Client);
 impl<'a> RemoteResolver for NetworkRemoteResolver<'a> {
     fn remote<'b>(&self, url: &Url) -> Result<Document<'b>> {
         if url.scheme() != "http" && url.scheme() != "https" {
-            return Err(Tag::Protocol.into());
+            return Err(Tag::Protocol.as_error());
         }
 
         let (response, redirects) = self.0.get(url.clone())?;
 
         if !response.status().is_success() {
-            return Err(Tag::HttpStatus(response.status()).into());
+            return Err(Tag::HttpStatus(response.status()).as_error());
         }
         if !redirects.is_empty() {
-            let mut err: Error = Tag::HttpStatus(redirects[0].0).into();
+            let mut err: Error = Tag::HttpStatus(redirects[0].0).as_error();
             for &(status, ref url) in redirects.iter().rev() {
                 err = err.context(Cow::from(format!(
                     "redirect({}) = {}",
@@ -242,7 +245,7 @@ impl<'a> RemoteResolver for NetworkRemoteResolver<'a> {
             .headers()
             .get(CONTENT_TYPE)
             .cloned()
-            .ok_or_else(|| Tag::NoMime.into());
+            .ok_or_else(|| Tag::NoMime.as_error());
         let content_type: mime::Mime = content_type?.to_str()?.parse()?;
 
         Document::parse(response, &content_type)
@@ -590,43 +593,43 @@ mod tests {
         assert_eq!(
             FragResolver::new()
                 .fragment(&Document::from(&["abc"]), "abc")
-                .map_err(|e| e.tag()),
+                .map_err(|e| e.tag),
             Ok(())
         );
         assert_eq!(
             FragResolver::new()
                 .fragment(&Document::new(), "")
-                .map_err(|e| e.tag()),
+                .map_err(|e| e.tag),
             Ok(())
         );
         assert_eq!(
             FragResolver::new()
                 .fragment(&Document::empty(), "")
-                .map_err(|e| e.tag()),
+                .map_err(|e| e.tag),
             Err(Tag::NoFragment)
         );
         assert_eq!(
             FragResolver::from(&["prefix"])
                 .fragment(&Document::from(&["prefix"]), "")
-                .map_err(|e| e.tag()),
+                .map_err(|e| e.tag),
             Ok(())
         );
         assert_eq!(
             FragResolver::new()
                 .fragment(&Document::new(), "abc")
-                .map_err(|e| e.tag()),
+                .map_err(|e| e.tag),
             Err(Tag::NoFragment)
         );
         assert_eq!(
             FragResolver::new()
                 .fragment(&Document::from(&["abc-123"]), "123")
-                .map_err(|e| e.tag()),
+                .map_err(|e| e.tag),
             Err(Tag::NoFragment)
         );
         assert_eq!(
             FragResolver::from(&["abc-"])
                 .fragment(&Document::from(&["abc-123"]), "123")
-                .map_err(|e| e.tag()),
+                .map_err(|e| e.tag),
             Err(Tag::Prefixed)
         );
     }
