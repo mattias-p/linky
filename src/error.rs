@@ -30,19 +30,6 @@ pub enum Tag {
     Prefixed,
 }
 
-impl Tag {
-    fn from_http_status_str(s: &str) -> result::Result<Tag, MsgError> {
-        if !s.starts_with("HTTP_") {
-            return Err(MsgError(Cow::from("Invalid tag")));
-        }
-        u16::from_str(&s[5..])
-            .ok()
-            .and_then(|s| StatusCode::from_u16(s).ok())
-            .map(Tag::HttpStatus)
-            .ok_or_else(|| MsgError(Cow::from("Invalid tag")))
-    }
-}
-
 impl fmt::Display for Tag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -65,16 +52,6 @@ impl fmt::Display for Tag {
     }
 }
 
-impl Into<Error> for Tag {
-    fn into(self) -> Error {
-        Error {
-            tag: self,
-            msgs: vec![],
-            cause: None,
-        }
-    }
-}
-
 impl FromStr for Tag {
     type Err = MsgError;
     fn from_str(s: &str) -> result::Result<Self, Self::Err> {
@@ -92,7 +69,22 @@ impl FromStr for Tag {
             "NO_MIME" => Ok(Tag::NoMime),
             "MIME" => Ok(Tag::UnrecognizedMime),
             "PREFIXED" => Ok(Tag::Prefixed),
-            s => Tag::from_http_status_str(s),
+            s if s.starts_with("HTTP_") => u16::from_str(&s[5..])
+                .ok()
+                .and_then(|s| StatusCode::from_u16(s).ok())
+                .map(Tag::HttpStatus)
+                .ok_or_else(|| MsgError(Cow::from("Invalid tag"))),
+            _ => Err(MsgError(Cow::from("Invalid tag"))),
+        }
+    }
+}
+
+impl Into<Error> for Tag {
+    fn into(self) -> Error {
+        Error {
+            tag: self,
+            msgs: vec![],
+            cause: None,
         }
     }
 }
