@@ -234,8 +234,6 @@ fn main() {
     })
     .enumerate()
     .fold(HashMap::new(), group_fragments)
-    .into_iter()
-    .collect::<Vec<_>>()
     .into_par_iter()
     .for_each(|(base, fragments)| {
         let document = client
