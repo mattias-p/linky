@@ -1,21 +1,3 @@
-extern crate bytecount;
-extern crate encoding;
-extern crate htmlstream;
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate log;
-extern crate pretty_env_logger;
-extern crate pulldown_cmark;
-extern crate rayon;
-extern crate regex;
-extern crate reqwest;
-extern crate shell_escape;
-extern crate structopt;
-extern crate url;
-extern crate urlencoding;
-extern crate xhtmlchardet;
-
 mod error;
 mod linky;
 
@@ -44,7 +26,12 @@ use linky::Client;
 use linky::FragResolver;
 use linky::Link;
 use linky::Record;
-use rayon::prelude::*;
+use log::debug;
+use log::error;
+use log::log_enabled;
+use log::warn;
+use rayon::iter::IntoParallelIterator;
+use rayon::iter::ParallelIterator;
 use shell_escape::escape;
 use structopt::StructOpt;
 

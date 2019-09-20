@@ -18,6 +18,8 @@ use bytecount::count;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
 use htmlstream;
+use lazy_static::lazy_static;
+use log::debug;
 use mime;
 use pulldown_cmark;
 use pulldown_cmark::CowStr;
