@@ -235,7 +235,7 @@ fn main() {
     .enumerate()
     .fold(HashMap::new(), group_fragments)
     .into_par_iter()
-    .for_each(|(base, fragments)| {
+    .flat_map(|(base, fragments)| {
         let document = client
             .as_ref()
             .map(|client| fetch_link(client, opt.urldecode, &base));
@@ -252,12 +252,16 @@ fn main() {
             }
         }
 
-        for (index, fragment, record) in fragments {
-            let value = resolver.link(&document, &base, &fragment);
-            o.push(Item {
-                index,
-                value: (record, value),
-            });
-        }
-    });
+        fragments
+            .into_iter()
+            .map(|(index, fragment, record)| {
+                let value = resolver.link(&document, &base, &fragment);
+                Item {
+                    index,
+                    value: (record, value),
+                }
+            })
+            .collect::<Vec<_>>()
+    })
+    .for_each(|item| o.push(item));
 }
