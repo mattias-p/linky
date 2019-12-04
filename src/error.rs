@@ -101,7 +101,7 @@ impl FromStr for Tag {
 pub struct Error {
     tag: Tag,
     msgs: Vec<Cow<'static, str>>,
-    cause: Option<Box<error::Error + Sync + Send + 'static>>,
+    cause: Option<Box<dyn error::Error + Sync + Send + 'static>>,
 }
 
 impl Error {
@@ -123,7 +123,7 @@ impl Error {
     }
 
     #[allow(dead_code)]
-    pub fn cause(&self) -> Option<&(error::Error + Sync + Send)> {
+    pub fn cause(&self) -> Option<&(dyn error::Error + Sync + Send)> {
         self.cause.as_ref().map(|e| e.as_ref())
     }
 
@@ -139,7 +139,7 @@ impl Error {
         ErrorIter {
             count: 0,
             err: self,
-            cause: self.cause().map(|c| c as &error::Error),
+            cause: self.cause().map(|c| c as &dyn error::Error),
         }
     }
 }
@@ -147,7 +147,7 @@ impl Error {
 pub struct ErrorIter<'a> {
     count: usize,
     err: &'a Error,
-    cause: Option<&'a error::Error>,
+    cause: Option<&'a dyn error::Error>,
 }
 
 use std::iter::Iterator;
@@ -225,8 +225,8 @@ impl error::Error for Error {
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
-        self.cause.as_ref().map(|c| c.as_ref() as &error::Error)
+    fn cause(&self) -> Option<&dyn error::Error> {
+        self.cause.as_ref().map(|c| c.as_ref() as &dyn error::Error)
     }
 }
 
@@ -310,7 +310,7 @@ impl error::Error for MsgError {
         &*self.0
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         None
     }
 }

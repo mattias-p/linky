@@ -174,8 +174,8 @@ fn print_result(
             record.doc_path.to_string_lossy(),
             record.doc_line,
             tag.as_ref()
-                .map(|tag| tag as &fmt::Display)
-                .unwrap_or(&"" as &fmt::Display),
+                .map(|tag| tag as &dyn fmt::Display)
+                .unwrap_or(&"" as &dyn fmt::Display),
             record.link
         );
     }
@@ -213,13 +213,13 @@ fn main() {
                 Record::from_str(&line).map_err(|e| format!("line {}: {}", lineno + 1, e))
             })
             .map(Result::unwrap);
-        Box::new(Vec::from_iter(links).into_iter()) as Box<Iterator<Item = _>>
+        Box::new(Vec::from_iter(links).into_iter()) as Box<dyn Iterator<Item = _>>
     } else {
         Box::new(opt.file.iter().flat_map(|path| {
             read_md(path)
                 .map_err(|err| error!("reading file {}: {}", escape(Cow::Borrowed(path)), err))
                 .unwrap_or_else(|_| Box::new(iter::empty()))
-        })) as Box<Iterator<Item = _>>
+        })) as Box<dyn Iterator<Item = _>>
     }
     .filter_map(|record: Record| {
         record

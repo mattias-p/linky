@@ -298,11 +298,11 @@ struct MdAnchorParser<'a> {
     parser: Parser<'a>,
     is_header: bool,
     headers: &'a mut Headers,
-    id_transform: &'a ToId,
+    id_transform: &'a dyn ToId,
 }
 
 impl<'a> MdAnchorParser<'a> {
-    fn new(parser: Parser<'a>, id_transform: &'a ToId, headers: &'a mut Headers) -> Self {
+    fn new(parser: Parser<'a>, id_transform: &'a dyn ToId, headers: &'a mut Headers) -> Self {
         MdAnchorParser {
             parser,
             is_header: false,
@@ -311,7 +311,7 @@ impl<'a> MdAnchorParser<'a> {
         }
     }
 
-    fn from_buffer(buffer: &'a str, id_transform: &'a ToId, headers: &'a mut Headers) -> Self {
+    fn from_buffer(buffer: &'a str, id_transform: &'a dyn ToId, headers: &'a mut Headers) -> Self {
         MdAnchorParser::new(Parser::new(buffer), id_transform, headers)
     }
 }
@@ -392,7 +392,7 @@ impl fmt::Display for Link {
     }
 }
 
-fn read_chars(reader: &mut Read, charset_hint: Option<String>) -> Result<String> {
+fn read_chars(reader: &mut dyn Read, charset_hint: Option<String>) -> Result<String> {
     let mut buffer = Vec::new();
     reader.read_to_end(&mut buffer)?;
     let mut cursor = Cursor::new(buffer);
@@ -548,7 +548,7 @@ pub fn fetch_link<'a>(
     .map_err(|err| sync::Arc::new(err.context(Cow::from(format!("link = {}", link)))))
 }
 
-pub fn read_md(path: &str) -> result::Result<Box<Iterator<Item = Record>>, io::Error> {
+pub fn read_md(path: &str) -> result::Result<Box<dyn Iterator<Item = Record>>, io::Error> {
     let mut buffer = String::new();
     slurp(&path, &mut buffer)?;
     let parser = MdLinkParser::new(buffer.as_str()).map(|(lineno, url)| Record {
