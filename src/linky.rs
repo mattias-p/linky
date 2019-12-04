@@ -487,10 +487,7 @@ impl<'a> Iterator for MdLinkParser<'a> {
         while let Some((event, range)) = self.parser.next() {
             let offset = range.end;
             if let Event::Start(pulldown_cmark::Tag::Link(_, url, _)) = event {
-                self.linenum += count(
-                    &self.buffer.as_bytes()[self.oldoffs..offset],
-                    b'\n',
-                );
+                self.linenum += count(&self.buffer.as_bytes()[self.oldoffs..offset], b'\n');
                 self.oldoffs = offset;
                 return Some((self.linenum, url));
             }
@@ -574,31 +571,17 @@ mod tests {
             parser.next(),
             Some((
                 2,
-                Cow::Owned(
-                    "https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md"
-                        .to_string()
-                )
+                "https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md"
+                    .into()
             ))
         );
-        assert_eq!(parser.next(), Some((3, Cow::Owned("https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing".to_string()))));
-        assert_eq!(parser.next(), Some((4, Cow::Owned("other.md".to_string()))));
-        assert_eq!(
-            parser.next(),
-            Some((5, Cow::Owned("non-existing.md".to_string())))
-        );
-        assert_eq!(
-            parser.next(),
-            Some((6, Cow::Owned("other.md#existing".to_string())))
-        );
-        assert_eq!(
-            parser.next(),
-            Some((7, Cow::Owned("other.md#non-existing".to_string())))
-        );
-        assert_eq!(parser.next(), Some((8, Cow::Owned("#heading".to_string()))));
-        assert_eq!(
-            parser.next(),
-            Some((9, Cow::Owned("#non-existing".to_string())))
-        );
+        assert_eq!(parser.next(), Some((3, "https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing".into())));
+        assert_eq!(parser.next(), Some((4, "other.md".into())));
+        assert_eq!(parser.next(), Some((5, "non-existing.md".into())));
+        assert_eq!(parser.next(), Some((6, "other.md#existing".into())));
+        assert_eq!(parser.next(), Some((7, "other.md#non-existing".into())));
+        assert_eq!(parser.next(), Some((8, "#heading".into())));
+        assert_eq!(parser.next(), Some((9, "#non-existing".into())));
         assert_eq!(parser.next(), None);
     }
 
