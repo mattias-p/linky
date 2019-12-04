@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - 2019-12-05
+### Changed
+- Updated dependency on pulldown\_cmark to 0.6.1 from 0.0.11, courtesy of [@sanxiyn]
+  - Changes recognized CommonMark version to 0.29 (most likely from 0.27)
+
 ## [0.1.6] - 2019-05-31
 ### Fixed
 - Markdown headings with spaces are now properly recognized.
@@ -38,8 +43,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - Detect and decode non-UTF-8 encodings [#14]
 - Tag empty fragments with OK instead of NO\_FRAG
-- Added issues section to README by [@bugabinga]
-- Updated dependency on bytecount to 0.3.1 by [@llogiq]
+- Added issues section to README, courtesy of [@bugabinga]
+- Updated dependency on bytecount to 0.3.1, courtesy of [@llogiq]
 
 ## [0.1.1] - 2017-11-25
 ### Changed
@@ -50,8 +55,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Initial version
 
 
-[@bugabinga]: https://github.com/bugabinga/
-[@llogiq]: https://github.com/llogiq/
+[@bugabinga]: https://github.com/bugabinga
+[@llogiq]: https://github.com/llogiq
+[@sanxiyn]: https://github.com/sanxiyn
 [#14]: https://github.com/mattias-p/linky/issues/14
 [#16]: https://github.com/mattias-p/linky/issues/16
 [#17]: https://github.com/mattias-p/linky/issues/17
