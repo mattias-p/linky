@@ -20,7 +20,9 @@ use encoding::DecoderTrap;
 use htmlstream;
 use mime;
 use pulldown_cmark;
+use pulldown_cmark::CowStr;
 use pulldown_cmark::Event;
+use pulldown_cmark::OffsetIter;
 use pulldown_cmark::Parser;
 use regex::Regex;
 use reqwest;
@@ -319,7 +321,7 @@ impl<'a> Iterator for MdAnchorParser<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(event) = self.parser.next() {
             match event {
-                Event::Start(pulldown_cmark::Tag::Header(_)) => {
+                Event::Start(pulldown_cmark::Tag::Heading(_)) => {
                     self.is_header = true;
                 }
                 Event::Text(text) => {
@@ -463,7 +465,7 @@ impl Headers {
 
 pub struct MdLinkParser<'a> {
     buffer: &'a str,
-    parser: Parser<'a>,
+    parser: OffsetIter<'a>,
     linenum: usize,
     oldoffs: usize,
 }
@@ -471,7 +473,7 @@ pub struct MdLinkParser<'a> {
 impl<'a> MdLinkParser<'a> {
     pub fn new(buffer: &'a str) -> Self {
         MdLinkParser {
-            parser: Parser::new(buffer),
+            parser: Parser::new(buffer).into_offset_iter(),
             buffer,
             linenum: 1,
             oldoffs: 0,
@@ -480,15 +482,16 @@ impl<'a> MdLinkParser<'a> {
 }
 
 impl<'a> Iterator for MdLinkParser<'a> {
-    type Item = (usize, Cow<'a, str>);
+    type Item = (usize, CowStr<'a>);
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(event) = self.parser.next() {
-            if let Event::Start(pulldown_cmark::Tag::Link(url, _)) = event {
+        while let Some((event, range)) = self.parser.next() {
+            let offset = range.end;
+            if let Event::Start(pulldown_cmark::Tag::Link(_, url, _)) = event {
                 self.linenum += count(
-                    &self.buffer.as_bytes()[self.oldoffs..self.parser.get_offset()],
+                    &self.buffer.as_bytes()[self.oldoffs..offset],
                     b'\n',
                 );
-                self.oldoffs = self.parser.get_offset();
+                self.oldoffs = offset;
                 return Some((self.linenum, url));
             }
         }
