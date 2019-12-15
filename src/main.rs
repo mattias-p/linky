@@ -20,7 +20,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use error::Tag;
-use linky::fetch_link;
 use linky::read_md;
 use linky::Client;
 use linky::FragResolver;
@@ -238,7 +237,7 @@ fn main() {
     .flat_map(|(base, fragments)| {
         let document = client
             .as_ref()
-            .map(|client| fetch_link(client, opt.urldecode, &base));
+            .map(|client| client.fetch_link(opt.urldecode, &base));
 
         // Log all found anchors at the debug level
         if log_enabled!(log::Level::Debug) {

@@ -289,6 +289,18 @@ impl Client {
         let redirects = self.redirects.lock().unwrap().clone();
         Ok((response, redirects))
     }
+
+    pub fn fetch_link<'a>(
+        &self,
+        urldecode: bool,
+        link: &Link,
+    ) -> result::Result<Document<'a>, sync::Arc<Error>> {
+        match *link {
+            Link::Path(ref path) => FilesystemLocalResolver { urldecode }.local(path.as_ref()),
+            Link::Url(ref url) => NetworkRemoteResolver(self).remote(url),
+        }
+        .map_err(|err| sync::Arc::new(err.context(Cow::from(format!("link = {}", link)))))
+    }
 }
 
 fn as_relative<P: AsRef<Path>>(path: &P) -> &Path {
@@ -539,18 +551,6 @@ impl FromStr for Record {
             link: cap.get(3).unwrap().as_str().to_string(),
         })
     }
-}
-
-pub fn fetch_link<'a>(
-    client: &Client,
-    urldecode: bool,
-    link: &Link,
-) -> result::Result<Document<'a>, sync::Arc<Error>> {
-    match *link {
-        Link::Path(ref path) => FilesystemLocalResolver { urldecode }.local(path.as_ref()),
-        Link::Url(ref url) => NetworkRemoteResolver(client).remote(url),
-    }
-    .map_err(|err| sync::Arc::new(err.context(Cow::from(format!("link = {}", link)))))
 }
 
 pub fn read_md(path: &str) -> result::Result<Box<dyn Iterator<Item = Record>>, io::Error> {
