@@ -4,30 +4,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2019-12-06
+### Security
+- Remove reliance on dependencies with known vulnerabilities.
+
+### Other
+- Clean up in dependencies [#26], courtesy of [@sanxiyn].
+
 ## [0.1.7] - 2019-12-05
 ### Changed
-- Updated dependency on pulldown\_cmark to 0.6.1 from 0.0.11, courtesy of [@sanxiyn]
-  - Changes recognized CommonMark version to 0.29 (most likely from 0.27)
+- Update dependency on pulldown\_cmark to 0.6.1 from 0.0.11 [#25], courtesy of [@sanxiyn].
+  - Changes recognized CommonMark version to 0.29 (most likely from 0.27).
 
 ## [0.1.6] - 2019-05-31
 ### Fixed
 - Markdown headings with spaces are now properly recognized.
 
 ### Added
-- Logs all found anchors at the debug level.
+- Log all found anchors at the debug level.
 
 ## [0.1.5] - 2019-05-31
 ### Fixed
 - Fix a bug where links were erroneously resolved to ABSOLUTE.
 
 ### Added
-- Decode URL-encoded local links in --urldecode mode. [#21]
+- Decode URL-encoded local links in --urldecode mode [#21].
 - Log redirects in --no-follow mode.
 
 ## [0.1.4] - 2018-03-30
 ### Changed
 - Resolve links using a thread pool.
-- Improved log messages
+- Improve log messages.
 
 ### Added
 - Support for `RAYON_NUM_THREADS` environment variable, controlling the
@@ -35,20 +42,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.1.3] - 2018-03-16
 ### Fixed
-- Resolve local directories to status DIR [#16]
-- Resolve remote xml files to OK instead of MIME [#17]
-- Resolve remote pdf files to OK instead of DEC\_ERR [#18]
+- Resolve local directories to status DIR [#16].
+- Resolve remote xml files to OK instead of MIME [#17].
+- Resolve remote pdf files to OK instead of DEC\_ERR [#18].
 
 ## [0.1.2] - 2018-03-04
 ### Fixed
-- Detect and decode non-UTF-8 encodings [#14]
-- Tag empty fragments with OK instead of NO\_FRAG
-- Added issues section to README, courtesy of [@bugabinga]
-- Updated dependency on bytecount to 0.3.1, courtesy of [@llogiq]
+- Detect and decode non-UTF-8 encodings [#14].
+- Tag empty fragments with OK instead of NO\_FRAG.
+- Add issues section to README, courtesy of [@bugabinga].
+- Update dependency on bytecount to 0.3.1, courtesy of [@llogiq].
 
 ## [0.1.1] - 2017-11-25
 ### Changed
-- Updated installation instruction in README
+- Update installation instruction in README.
 
 ## [0.1.0] - 2017-11-25
 ### Added
@@ -63,3 +70,5 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 [#17]: https://github.com/mattias-p/linky/issues/17
 [#18]: https://github.com/mattias-p/linky/issues/18
 [#21]: https://github.com/mattias-p/linky/issues/21
+[#25]: https://github.com/mattias-p/linky/issues/25
+[#26]: https://github.com/mattias-p/linky/issues/26
