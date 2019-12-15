@@ -186,19 +186,17 @@ impl<'a> FragResolver<'a> {
     }
 }
 
-struct FilesystemLocalResolver {
-    urldecode: bool,
-}
+struct FilesystemLocalResolver;
 
 impl FilesystemLocalResolver {
-    fn local<'b>(&self, path: &Path) -> Result<Document<'b>> {
+    fn local<'b>(&self, path: &Path, urldecode: bool) -> Result<Document<'b>> {
         if path.is_relative() {
             Err(Tag::Absolute.as_error())
         } else if path.is_dir() {
             Err(Tag::Directory.as_error())
         } else {
             let reader = File::open(path).or_else(|e| {
-                if self.urldecode {
+                if urldecode {
                     urlencoding::decode(path.to_str().unwrap())
                         .map_err(|_| e)
                         .and_then(File::open)
@@ -211,15 +209,15 @@ impl FilesystemLocalResolver {
     }
 }
 
-struct NetworkRemoteResolver<'a>(&'a Client);
+struct NetworkRemoteResolver;
 
-impl<'a> NetworkRemoteResolver<'a> {
-    fn remote<'b>(&self, url: &Url) -> Result<Document<'b>> {
+impl NetworkRemoteResolver {
+    fn remote<'b>(&self, url: &Url, client: &Client) -> Result<Document<'b>> {
         if url.scheme() != "http" && url.scheme() != "https" {
             return Err(Tag::Protocol.as_error());
         }
 
-        let (response, redirects) = self.0.get(url.clone())?;
+        let (response, redirects) = client.get(url.clone())?;
 
         if !response.status().is_success() {
             return Err(Tag::HttpStatus(response.status()).as_error());
@@ -288,8 +286,8 @@ impl Client {
         link: &Link,
     ) -> result::Result<Document<'a>, sync::Arc<Error>> {
         match *link {
-            Link::Path(ref path) => FilesystemLocalResolver { urldecode }.local(path.as_ref()),
-            Link::Url(ref url) => NetworkRemoteResolver(self).remote(url),
+            Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref(), urldecode),
+            Link::Url(ref url) => NetworkRemoteResolver.remote(url, &self),
         }
         .map_err(|err| sync::Arc::new(err.context(Cow::from(format!("link = {}", link)))))
     }
