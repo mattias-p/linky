@@ -200,7 +200,7 @@ struct FilesystemLocalResolver {
 
 impl LocalResolver for FilesystemLocalResolver {
     fn local<'b>(&self, path: &Path) -> Result<Document<'b>> {
-        if Link::has_base(path) {
+        if path.is_relative() {
             Err(Tag::Absolute.as_error())
         } else if path.is_dir() {
             Err(Tag::Directory.as_error())
@@ -393,10 +393,6 @@ impl Link {
             Link::Path(path.into()),
             fragment.map(std::string::ToString::to_string),
         ))
-    }
-
-    pub fn has_base<P: AsRef<Path>>(path: P) -> bool {
-        path.as_ref().is_relative()
     }
 }
 
