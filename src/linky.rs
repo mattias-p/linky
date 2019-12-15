@@ -186,64 +186,6 @@ impl<'a> FragResolver<'a> {
     }
 }
 
-struct FilesystemLocalResolver;
-
-impl FilesystemLocalResolver {
-    fn local<'b>(&self, path: &Path, urldecode: bool) -> Result<Document<'b>> {
-        if path.is_relative() {
-            Err(Tag::Absolute.as_error())
-        } else if path.is_dir() {
-            Err(Tag::Directory.as_error())
-        } else {
-            let reader = File::open(path).or_else(|e| {
-                if urldecode {
-                    urlencoding::decode(path.to_str().unwrap())
-                        .map_err(|_| e)
-                        .and_then(File::open)
-                } else {
-                    Err(e)
-                }
-            })?;
-            Document::parse(reader, &MARKDOWN_CONTENT_TYPE)
-        }
-    }
-}
-
-struct NetworkRemoteResolver;
-
-impl NetworkRemoteResolver {
-    fn remote<'b>(&self, url: &Url, client: &Client) -> Result<Document<'b>> {
-        if url.scheme() != "http" && url.scheme() != "https" {
-            return Err(Tag::Protocol.as_error());
-        }
-
-        let (response, redirects) = client.get(url.clone())?;
-
-        if !response.status().is_success() {
-            return Err(Tag::HttpStatus(response.status()).as_error());
-        }
-        if !redirects.is_empty() {
-            let mut err: Error = Tag::HttpStatus(redirects[0].0).as_error();
-            for &(status, ref url) in redirects.iter().rev() {
-                err = err.context(Cow::from(format!(
-                    "redirect({}) = {}",
-                    status.as_u16(),
-                    url
-                )));
-            }
-            return Err(err);
-        }
-        let content_type: Result<HeaderValue> = response
-            .headers()
-            .get(CONTENT_TYPE)
-            .cloned()
-            .ok_or_else(|| Tag::NoMime.as_error());
-        let content_type: mime::Mime = content_type?.to_str()?.parse()?;
-
-        Document::parse(response, &content_type)
-    }
-}
-
 pub struct Client {
     inner: reqwest::Client,
     redirects: sync::Arc<sync::Mutex<Vec<(reqwest::StatusCode, reqwest::Url)>>>,
@@ -286,10 +228,60 @@ impl Client {
         link: &Link,
     ) -> result::Result<Document<'a>, sync::Arc<Error>> {
         match *link {
-            Link::Path(ref path) => FilesystemLocalResolver.local(path.as_ref(), urldecode),
-            Link::Url(ref url) => NetworkRemoteResolver.remote(url, &self),
+            Link::Path(ref path) => Self::fetch_local(path.as_ref(), urldecode),
+            Link::Url(ref url) => self.fetch_remote(url),
         }
         .map_err(|err| sync::Arc::new(err.context(Cow::from(format!("link = {}", link)))))
+    }
+
+    fn fetch_local<'b>(path: &Path, urldecode: bool) -> Result<Document<'b>> {
+        if path.is_relative() {
+            Err(Tag::Absolute.as_error())
+        } else if path.is_dir() {
+            Err(Tag::Directory.as_error())
+        } else {
+            let reader = File::open(path).or_else(|e| {
+                if urldecode {
+                    urlencoding::decode(path.to_str().unwrap())
+                        .map_err(|_| e)
+                        .and_then(File::open)
+                } else {
+                    Err(e)
+                }
+            })?;
+            Document::parse(reader, &MARKDOWN_CONTENT_TYPE)
+        }
+    }
+
+    fn fetch_remote<'b>(&self, url: &Url) -> Result<Document<'b>> {
+        if url.scheme() != "http" && url.scheme() != "https" {
+            return Err(Tag::Protocol.as_error());
+        }
+
+        let (response, redirects) = self.get(url.clone())?;
+
+        if !response.status().is_success() {
+            return Err(Tag::HttpStatus(response.status()).as_error());
+        }
+        if !redirects.is_empty() {
+            let mut err: Error = Tag::HttpStatus(redirects[0].0).as_error();
+            for &(status, ref url) in redirects.iter().rev() {
+                err = err.context(Cow::from(format!(
+                    "redirect({}) = {}",
+                    status.as_u16(),
+                    url
+                )));
+            }
+            return Err(err);
+        }
+        let content_type: Result<HeaderValue> = response
+            .headers()
+            .get(CONTENT_TYPE)
+            .cloned()
+            .ok_or_else(|| Tag::NoMime.as_error());
+        let content_type: mime::Mime = content_type?.to_str()?.parse()?;
+
+        Document::parse(response, &content_type)
     }
 }
 
