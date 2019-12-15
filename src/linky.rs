@@ -186,19 +186,11 @@ impl<'a> FragResolver<'a> {
     }
 }
 
-trait LocalResolver {
-    fn local<'b>(&self, path: &Path) -> Result<Document<'b>>;
-}
-
-trait RemoteResolver {
-    fn remote<'b>(&self, url: &Url) -> Result<Document<'b>>;
-}
-
 struct FilesystemLocalResolver {
     urldecode: bool,
 }
 
-impl LocalResolver for FilesystemLocalResolver {
+impl FilesystemLocalResolver {
     fn local<'b>(&self, path: &Path) -> Result<Document<'b>> {
         if path.is_relative() {
             Err(Tag::Absolute.as_error())
@@ -221,7 +213,7 @@ impl LocalResolver for FilesystemLocalResolver {
 
 struct NetworkRemoteResolver<'a>(&'a Client);
 
-impl<'a> RemoteResolver for NetworkRemoteResolver<'a> {
+impl<'a> NetworkRemoteResolver<'a> {
     fn remote<'b>(&self, url: &Url) -> Result<Document<'b>> {
         if url.scheme() != "http" && url.scheme() != "https" {
             return Err(Tag::Protocol.as_error());
