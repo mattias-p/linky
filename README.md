@@ -301,7 +301,7 @@ of Markdown files (\*.md). You can either:
 License
 -------
 
-Copyright 2017-2018 Mattias Päivärinta
+Copyright 2017-2019 Mattias Päivärinta
 
 Licensed under the [Apache License, Version 2.0] (the "License");
 you may not use any of the files in this distribution except in compliance with
