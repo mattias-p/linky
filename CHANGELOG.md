@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Other
-- Introduce GitHub Actions for push and pull\_requeest ([#27]), courtesy of [@sanxiyn].
+- Introduce GitHub Actions for push and pull\_request ([#27]), courtesy of [@sanxiyn].
 - Some refactorings to clean up the implementation.
 
 ## [0.1.8] - 2019-12-15
@@ -77,3 +77,4 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 [#21]: https://github.com/mattias-p/linky/issues/21
 [#25]: https://github.com/mattias-p/linky/issues/25
 [#26]: https://github.com/mattias-p/linky/issues/26
+[#27]: https://github.com/mattias-p/linky/issues/27
