@@ -103,13 +103,13 @@ impl<T> From<(usize, T)> for Item<T> {
     }
 }
 
-struct Orderer<T, F: Fn(T) -> ()> {
+struct Orderer<T, F: Fn(T)> {
     heap: Mutex<BinaryHeap<Item<T>>>,
     current: atomic::AtomicUsize,
     f: F,
 }
 
-impl<T, F: Fn(T) -> ()> Orderer<T, F> {
+impl<T, F: Fn(T)> Orderer<T, F> {
     fn can_pop(&self, heap: &BinaryHeap<Item<T>>) -> bool {
         let peek_index = heap.peek().map(|item| item.index);
         let current_index = self.current.load(atomic::Ordering::SeqCst);
@@ -133,7 +133,7 @@ fn group_fragments(
     link: (usize, (Record, Link, Option<String>)),
 ) -> HashMap<Link, Vec<(usize, Option<String>, Record)>> {
     let (index, (record, base, fragment)) = link;
-    match acc.entry(base.clone()) {
+    match acc.entry(base) {
         Entry::Vacant(vacant) => {
             vacant.insert(vec![(index, fragment, record)]);
         }

@@ -17,23 +17,16 @@ use std::sync;
 use bytecount::count;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
-use htmlstream;
 use lazy_static::lazy_static;
 use log::debug;
-use mime;
-use pulldown_cmark;
 use pulldown_cmark::CowStr;
 use pulldown_cmark::Event;
 use pulldown_cmark::OffsetIter;
 use pulldown_cmark::Parser;
 use regex::Regex;
-use reqwest;
 use reqwest::header::HeaderValue;
 use reqwest::header::CONTENT_TYPE;
-use url;
 use url::Url;
-use urlencoding;
-use xhtmlchardet;
 
 use crate::error::Error;
 use crate::error::Result;
@@ -129,19 +122,18 @@ impl<'a> FragResolver<'a> {
         }
     }
 
-    fn find_prefix<'d>(&self, fragment: &str, document: &Document<'d>) -> Option<&str> {
+    fn find_prefix(&self, fragment: &str, document: &Document<'_>) -> Option<&str> {
         if document.ids.contains(&Cow::from(fragment)) {
             return Some("");
         }
-        for prefix in &self.prefixes {
-            if document
-                .ids
-                .contains(format!("{}{}", prefix, fragment).as_str())
-            {
-                return Some(prefix);
-            }
-        }
-        None
+        self.prefixes
+            .iter()
+            .find(|&prefix| {
+                document
+                    .ids
+                    .contains(format!("{prefix}{fragment}").as_str())
+            })
+            .map(AsRef::as_ref)
     }
 
     pub fn fragment(&self, document: &Document, fragment: &str) -> Result<()> {
@@ -149,16 +141,16 @@ impl<'a> FragResolver<'a> {
             .ok_or_else(|| {
                 Tag::NoFragment
                     .as_error()
-                    .context(Cow::from(format!("fragment = #{}", fragment)))
+                    .context(Cow::from(format!("fragment = #{fragment}")))
             })
             .and_then(|prefix| {
-                if prefix == "" {
+                if prefix.is_empty() {
                     Ok(())
                 } else {
                     Err(Tag::Prefixed
                         .as_error()
-                        .context(Cow::from(format!("prefix = {}", prefix)))
-                        .context(Cow::from(format!("fragment = #{}", &fragment))))
+                        .context(Cow::from(format!("prefix = {prefix}")))
+                        .context(Cow::from(format!("fragment = #{fragment}"))))
                 }
             })
     }
@@ -176,7 +168,7 @@ impl<'a> FragResolver<'a> {
                 .and_then(|document| {
                     if let Some(ref fragment) = *fragment {
                         self.fragment(document, fragment).map_err(|err| {
-                            sync::Arc::new(err.context(Cow::from(format!("link = {}", base))))
+                            sync::Arc::new(err.context(Cow::from(format!("link = {base}"))))
                         })
                     } else {
                         Ok(())
@@ -231,7 +223,7 @@ impl Client {
             Link::Path(ref path) => Self::fetch_local(path.as_ref(), urldecode),
             Link::Url(ref url) => self.fetch_remote(url),
         }
-        .map_err(|err| sync::Arc::new(err.context(Cow::from(format!("link = {}", link)))))
+        .map_err(|err| sync::Arc::new(err.context(Cow::from(format!("link = {link}")))))
     }
 
     fn fetch_local<'b>(path: &Path, urldecode: bool) -> Result<Document<'b>> {
@@ -318,7 +310,7 @@ impl<'a> MdAnchorParser<'a> {
 impl<'a> Iterator for MdAnchorParser<'a> {
     type Item = String;
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(event) = self.parser.next() {
+        for event in self.parser.by_ref() {
             match event {
                 Event::Start(pulldown_cmark::Tag::Heading(_)) => {
                     self.is_header = true;
@@ -366,13 +358,13 @@ impl Link {
             } else {
                 as_relative(&path).into()
             }
-        } else if path == "" {
+        } else if path.is_empty() {
             doc_path.as_ref().into()
         } else {
             doc_path.as_ref().with_file_name(path)
         };
         Ok((
-            Link::Path(path.into()),
+            Link::Path(path),
             fragment.map(std::string::ToString::to_string),
         ))
     }
@@ -381,7 +373,7 @@ impl Link {
 impl fmt::Display for Link {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Link::Url(ref url) => write!(f, "{}", url),
+            Link::Url(ref url) => write!(f, "{url}"),
             Link::Path(ref path) => write!(f, "{}", path.to_string_lossy()),
         }
     }
@@ -409,8 +401,8 @@ fn read_chars(reader: &mut dyn Read, charset_hint: Option<String>) -> Result<Str
         })
 }
 
-pub fn slurp<P: AsRef<Path>>(filename: &P, mut buffer: &mut String) -> io::Result<usize> {
-    File::open(filename.as_ref())?.read_to_string(&mut buffer)
+pub fn slurp<P: AsRef<Path>>(filename: &P, buffer: &mut String) -> io::Result<usize> {
+    File::open(filename.as_ref())?.read_to_string(buffer)
 }
 
 lazy_static! {
@@ -431,7 +423,7 @@ impl ToId for GithubId {
         if repetition == 0 {
             text
         } else {
-            format!("{}-{}", text, repetition)
+            format!("{text}-{repetition}")
         }
     }
 }
@@ -479,7 +471,7 @@ impl<'a> MdLinkParser<'a> {
 impl<'a> Iterator for MdLinkParser<'a> {
     type Item = (usize, CowStr<'a>);
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((event, range)) = self.parser.next() {
+        for (event, range) in self.parser.by_ref() {
             let offset = range.end;
             if let Event::Start(pulldown_cmark::Tag::Link(_, url, _)) = event {
                 self.linenum += count(&self.buffer.as_bytes()[self.oldoffs..offset], b'\n');

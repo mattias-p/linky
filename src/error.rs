@@ -7,9 +7,7 @@ use std::mem;
 use std::result;
 use std::str::FromStr;
 
-use reqwest;
 use reqwest::StatusCode;
-use url;
 
 pub type Result<T> = result::Result<T, Error>;
 
@@ -142,10 +140,10 @@ impl<'a> Iterator for ErrorIter<'a> {
         } else if self.count <= self.err.msgs.len() {
             let elem = &self.err.msgs[self.err.msgs.len() - self.count];
             self.count += 1;
-            Some(format!("  context: {}", elem))
+            Some(format!("  context: {elem}"))
         } else if let Some(cause) = mem::replace(&mut self.cause, None) {
-            let s = format!("  caused by: {}", &cause);
-            mem::replace(&mut self.cause, cause.source());
+            let s = format!("  caused by: {cause}");
+            self.cause = cause.source();
             Some(s)
         } else {
             None
@@ -167,7 +165,7 @@ impl fmt::Display for Error {
                 status.as_u16(),
                 status
                     .canonical_reason()
-                    .map(|s| format!(" {}", s))
+                    .map(|s| format!(" {s}"))
                     .unwrap_or_else(String::new)
             ),
             Tag::NoDocument => write!(f, "Document not found"),
@@ -286,7 +284,7 @@ impl fmt::Display for MsgError {
 
 impl error::Error for MsgError {
     fn description(&self) -> &str {
-        &*self.0
+        &self.0
     }
 
     fn cause(&self) -> Option<&dyn error::Error> {
