@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 ### Added
 - New --link-only flag ([#30], courtesy of [@egrieco]).
+- Support links to markdown headings with inline code (backticks).
 
 ### Other
 - Introduce GitHub Actions for push and pull\_request ([#27]), courtesy of [@sanxiyn].

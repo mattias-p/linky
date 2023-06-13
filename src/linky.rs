@@ -290,6 +290,7 @@ struct MdAnchorParser<'a> {
     is_header: bool,
     headers: &'a mut Headers,
     id_transform: &'a dyn ToId,
+    header_acc: String,
 }
 
 impl<'a> MdAnchorParser<'a> {
@@ -299,6 +300,7 @@ impl<'a> MdAnchorParser<'a> {
             is_header: false,
             headers,
             id_transform,
+            header_acc: String::new(),
         }
     }
 
@@ -317,10 +319,22 @@ impl<'a> Iterator for MdAnchorParser<'a> {
                 }
                 Event::Text(text) => {
                     if self.is_header {
-                        self.is_header = false;
-                        let count = self.headers.register(text.to_string());
-                        return Some(self.id_transform.to_id(text.as_ref(), count));
+                        self.header_acc.push_str(text.to_string().as_str());
                     }
+                }
+                Event::Code(text) => {
+                    if self.is_header {
+                        self.header_acc.push('`');
+                        self.header_acc.push_str(text.to_string().as_str());
+                        self.header_acc.push('`');
+                    }
+                }
+                Event::End(pulldown_cmark::Tag::Heading(_)) => {
+                    self.is_header = false;
+                    let count = self.headers.register(self.header_acc.clone());
+                    let result = Some(self.id_transform.to_id(self.header_acc.as_ref(), count));
+                    self.header_acc.clear();
+                    return result;
                 }
                 _ => (),
             }
@@ -545,18 +559,19 @@ mod tests {
         assert_eq!(
             parser.next(),
             Some((
-                2,
+                3,
                 "https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md"
                     .into()
             ))
         );
-        assert_eq!(parser.next(), Some((3, "https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing".into())));
-        assert_eq!(parser.next(), Some((4, "other.md".into())));
-        assert_eq!(parser.next(), Some((5, "non-existing.md".into())));
-        assert_eq!(parser.next(), Some((6, "other.md#existing".into())));
-        assert_eq!(parser.next(), Some((7, "other.md#non-existing".into())));
-        assert_eq!(parser.next(), Some((8, "#heading".into())));
-        assert_eq!(parser.next(), Some((9, "#non-existing".into())));
+        assert_eq!(parser.next(), Some((4, "https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing".into())));
+        assert_eq!(parser.next(), Some((5, "other.md".into())));
+        assert_eq!(parser.next(), Some((6, "non-existing.md".into())));
+        assert_eq!(parser.next(), Some((7, "other.md#existing".into())));
+        assert_eq!(parser.next(), Some((8, "other.md#non-existing".into())));
+        assert_eq!(parser.next(), Some((9, "#heading".into())));
+        assert_eq!(parser.next(), Some((10, "#non-existing".into())));
+        assert_eq!(parser.next(), Some((11, "#heading-with-code".into())));
         assert_eq!(parser.next(), None);
     }
 

@@ -39,14 +39,15 @@ The simplest thing you can do with linky is to extract links from a Markdown fil
 
 ```sh
 $ linky example_site/path/to/example.md
-example_site/path/to/example.md:2:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
-example_site/path/to/example.md:3:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
-example_site/path/to/example.md:4:  other.md
-example_site/path/to/example.md:5:  non-existing.md
-example_site/path/to/example.md:6:  other.md#existing
-example_site/path/to/example.md:7:  other.md#non-existing
-example_site/path/to/example.md:8:  #heading
-example_site/path/to/example.md:9:  #non-existing
+example_site/path/to/example.md:3:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
+example_site/path/to/example.md:4:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
+example_site/path/to/example.md:5:  other.md
+example_site/path/to/example.md:6:  non-existing.md
+example_site/path/to/example.md:7:  other.md#existing
+example_site/path/to/example.md:8:  other.md#non-existing
+example_site/path/to/example.md:9:  #heading
+example_site/path/to/example.md:10:  #non-existing
+example_site/path/to/example.md:11:  #heading-with-backticks
 ```
 
 The output lists all the extracted links along with their respective
@@ -56,14 +57,15 @@ Enable the --check option to resolve those links:
 
 ```sh
 $ linky --check example_site/path/to/example.md
-example_site/path/to/example.md:2: OK https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
-example_site/path/to/example.md:3: NO_FRAG https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
-example_site/path/to/example.md:4: OK other.md
-example_site/path/to/example.md:5: NO_DOC non-existing.md
-example_site/path/to/example.md:6: OK other.md#existing
-example_site/path/to/example.md:7: NO_FRAG other.md#non-existing
-example_site/path/to/example.md:8: OK #heading
-example_site/path/to/example.md:9: NO_FRAG #non-existing
+example_site/path/to/example.md:3: OK https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
+example_site/path/to/example.md:4: NO_FRAG https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
+example_site/path/to/example.md:5: OK other.md
+example_site/path/to/example.md:6: NO_DOC non-existing.md
+example_site/path/to/example.md:7: OK other.md#existing
+example_site/path/to/example.md:8: NO_FRAG other.md#non-existing
+example_site/path/to/example.md:9: OK #heading
+example_site/path/to/example.md:10: NO_FRAG #non-existing
+example_site/path/to/example.md:11: OK #heading-with-backticks
 ```
 
 A status token is now added to each line indicating the outcome of
@@ -83,14 +85,15 @@ example_site/path/to/absolute.md:2:  /path/to/other.md
 example_site/path/to/absolute.md:3:  /path/to/non-existing.md
 example_site/path/to/absolute.md:4:  /path/to/other.md#existing
 example_site/path/to/absolute.md:5:  /path/to/other.md#non-existing
-example_site/path/to/example.md:2:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
-example_site/path/to/example.md:3:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
-example_site/path/to/example.md:4:  other.md
-example_site/path/to/example.md:5:  non-existing.md
-example_site/path/to/example.md:6:  other.md#existing
-example_site/path/to/example.md:7:  other.md#non-existing
-example_site/path/to/example.md:8:  #heading
-example_site/path/to/example.md:9:  #non-existing
+example_site/path/to/example.md:3:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
+example_site/path/to/example.md:4:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
+example_site/path/to/example.md:5:  other.md
+example_site/path/to/example.md:6:  non-existing.md
+example_site/path/to/example.md:7:  other.md#existing
+example_site/path/to/example.md:8:  other.md#non-existing
+example_site/path/to/example.md:9:  #heading
+example_site/path/to/example.md:10:  #non-existing
+example_site/path/to/example.md:11:  #heading-with-backticks
 example_site/path/to/follow.md:2:  http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
 example_site/path/to/follow.md:3:  http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#non-existing
 example_site/path/to/fragment.md:2:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
@@ -230,26 +233,30 @@ set the `RUST_LOG` environment variable to `warn`.
 
 ```sh
 $ env RUST_LOG=warn linky --check example_site/path/to/example.md
-example_site/path/to/example.md:2: OK https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
+example_site/path/to/example.md:3: OK https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
  WARN  linky > Fragment not found
  WARN  linky >   context: link = https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
  WARN  linky >   context: fragment = #existing
-example_site/path/to/example.md:3: NO_FRAG https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
-example_site/path/to/example.md:4: OK other.md
+example_site/path/to/example.md:4: NO_FRAG https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
+example_site/path/to/example.md:5: OK other.md
  WARN  linky > Document not found
  WARN  linky >   context: link = /tmp/linky/example_site/path/to/non-existing.md
  WARN  linky >   caused by: No such file or directory (os error 2)
-example_site/path/to/example.md:5: NO_DOC non-existing.md
-example_site/path/to/example.md:6: OK other.md#existing
+example_site/path/to/example.md:6: NO_DOC non-existing.md
+example_site/path/to/example.md:7: OK other.md#existing
  WARN  linky > Fragment not found
  WARN  linky >   context: link = /tmp/linky/example_site/path/to/other.md
  WARN  linky >   context: fragment = #non-existing
-example_site/path/to/example.md:7: NO_FRAG other.md#non-existing
-example_site/path/to/example.md:8: OK #heading
+example_site/path/to/example.md:8: NO_FRAG other.md#non-existing
+example_site/path/to/example.md:9: OK #heading
  WARN  linky > Fragment not found
  WARN  linky >   context: link = /tmp/linky/example_site/path/to/example.md
  WARN  linky >   context: fragment = #non-existing
-example_site/path/to/example.md:9: NO_FRAG #non-existing
+example_site/path/to/example.md:10: NO_FRAG #non-existing
+example_site/path/to/example.md:11: OK #heading-with-backticks
+ WARN  linky > Fragment not found
+ WARN  linky >   context: link = /tmp/linky/example_site/path/to/example.md
+ WARN  linky >   context: fragment = #heading-with-backticks
 ```
 
 
