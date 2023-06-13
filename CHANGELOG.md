@@ -1,8 +1,8 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
-and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog].
+and this project adheres to [Semantic Versioning].
 
 ## [Unreleased]
 ### Fixed
@@ -75,13 +75,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 [@bugabinga]: https://github.com/bugabinga
+[@egrieco]: https://github.com/egrieco
 [@llogiq]: https://github.com/llogiq
 [@sanxiyn]: https://github.com/sanxiyn
-[#14]: https://github.com/mattias-p/linky/issues/14
-[#16]: https://github.com/mattias-p/linky/issues/16
-[#17]: https://github.com/mattias-p/linky/issues/17
-[#18]: https://github.com/mattias-p/linky/issues/18
+[#14]: https://github.com/mattias-p/linky/pull/14
+[#16]: https://github.com/mattias-p/linky/pull/16
+[#17]: https://github.com/mattias-p/linky/pull/17
+[#18]: https://github.com/mattias-p/linky/pull/18
 [#21]: https://github.com/mattias-p/linky/issues/21
-[#25]: https://github.com/mattias-p/linky/issues/25
-[#26]: https://github.com/mattias-p/linky/issues/26
-[#27]: https://github.com/mattias-p/linky/issues/27
+[#25]: https://github.com/mattias-p/linky/pull/25
+[#26]: https://github.com/mattias-p/linky/pull/26
+[#27]: https://github.com/mattias-p/linky/pull/27
+[#30]: https://github.com/mattias-p/linky/pull/30
+[Keep a Changelog]: https://keepachangelog.com/en/1.0.0/
+[Semantic Versioning]: https://semver.org/spec/v2.0.0.html
