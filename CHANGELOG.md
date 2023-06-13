@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Introduce GitHub Actions for push and pull\_request ([#27]), courtesy of [@sanxiyn].
 - Some refactorings to clean up the implementation.
 
+## [0.1.9] - 2020-10-25
+### Added
+- Add link-only option
+
 ## [0.1.8] - 2019-12-15
 ### Security
 - Remove reliance on dependencies with known vulnerabilities.

@@ -37,6 +37,10 @@ use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
 /// Extract links from Markdown files and check links for brokenness.
 struct Opt {
+    #[structopt(long = "link-only", short = "l")]
+    /// Print only links
+    link_only: bool,
+
     #[structopt(long = "check", short = "c")]
     /// Check links
     check: bool,
@@ -144,6 +148,7 @@ fn print_result(
     record: &Record,
     res: &Option<Result<(), Arc<error::Error>>>,
     silence: &HashSet<&Tag>,
+    link_only: bool,
 ) {
     let tag = res
         .as_ref()
@@ -155,15 +160,19 @@ fn print_result(
                 warn!("{}", line);
             }
         }
-        println!(
-            "{}:{}: {} {}",
-            record.doc_path.to_string_lossy(),
-            record.doc_line,
-            tag.as_ref()
-                .map(|tag| tag as &dyn fmt::Display)
-                .unwrap_or(&"" as &dyn fmt::Display),
-            record.link
-        );
+        if link_only {
+          println!("{}", record.link);
+        } else {
+          println!(
+              "{}:{}: {} {}",
+              record.doc_path.to_string_lossy(),
+              record.doc_line,
+              tag.as_ref()
+                  .map(|tag| tag as &dyn fmt::Display)
+                  .unwrap_or(&"" as &dyn fmt::Display),
+              record.link
+          );
+        }
     }
 }
 
@@ -188,7 +197,7 @@ fn main() {
         heap: Mutex::new(BinaryHeap::new()),
         current: atomic::AtomicUsize::new(0),
         f: |(record, res)| {
-            print_result(&record, &res, &silence);
+            print_result(&record, &res, &silence, opt.link_only);
         },
     };
 
