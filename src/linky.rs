@@ -204,6 +204,7 @@ impl Client {
         let redirects = sync::Arc::new(sync::Mutex::new(vec![]));
         let redirects_clone = redirects.clone();
         let inner = reqwest::blocking::Client::builder()
+            .user_agent("linky")
             .redirect(reqwest::redirect::Policy::custom(move |attempt| {
                 let mut redirects_guard = redirects_clone.lock().unwrap();
                 redirects_guard.push((attempt.status(), attempt.url().clone()));
@@ -216,7 +217,10 @@ impl Client {
 
     pub fn new_follow() -> Self {
         let redirects = sync::Arc::new(sync::Mutex::new(vec![]));
-        let inner = reqwest::blocking::Client::builder().build().unwrap();
+        let inner = reqwest::blocking::Client::builder()
+            .user_agent("linky")
+            .build()
+            .unwrap();
 
         Client { inner, redirects }
     }

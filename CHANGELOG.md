@@ -10,8 +10,9 @@ and this project adheres to [Semantic Versioning].
 
 ### Added
 - New --link-only flag ([#30], courtesy of [@egrieco]).
-- Support links to markdown headings with inline code (backticks).
 - New tag CASE_FRAG for fragments that match only case-insensitively.
+- Avoid lots of 403 responses by including User-Agent header in HTTP requests.
+- Support links to markdown headings with inline code (backticks).
 
 ### Other
 - Introduce GitHub Actions for push and pull\_request ([#27]), courtesy of [@sanxiyn].
