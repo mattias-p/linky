@@ -254,9 +254,6 @@ example_site/path/to/example.md:9: OK #heading
  WARN  linky >   context: fragment = #non-existing
 example_site/path/to/example.md:10: NO_FRAG #non-existing
 example_site/path/to/example.md:11: OK #heading-with-backticks
- WARN  linky > Fragment not found
- WARN  linky >   context: link = /tmp/linky/example_site/path/to/example.md
- WARN  linky >   context: fragment = #heading-with-backticks
 ```
 
 
