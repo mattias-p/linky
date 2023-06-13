@@ -183,14 +183,14 @@ fn main() {
 
     let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
     let resolver = FragResolver::from(&prefixes);
-    let client = if opt.check {
+    let make_client = if opt.check {
         if opt.redirect {
-            Some(Client::new_follow())
+            || Some(Client::new_follow())
         } else {
-            Some(Client::new_no_follow())
+            || Some(Client::new_no_follow())
         }
     } else {
-        None
+        || None
     };
 
     let o = Orderer {
@@ -244,7 +244,7 @@ fn main() {
     .fold(HashMap::new(), group_fragments)
     .into_par_iter()
     .flat_map(|(base, fragments)| {
-        let document = client
+        let document = make_client()
             .as_ref()
             .map(|client| client.fetch_link(opt.urldecode, &base));
 

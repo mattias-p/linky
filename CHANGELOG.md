@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning].
 ## [Unreleased]
 ### Fixed
 - Fix connection errors with domains resolved to IPv6 addresses.
+- Workers no longer dirty each other's redirect histories.
 
 ### Added
 - New --link-only flag ([#30], courtesy of [@egrieco]).
