@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- New --link-only flag ([#30], courtesy of [@egrieco]).
+
 ### Other
 - Introduce GitHub Actions for push and pull\_request ([#27]), courtesy of [@sanxiyn].
 - Some refactorings to clean up the implementation.
