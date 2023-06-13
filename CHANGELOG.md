@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+- Fix connection errors with domains resolved to IPv6 addresses.
+
 ### Added
 - New --link-only flag ([#30], courtesy of [@egrieco]).
 - Support links to markdown headings with inline code (backticks).

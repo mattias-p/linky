@@ -179,7 +179,7 @@ impl<'a> FragResolver<'a> {
 }
 
 pub struct Client {
-    inner: reqwest::Client,
+    inner: reqwest::blocking::Client,
     redirects: sync::Arc<sync::Mutex<Vec<(reqwest::StatusCode, reqwest::Url)>>>,
 }
 
@@ -187,11 +187,11 @@ impl Client {
     pub fn new_no_follow() -> Self {
         let redirects = sync::Arc::new(sync::Mutex::new(vec![]));
         let redirects_clone = redirects.clone();
-        let inner = reqwest::Client::builder()
-            .redirect(reqwest::RedirectPolicy::custom(move |attempt| {
+        let inner = reqwest::blocking::Client::builder()
+            .redirect(reqwest::redirect::Policy::custom(move |attempt| {
                 let mut redirects_guard = redirects_clone.lock().unwrap();
                 redirects_guard.push((attempt.status(), attempt.url().clone()));
-                reqwest::RedirectPolicy::default().redirect(attempt)
+                reqwest::redirect::Policy::default().redirect(attempt)
             }))
             .build()
             .unwrap();
@@ -200,14 +200,20 @@ impl Client {
 
     pub fn new_follow() -> Self {
         let redirects = sync::Arc::new(sync::Mutex::new(vec![]));
-        let inner = reqwest::Client::new();
+        let inner = reqwest::blocking::Client::builder()
+            .build()
+            .unwrap();
+
         Client { inner, redirects }
     }
 
     pub fn get<U: reqwest::IntoUrl>(
         &self,
         url: U,
-    ) -> reqwest::Result<(reqwest::Response, Vec<(reqwest::StatusCode, reqwest::Url)>)> {
+    ) -> reqwest::Result<(
+        reqwest::blocking::Response,
+        Vec<(reqwest::StatusCode, reqwest::Url)>,
+    )> {
         self.redirects.lock().unwrap().clear();
         let response = self.inner.get(url).send()?;
         let redirects = self.redirects.lock().unwrap().clone();
@@ -250,7 +256,7 @@ impl Client {
             return Err(Tag::Protocol.as_error());
         }
 
-        let (response, redirects) = self.get(url.clone())?;
+        let (response, redirects) = self.get(url.as_str())?;
 
         if !response.status().is_success() {
             return Err(Tag::HttpStatus(response.status()).as_error());
