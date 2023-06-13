@@ -48,6 +48,7 @@ example_site/path/to/example.md:8:  other.md#non-existing
 example_site/path/to/example.md:9:  #heading
 example_site/path/to/example.md:10:  #non-existing
 example_site/path/to/example.md:11:  #heading-with-backticks
+example_site/path/to/example.md:12:  #HEADING
 ```
 
 The output lists all the extracted links along with their respective
@@ -66,6 +67,7 @@ example_site/path/to/example.md:8: NO_FRAG other.md#non-existing
 example_site/path/to/example.md:9: OK #heading
 example_site/path/to/example.md:10: NO_FRAG #non-existing
 example_site/path/to/example.md:11: OK #heading-with-backticks
+example_site/path/to/example.md:12: CASE_FRAG #HEADING
 ```
 
 A status token is now added to each line indicating the outcome of
@@ -94,6 +96,7 @@ example_site/path/to/example.md:8:  other.md#non-existing
 example_site/path/to/example.md:9:  #heading
 example_site/path/to/example.md:10:  #non-existing
 example_site/path/to/example.md:11:  #heading-with-backticks
+example_site/path/to/example.md:12:  #HEADING
 example_site/path/to/follow.md:2:  http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
 example_site/path/to/follow.md:3:  http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#non-existing
 example_site/path/to/fragment.md:2:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
@@ -253,7 +256,12 @@ example_site/path/to/example.md:9: OK #heading
  WARN  linky >   context: link = /tmp/linky/example_site/path/to/example.md
  WARN  linky >   context: fragment = #non-existing
 example_site/path/to/example.md:10: NO_FRAG #non-existing
-example_site/path/to/example.md:11: OK #heading-with-backticks
+example_site/path/to/example.md:11: OK #heading-with-code
+ WARN  linky > Fragment not found case-sensitively
+ WARN  linky >   context: link = /tmp/linky/example_site/path/to/example.md
+ WARN  linky >   context: fragment = #HEADING
+ WARN  linky >   context: anchor = #heading
+example_site/path/to/example.md:12: CASE_FRAG #HEADING
 ```
 
 

@@ -9,3 +9,4 @@
 * [in-document link with fragment, ok](#heading)
 * [in-document link with fragment, broken](#non-existing)
 * [in-document link to heading with code, ok](#heading-with-code)
+* [in-document link with case-insensitive fragment, broken](#HEADING)

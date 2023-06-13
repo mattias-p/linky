@@ -28,6 +28,7 @@ pub enum Tag {
     UnrecognizedMime,
     DecodingError,
     Prefixed,
+    CaseInsensitiveFragment,
 }
 
 impl fmt::Display for Tag {
@@ -48,6 +49,7 @@ impl fmt::Display for Tag {
             Tag::UnrecognizedMime => write!(f, "MIME"),
             Tag::DecodingError => write!(f, "DEC_ERR"),
             Tag::Prefixed => write!(f, "PREFIXED"),
+            Tag::CaseInsensitiveFragment => write!(f, "CASE_FRAG"),
         }
     }
 }
@@ -69,6 +71,7 @@ impl FromStr for Tag {
             "NO_MIME" => Ok(Tag::NoMime),
             "MIME" => Ok(Tag::UnrecognizedMime),
             "PREFIXED" => Ok(Tag::Prefixed),
+            "CASE_FRAG" => Ok(Tag::CaseInsensitiveFragment),
             s if s.starts_with("HTTP_") => u16::from_str(&s[5..])
                 .ok()
                 .and_then(|s| StatusCode::from_u16(s).ok())
@@ -177,6 +180,7 @@ impl fmt::Display for Error {
             Tag::UnrecognizedMime => write!(f, "Unrecognized mime type"),
             Tag::DecodingError => write!(f, "Decoding error"),
             Tag::Prefixed => write!(f, "Fragment not found without prefix"),
+            Tag::CaseInsensitiveFragment => write!(f, "Fragment not found case-sensitively"),
         }
     }
 }
@@ -199,6 +203,7 @@ impl error::Error for Error {
             Tag::UnrecognizedMime => "unrecognized mime type",
             Tag::DecodingError => "decoding error",
             Tag::Prefixed => "prefixed fragmendt",
+            Tag::CaseInsensitiveFragment => "case-insensitive fragmendt",
         }
     }
 

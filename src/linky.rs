@@ -137,22 +137,38 @@ impl<'a> FragResolver<'a> {
     }
 
     pub fn fragment(&self, document: &Document, fragment: &str) -> Result<()> {
-        self.find_prefix(fragment, document)
-            .ok_or_else(|| {
-                Tag::NoFragment
-                    .as_error()
-                    .context(Cow::from(format!("fragment = #{fragment}")))
-            })
-            .and_then(|prefix| {
-                if prefix.is_empty() {
-                    Ok(())
+        match self.find_prefix(fragment, document) {
+            Some(prefix) => Ok(prefix),
+            None => {
+                let fragment_lc = fragment.to_lowercase();
+                let temp = if fragment_lc != fragment {
+                    self.find_prefix(&fragment_lc, document).map(|_| {
+                        Err(Tag::CaseInsensitiveFragment
+                            .as_error()
+                            .context(Cow::from(format!("anchor = #{fragment_lc}")))
+                            .context(Cow::from(format!("fragment = #{fragment}"))))
+                    })
                 } else {
-                    Err(Tag::Prefixed
+                    None
+                };
+                match temp {
+                    Some(res) => res,
+                    None => Err(Tag::NoFragment
                         .as_error()
-                        .context(Cow::from(format!("prefix = {prefix}")))
-                        .context(Cow::from(format!("fragment = #{fragment}"))))
+                        .context(Cow::from(format!("fragment = #{fragment}")))),
                 }
-            })
+            }
+        }
+        .and_then(|prefix| {
+            if prefix.is_empty() {
+                Ok(())
+            } else {
+                Err(Tag::Prefixed
+                    .as_error()
+                    .context(Cow::from(format!("prefix = {prefix}")))
+                    .context(Cow::from(format!("fragment = #{fragment}"))))
+            }
+        })
     }
 
     pub fn link(
@@ -200,9 +216,7 @@ impl Client {
 
     pub fn new_follow() -> Self {
         let redirects = sync::Arc::new(sync::Mutex::new(vec![]));
-        let inner = reqwest::blocking::Client::builder()
-            .build()
-            .unwrap();
+        let inner = reqwest::blocking::Client::builder().build().unwrap();
 
         Client { inner, redirects }
     }
@@ -578,6 +592,7 @@ mod tests {
         assert_eq!(parser.next(), Some((9, "#heading".into())));
         assert_eq!(parser.next(), Some((10, "#non-existing".into())));
         assert_eq!(parser.next(), Some((11, "#heading-with-code".into())));
+        assert_eq!(parser.next(), Some((12, "#HEADING".into())));
         assert_eq!(parser.next(), None);
     }
 

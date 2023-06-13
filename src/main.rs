@@ -161,17 +161,17 @@ fn print_result(
             }
         }
         if link_only {
-          println!("{}", record.link);
+            println!("{}", record.link);
         } else {
-          println!(
-              "{}:{}: {} {}",
-              record.doc_path.to_string_lossy(),
-              record.doc_line,
-              tag.as_ref()
-                  .map(|tag| tag as &dyn fmt::Display)
-                  .unwrap_or(&"" as &dyn fmt::Display),
-              record.link
-          );
+            println!(
+                "{}:{}: {} {}",
+                record.doc_path.to_string_lossy(),
+                record.doc_line,
+                tag.as_ref()
+                    .map(|tag| tag as &dyn fmt::Display)
+                    .unwrap_or(&"" as &dyn fmt::Display),
+                record.link
+            );
         }
     }
 }
