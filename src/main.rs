@@ -32,38 +32,39 @@ use log::warn;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 use shell_escape::escape;
-use structopt::StructOpt;
+use clap::Parser;
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
+#[command(version)]
 /// Extract links from Markdown files and check links for brokenness.
 struct Opt {
-    #[structopt(long = "link-only", short = "l")]
+    #[arg(long, short)]
     /// Print only links
     link_only: bool,
 
-    #[structopt(long = "check", short = "c")]
+    #[arg(long, short)]
     /// Check links
     check: bool,
 
-    #[structopt(long = "follow", short = "f")]
+    #[arg(long, short)]
     /// Follow HTTP redirects
-    redirect: bool,
+    follow: bool,
 
-    #[structopt(long = "urldecode", short = "u")]
+    #[arg(long, short)]
     /// URL-decode local links
     urldecode: bool,
 
-    #[structopt(long = "mute", short = "m")]
-    /// Tags to mute
-    silence: Vec<Tag>,
-
-    #[structopt(long = "prefix", short = "p")]
-    /// Fragment prefixes
-    prefixes: Vec<String>,
-
-    #[structopt(long = "root", short = "r", name = "path")]
+    #[arg(long, short, value_name = "DIR")]
     /// Join absolute local links to a document root
     root: Option<PathBuf>,
+
+    #[arg(long, short, value_name = "STRING")]
+    /// Fragment prefix; Repeat to check multiple prefixes
+    prefix: Vec<String>,
+
+    #[arg(long, short, value_name = "TAG")]
+    /// Tag to mute; Repeat to mute multiple tags
+    mute: Vec<Tag>,
 
     /// Files to parse
     file: Vec<String>,
@@ -178,13 +179,13 @@ fn print_result(
 
 fn main() {
     pretty_env_logger::init();
-    let opt = Opt::from_args();
-    let silence: HashSet<_> = opt.silence.iter().collect();
+    let opt = Opt::parse();
+    let silence: HashSet<_> = opt.mute.iter().collect();
 
-    let prefixes: Vec<_> = opt.prefixes.iter().map(AsRef::as_ref).collect();
+    let prefixes: Vec<_> = opt.prefix.iter().map(AsRef::as_ref).collect();
     let resolver = FragResolver::from(&prefixes);
     let make_client = if opt.check {
-        if opt.redirect {
+        if opt.follow {
             || Some(Client::new_follow())
         } else {
             || Some(Client::new_no_follow())
