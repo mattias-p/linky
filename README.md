@@ -47,7 +47,7 @@ example_site/path/to/example.md:7:  other.md#existing
 example_site/path/to/example.md:8:  other.md#non-existing
 example_site/path/to/example.md:9:  #heading
 example_site/path/to/example.md:10:  #non-existing
-example_site/path/to/example.md:11:  #heading-with-backticks
+example_site/path/to/example.md:11:  #heading-with-code
 example_site/path/to/example.md:12:  #HEADING
 ```
 
@@ -66,7 +66,7 @@ example_site/path/to/example.md:7: OK other.md#existing
 example_site/path/to/example.md:8: NO_FRAG other.md#non-existing
 example_site/path/to/example.md:9: OK #heading
 example_site/path/to/example.md:10: NO_FRAG #non-existing
-example_site/path/to/example.md:11: OK #heading-with-backticks
+example_site/path/to/example.md:11: OK #heading-with-code
 example_site/path/to/example.md:12: CASE_FRAG #HEADING
 ```
 
@@ -82,7 +82,7 @@ Linky doesn't do directory traversal on its own.
 Instead it integrates well with find and xargs:
 
 ```sh
-$ find example_site -type f | xargs linky
+$ find example_site -type f -print0 | xargs -0 linky
 example_site/path/to/absolute.md:2:  /path/to/other.md
 example_site/path/to/absolute.md:3:  /path/to/non-existing.md
 example_site/path/to/absolute.md:4:  /path/to/other.md#existing
@@ -95,8 +95,9 @@ example_site/path/to/example.md:7:  other.md#existing
 example_site/path/to/example.md:8:  other.md#non-existing
 example_site/path/to/example.md:9:  #heading
 example_site/path/to/example.md:10:  #non-existing
-example_site/path/to/example.md:11:  #heading-with-backticks
+example_site/path/to/example.md:11:  #heading-with-code
 example_site/path/to/example.md:12:  #HEADING
+example_site/path/to/filename with spaces.md:1:  #
 example_site/path/to/follow.md:2:  http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
 example_site/path/to/follow.md:3:  http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#non-existing
 example_site/path/to/fragment.md:2:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
