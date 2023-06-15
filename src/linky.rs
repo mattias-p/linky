@@ -15,8 +15,7 @@ use std::str::FromStr;
 use std::sync;
 
 use bytecount::count;
-use encoding::label::encoding_from_whatwg_label;
-use encoding::DecoderTrap;
+use encoding_rs::Encoding;
 use lazy_static::lazy_static;
 use log::debug;
 use pulldown_cmark::CowStr;
@@ -426,17 +425,12 @@ fn read_chars(reader: &mut dyn Read, charset_hint: Option<String>) -> Result<Str
 
     debug!("detected charsets: {:?}", &charsets);
 
-    let charset = charsets
+    charsets
         .iter()
-        .flat_map(|v| encoding_from_whatwg_label(v.as_str()))
+        .flat_map(|v| Encoding::for_label_no_replacement(v.as_bytes()))
         .next()
-        .ok_or_else(|| Error::decoding_error(Cow::from("Failed to detect character encoding")))?;
-
-    charset
-        .decode(cursor.into_inner().as_ref(), DecoderTrap::Strict)
-        .map_err(|err| {
-            Error::decoding_error(err).context(Cow::from(format!("encoding = {}", &charset.name())))
-        })
+        .map(|charset| charset.decode(cursor.into_inner().as_ref()).0.to_string())
+        .ok_or_else(|| Error::decoding_error(Cow::from("Failed to detect character encoding")))
 }
 
 pub fn slurp<P: AsRef<Path>>(filename: &P, buffer: &mut String) -> io::Result<usize> {

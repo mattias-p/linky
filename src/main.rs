@@ -19,6 +19,7 @@ use std::sync::atomic;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use clap::Parser;
 use error::Tag;
 use linky::read_md;
 use linky::Client;
@@ -32,7 +33,6 @@ use log::warn;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 use shell_escape::escape;
-use clap::Parser;
 
 #[derive(Parser, Debug)]
 #[command(version)]
