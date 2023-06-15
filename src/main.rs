@@ -1,6 +1,3 @@
-mod error;
-mod linky;
-
 use std::borrow::Cow;
 use std::cmp;
 use std::collections::hash_map::Entry;
@@ -20,12 +17,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use clap::Parser;
-use error::Tag;
-use linky::read_md;
-use linky::Client;
-use linky::FragResolver;
-use linky::Link;
-use linky::Record;
 use log::debug;
 use log::error;
 use log::log_enabled;
@@ -33,6 +24,14 @@ use log::warn;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 use shell_escape::escape;
+
+use linky::error::Error;
+use linky::error::Tag;
+use linky::read_md;
+use linky::Client;
+use linky::FragResolver;
+use linky::Link;
+use linky::Record;
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -147,7 +146,7 @@ fn group_fragments(
 
 fn print_result(
     record: &Record,
-    res: &Option<Result<(), Arc<error::Error>>>,
+    res: &Option<Result<(), Arc<Error>>>,
     silence: &HashSet<&Tag>,
     link_only: bool,
 ) {
