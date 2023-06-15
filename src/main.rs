@@ -27,10 +27,10 @@ use shell_escape::escape;
 
 use linky::error::Error;
 use linky::error::Tag;
+use linky::link::Link;
 use linky::read_md;
 use linky::Client;
 use linky::FragResolver;
-use linky::Link;
 use linky::Record;
 
 #[derive(Parser, Debug)]
