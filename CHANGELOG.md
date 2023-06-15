@@ -5,15 +5,34 @@ The format is based on [Keep a Changelog].
 and this project adheres to [Semantic Versioning].
 
 ## [Unreleased]
+
+## [0.2] - 2023-06-15
+### Security
+- Patched security advisories reported by cargo audit: RUSTSEC-2021-0093,
+  RUSTSEC-2023-0034, RUSTSEC-2019-0033, RUSTSEC-2019-0034, RUSTSEC-2020-0008,
+  RUSTSEC-2021-0020, RUSTSEC-2021-0078, RUSTSEC-2021-0079, RUSTSEC-2023-0022,
+  RUSTSEC-2023-0023, RUSTSEC-2023-0024, RUSTSEC-2022-0040, RUSTSEC-2022-0013,
+  RUSTSEC-2022-0013, RUSTSEC-2023-0018, RUSTSEC-2021-0003, RUSTSEC-2022-0006,
+  RUSTSEC-2020-0071, RUSTSEC-2021-0124, RUSTSEC-2021-0139, RUSTSEC-2021-0139,
+  RUSTSEC-2021-0139, RUSTSEC-2021-0153, RUSTSEC-2020-0036, RUSTSEC-2020-0016,
+  RUSTSEC-2021-0145, RUSTSEC-2022-0021, RUSTSEC-2022-0041, RUSTSEC-2019-0036,
+  RUSTSEC-2022-0022, RUSTSEC-2020-0070, RUSTSEC-2020-0080, RUSTSEC-2020-0078 and
+  RUSTSEC-2019-0035.
+
+### Changed
+- Support is dropped for specifying multiple arguments to a single option. E.g.
+  instead of specifying `--mute OK DIR --` you must now use the syntax
+  `--mute OK --mute DIR`.
+
 ### Fixed
 - Fix connection errors with domains resolved to IPv6 addresses.
+- Avoid lots of 403 responses by including User-Agent header in HTTP requests.
 - Workers no longer dirty each other's redirect histories.
+- Support links to markdown headings with inline code (backticks).
 
 ### Added
 - New --link-only flag ([#30], courtesy of [@egrieco]).
 - New tag CASE_FRAG for fragments that match only case-insensitively.
-- Avoid lots of 403 responses by including User-Agent header in HTTP requests.
-- Support links to markdown headings with inline code (backticks).
 
 ### Other
 - Introduce GitHub Actions for push and pull\_request ([#27]), courtesy of [@sanxiyn].
