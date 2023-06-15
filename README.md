@@ -97,7 +97,6 @@ example_site/path/to/example.md:9:  #heading
 example_site/path/to/example.md:10:  #non-existing
 example_site/path/to/example.md:11:  #heading-with-code
 example_site/path/to/example.md:12:  #HEADING
-example_site/path/to/filename with spaces.md:1:  #
 example_site/path/to/follow.md:2:  http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md
 example_site/path/to/follow.md:3:  http://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#non-existing
 example_site/path/to/fragment.md:2:  https://github.com/mattias-p/linky/blob/master/example_site/path/to/other.md#existing
