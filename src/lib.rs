@@ -26,6 +26,7 @@ use pulldown_cmark::OffsetIter;
 use pulldown_cmark::Parser;
 use regex::Regex;
 use reqwest::header::HeaderValue;
+use reqwest::header::ACCEPT;
 use reqwest::header::CONTENT_TYPE;
 use url::Url;
 
@@ -235,7 +236,11 @@ impl Client {
         Vec<(reqwest::StatusCode, reqwest::Url)>,
     )> {
         self.redirects.lock().unwrap().clear();
-        let response = self.inner.get(url).send()?;
+        let response = self
+            .inner
+            .get(url)
+            .header(ACCEPT, "text/html,application/xhtml+xml")
+            .send()?;
         let redirects = self.redirects.lock().unwrap().clone();
         Ok((response, redirects))
     }
